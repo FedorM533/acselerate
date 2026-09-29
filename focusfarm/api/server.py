@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from focusfarm.activity.classifier import RULES_PATH, save_rules
 from focusfarm.activity.monitor import create_monitor
+from focusfarm.device.dock import Dock
 from focusfarm.config import ConfigError, deep_merge, load_settings
 from focusfarm.game.engine import GameError
 from focusfarm.session.manager import SessionManager
@@ -64,6 +65,11 @@ def build_manager(db_path=DEFAULT_PATH, cli_overrides: dict | None = None, **kwa
     db = Database(db_path)
     settings = load_settings(overrides=deep_merge(db.get_overrides(), cli_overrides or {}))
     kwargs.setdefault("monitor", create_monitor())
+    if "phone" not in kwargs and "device" not in kwargs:
+        # Одна подставка = и датчик, и свет/звук; без порта — виртуальная.
+        dock = Dock(settings.get("device", {}).get("serial_port", ""),
+                    mock_docked=settings.get("mode", "normal") == "normal")
+        kwargs["phone"] = kwargs["device"] = dock
     manager = SessionManager(settings, db, **kwargs)
     manager.cli_overrides = cli_overrides or {}
     return manager

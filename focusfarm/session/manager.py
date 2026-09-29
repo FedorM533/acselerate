@@ -12,6 +12,7 @@
 ускоряем: иначе в демо «кажется, отвлёкся» включалось бы через 6 секунд
 без движения мыши, и показывать было бы неудобно.
 """
+import logging
 import threading
 
 from focusfarm.activity.classifier import CATEGORIES, Classifier, load_rules
@@ -28,6 +29,8 @@ from focusfarm.session.state_machine import (
     FOCUS, IDLE, MAYBE_DISTRACTED, PAUSED, Inputs, StateMachine,
 )
 from focusfarm.storage.db import Database
+
+log = logging.getLogger(__name__)
 
 STATE_LABELS = {
     "IDLE": "Сессия не идёт",
@@ -80,6 +83,8 @@ class SessionManager:
         self.pending_events = []     # события для WebSocket
         self.bus.subscribe("*", self._collect_event)
         self.reactions.set_led("OFF")
+        if hasattr(self.phone, "on_button"):
+            self.phone.on_button(self._on_button)
 
     # ---------- настройки ----------
 
@@ -90,6 +95,13 @@ class SessionManager:
             if self.sm:
                 self.sm.th.update(settings["thresholds"])
             self.reactions.set_sound_cfg(settings.get("sound"))
+            if hasattr(self.phone, "set_port"):   # настоящая подставка: порт из настроек
+                self.phone.set_port(settings.get("device", {}).get("serial_port", ""))
+
+    def close(self):
+        """Вызывается при остановке сервера: закрываем порт подставки."""
+        if hasattr(self.phone, "stop"):
+            self.phone.stop()
 
     @property
     def dev_tools(self) -> bool:
@@ -282,6 +294,24 @@ class SessionManager:
             self.game.buy(item)
             self._save()
             self.bus.publish("bought", {"item": item})
+
+    # ---------- кнопка на подставке ----------
+
+    def _on_button(self, name: str):
+        """Короткое нажатие — пауза/продолжить (или старт), долгое — режим тетради."""
+        try:
+            with self.lock:
+                if name == "PAUSE":
+                    if not self.session:
+                        self.start_session()
+                    elif self.paused:
+                        self.resume()
+                    else:
+                        self.pause()
+                elif name == "NOTEBOOK" and self.session:
+                    self.set_notebook(not self.notebook)
+        except GameError as exc:
+            log.info("Кнопка %s: %s", name, exc)
 
     # ---------- панель разработчика ----------
 
