@@ -167,6 +167,15 @@ sprites["bench"] = svg(
     '<path d="M18 74 V94 M82 74 V94 M18 30 V64 M82 30 V64" stroke="#5a5a5a" stroke-width="5" stroke-linecap="round"/>'
 )
 
+# ---- Логотип: росток в подставке ----
+sprites["logo"] = svg(
+    '<path d="M22 70 H78 L72 92 H28 Z" fill="#B07B4F" stroke="#3B2A1E" stroke-width="3" stroke-linejoin="round"/>'
+    '<rect x="30" y="64" width="40" height="8" rx="4" fill="#5BB85C" stroke="#3B2A1E" stroke-width="3"/>'
+    '<path d="M50 66 C50 52 50 44 50 36" stroke="#2F7D32" stroke-width="5" fill="none" stroke-linecap="round"/>'
+    '<path d="M50 44 C40 44 30 36 30 24 C42 24 50 32 50 44 Z" fill="#5BB85C" stroke="#3B2A1E" stroke-width="3" stroke-linejoin="round"/>'
+    '<path d="M50 38 C60 38 72 30 72 16 C58 16 50 26 50 38 Z" fill="#7ACB6B" stroke="#3B2A1E" stroke-width="3" stroke-linejoin="round"/>'
+)
+
 if __name__ == "__main__":
     from focusfarm import fix_console_encoding
     fix_console_encoding()

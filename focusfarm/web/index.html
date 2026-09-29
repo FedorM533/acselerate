@@ -4,19 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Фокус-ферма</title>
-  <link rel="icon" href="sprites/sunflower_ready.svg">
+  <link rel="icon" href="sprites/logo.svg">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><img src="sprites/sunflower_ready.svg" alt=""> Фокус-ферма</div>
+    <div class="brand"><img src="sprites/logo.svg" alt="" class="logo"><span>Фокус-ферма</span></div>
     <div id="demo-badge" class="demo-badge" hidden>ДЕМО ×30</div>
-    <div class="top-stats">
-      <span class="pill" title="Монеты"><img src="sprites/coin.svg" alt=""> <b id="coins">0</b></span>
-      <span class="pill" title="Дней подряд с 25+ минутами фокуса">🔥 <b id="streak">0</b> дн.</span>
-      <span class="pill" id="weather" title="Погода">☀️</span>
-      <span class="pill state-pill" id="state-pill">…</span>
-      <button class="pill icon-btn" id="browser-sound" title="Звук в браузере">🔈</button>
+    <div class="state-pill s-IDLE" id="state-pill" role="status">
+      <span class="state-icon" id="state-icon"></span><span id="state-label">…</span>
+    </div>
+    <div class="top-right">
+      <span class="chip coins-chip" id="coins-chip" title="Монеты"><img src="sprites/coin.svg" alt=""><b id="coins">0</b></span>
+      <span class="chip" title="Дней подряд с 25+ минутами фокуса">🔥 <b id="streak">0</b>&nbsp;дн.</span>
+      <span class="chip dock-chip" id="dock-chip" title="Подставка"><span class="dot"></span><span id="dock-chip-text">подставка</span></span>
+      <button class="chip icon-btn" id="sound-toggle" title="Звуки интерфейса">🔈</button>
     </div>
   </header>
 
@@ -57,13 +59,20 @@
     <section id="tab-session" class="tab">
       <div class="session-layout">
         <div class="card session-main">
-          <div class="state-indicator" id="state-indicator">
-            <div class="state-dot"></div>
-            <div class="state-text" id="state-text">Сессия не идёт</div>
+          <div class="ring-wrap">
+            <svg class="ring" viewBox="0 0 260 260" aria-hidden="true">
+              <circle class="ring-bg" cx="130" cy="130" r="112"/>
+              <circle class="ring-fg" id="ring-fg" cx="130" cy="130" r="112"/>
+            </svg>
+            <div class="ring-center">
+              <div class="timer" id="timer">25:00</div>
+              <div class="timer-sub" id="timer-sub">запланировано</div>
+            </div>
           </div>
-          <div class="timer" id="timer">25:00</div>
-          <div class="timer-sub muted" id="timer-sub">запланировано</div>
-          <div class="progress"><div id="session-progress"></div></div>
+          <div class="state-banner s-IDLE" id="state-banner">
+            <span class="state-icon" id="state-banner-icon"></span><span id="state-banner-text"></span>
+          </div>
+          <div class="crop-line" id="crop-line"></div>
 
           <div id="start-form" class="start-form">
             <label>Грядка <select id="start-plot"></select></label>
@@ -73,9 +82,9 @@
           </div>
 
           <div id="session-controls" class="controls" hidden>
-            <button id="pause-btn" class="btn">⏸ Пауза</button>
-            <button id="notebook-btn" class="btn">📓 Пишу в тетради</button>
-            <button id="end-btn" class="btn danger">⏹ Завершить</button>
+            <button id="pause-btn" class="btn big"><span class="ico">⏸</span> <span class="lbl">Пауза</span></button>
+            <button id="notebook-btn" class="btn big"><span class="ico">✏️</span> <span class="lbl">Пишу в тетради</span></button>
+            <button id="end-btn" class="btn big danger"><span class="ico">⏹</span> <span class="lbl">Завершить</span></button>
           </div>
           <div id="presence" class="presence" hidden>
             <p>Ты ещё здесь? Режим тетради идёт уже долго.</p>
@@ -84,16 +93,31 @@
         </div>
 
         <div class="session-side">
-          <div class="card">
+          <div class="card stand-card">
             <h3>Подставка</h3>
-            <div class="dock">
-              <div class="dock-led" id="dock-led"></div>
-              <div>
-                <div id="dock-status" class="big-text">—</div>
-                <div id="dock-phone" class="muted">—</div>
-                <div id="dock-sound" class="muted"></div>
-              </div>
+            <div class="stand" id="stand" title="Подставка">
+              <svg viewBox="0 0 240 190" aria-hidden="true">
+                <defs>
+                  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="6"/>
+                  </filter>
+                </defs>
+                <ellipse cx="120" cy="178" rx="96" ry="8" fill="#3B2A1E" opacity=".12"/>
+                <g id="stand-phone" class="stand-phone">
+                  <rect x="86" y="18" width="68" height="124" rx="12" fill="#3B2A1E"/>
+                  <rect x="92" y="28" width="56" height="100" rx="6" fill="#5B8DEF" opacity=".85"/>
+                  <circle cx="120" cy="135" r="3.5" fill="#6d5a4a"/>
+                  <path d="M104 60 q16 -18 32 0 M110 70 q10 -9 20 0" stroke="#EAF7FF" stroke-width="4" fill="none" stroke-linecap="round" opacity=".7"/>
+                </g>
+                <path d="M30 120 H210 L196 172 H44 Z" fill="#B07B4F" stroke="#3B2A1E" stroke-width="4" stroke-linejoin="round"/>
+                <path d="M78 120 H162 V132 H78 Z" fill="#8B5E3C" stroke="#3B2A1E" stroke-width="3"/>
+                <rect id="stand-led-glow" x="56" y="146" width="128" height="12" rx="6" fill="#9A8B7C" filter="url(#glow)" opacity="0"/>
+                <rect id="stand-led" class="stand-led" x="56" y="146" width="128" height="12" rx="6" fill="#9A8B7C" stroke="#3B2A1E" stroke-width="3"/>
+              </svg>
+              <div class="stand-note" id="stand-note"></div>
             </div>
+            <div class="stand-status" id="stand-status">—</div>
+            <div class="muted small" id="stand-hint"></div>
           </div>
           <div class="card">
             <h3>Активное окно</h3>
@@ -197,8 +221,8 @@
   </main>
 
   <!-- Панель разработчика: только в режимах dev/demo -->
-  <div id="dev-panel" class="dev-panel" hidden>
-    <b>🛠 Панель разработчика</b>
+  <details id="dev-panel" class="dev-panel" open hidden>
+    <summary>🛠 Панель разработчика</summary>
     <label class="switch"><input type="checkbox" id="dev-phone"> Телефон в подставке</label>
     <label>Окно:
       <select id="dev-category">
@@ -208,7 +232,7 @@
         <option value="distraction">отвлечение (YouTube)</option>
       </select>
     </label>
-  </div>
+  </details>
 
   <div id="toasts" class="toasts"></div>
 

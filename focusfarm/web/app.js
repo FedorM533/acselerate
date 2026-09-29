@@ -5,20 +5,39 @@
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
+// Состояние показываем тремя способами: цвет (класс s-XXX) + иконка + текст.
 const STATE_LABELS = {
   IDLE: "Сессия не идёт",
-  FOCUS: "Работаешь",
-  NOTEBOOK: "Пишешь в тетради",
-  MAYBE_DISTRACTED: "Кажется, отвлёкся",
-  DISTRACTED: "Отвлёкся",
+  FOCUS: "Работаешь 🌱",
+  NOTEBOOK: "Пишешь в тетради ✏️",
+  MAYBE_DISTRACTED: "Кажется, отвлёкся…",
+  DISTRACTED: "Отвлёкся — огород ждёт",
   PHONE_OUT: "Телефон вынут",
   PAUSED: "Пауза",
+};
+// Короткие названия — для легенд и таблиц.
+const STATE_SHORT = {
+  IDLE: "Нет сессии", FOCUS: "Работа", NOTEBOOK: "Тетрадь", MAYBE_DISTRACTED: "Кажется, отвлёкся",
+  DISTRACTED: "Отвлёкся", PHONE_OUT: "Телефон вынут", PAUSED: "Пауза",
 };
 const CATEGORY_LABELS = { work: "работа", neutral: "нейтрально", distraction: "отвлечение" };
 const SOUND_NAMES = { 1: "мягкий сигнал", 2: "сигнал «отвлёкся»", 3: "«урожай собран»", 4: "«сессия началась»" };
 
+// Иконки состояний — простые SVG (свои).
+const STROKE = 'stroke="#3B2A1E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"';
+const STATE_ICONS = {
+  FOCUS: `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="7" fill="#F5C542" ${STROKE}/><path d="M16 2v4M16 26v4M2 16h4M26 16h4M6 6l3 3M23 23l3 3M6 26l3-3M23 9l3-3" ${STROKE} fill="none"/></svg>`,
+  NOTEBOOK: `<svg viewBox="0 0 32 32"><path d="M7 25l2-7L22 5l5 5L14 23z" fill="#8FD3C8" ${STROKE}/><path d="M7 25l7-2" ${STROKE}/></svg>`,
+  MAYBE_DISTRACTED: `<svg viewBox="0 0 32 32"><circle cx="20" cy="11" r="6" fill="#F5C542" ${STROKE}/><path d="M6 25a5 5 0 0 1 1-10 7 7 0 0 1 13 1 4.5 4.5 0 0 1 2 9z" fill="#fff" ${STROKE}/></svg>`,
+  DISTRACTED: `<svg viewBox="0 0 32 32"><path d="M6 20a5 5 0 0 1 1-10 7 7 0 0 1 13 1 4.5 4.5 0 0 1 2 9z" fill="#D9DEE3" ${STROKE}/><path d="M10 24l-1 4M16 24l-1 4M22 24l-1 4" ${STROKE} stroke="#5B8DEF"/></svg>`,
+  PHONE_OUT: `<svg viewBox="0 0 32 32"><rect x="10" y="4" width="12" height="22" rx="3" fill="#fff" ${STROKE}/><path d="M4 29h24" ${STROKE}/><path d="M24 8l5-4" ${STROKE}/></svg>`,
+  PAUSED: `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="#DCE7FD" ${STROKE}/><path d="M13 11v10M19 11v10" ${STROKE}/></svg>`,
+  IDLE: `<svg viewBox="0 0 32 32"><path d="M22 5a11 11 0 1 0 5 16A9 9 0 0 1 22 5z" fill="#F6EAC2" ${STROKE}/></svg>`,
+};
+
 let state = null;          // последний снимок с сервера
 let connected = false;
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // ================= общие помощники =================
 
@@ -58,7 +77,9 @@ function minutes(seconds) {
 }
 
 function setStateClass(el, stateName) {
-  el.className = el.className.replace(/\bs-\w+/g, "").trim() + " s-" + stateName;
+  // classList работает и для HTML, и для SVG-элементов.
+  [...el.classList].filter((c) => c.startsWith("s-")).forEach((c) => el.classList.remove(c));
+  el.classList.add("s-" + stateName);
 }
 
 // Обновляет innerHTML, только если он изменился (чтобы не сбивать клики и выбор).
@@ -80,40 +101,50 @@ function showTab(name) {
 }
 $$(".tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
 
-// ================= звук в браузере (необязательно) =================
+// ================= звуки интерфейса (Web Audio, без аудиофайлов) =================
 
-let browserSound = localStorage.getItem("browserSound") === "on";
+let soundOn = localStorage.getItem("uiSound") === "on";
 let audioCtx = null;
 
 function updateSoundButton() {
-  $("#browser-sound").textContent = browserSound ? "🔊" : "🔈";
-  $("#browser-sound").title = browserSound ? "Звук в браузере включён" : "Звук в браузере выключен";
+  $("#sound-toggle").textContent = soundOn ? "🔊" : "🔈";
+  $("#sound-toggle").title = soundOn ? "Звук включён — нажми, чтобы выключить" : "Звук выключен — нажми, чтобы включить";
 }
-$("#browser-sound").onclick = () => {
-  browserSound = !browserSound;
-  localStorage.setItem("browserSound", browserSound ? "on" : "off");
+$("#sound-toggle").onclick = () => {
+  soundOn = !soundOn;
+  localStorage.setItem("uiSound", soundOn ? "on" : "off");
   updateSoundButton();
-  if (browserSound) beep(4);
+  playTone("plant");
 };
 updateSoundButton();
 
-// Простые мелодии из пары нот вместо mp3 — у каждого сигнала своя.
-const MELODIES = { 1: [440, 392], 2: [330, 262], 3: [523, 659, 784], 4: [392, 523] };
+// Каждая мелодия — список нот [частота Гц, начало с, длительность с].
+const TONES = {
+  plant: [[523, 0, 0.12], [784, 0.1, 0.18]],                 // посадка / старт
+  harvest: [[523, 0, 0.12], [659, 0.1, 0.12], [784, 0.2, 0.12], [1047, 0.3, 0.3]],
+  soft: [[440, 0, 0.25], [392, 0.2, 0.3]],                   // мягкий сигнал
+  distracted: [[392, 0, 0.25], [330, 0.22, 0.35]],
+  click: [[880, 0, 0.05]],
+};
+// Номер звука подставки → мелодия интерфейса.
+const SOUND_TONES = { 1: "soft", 2: "distracted", 3: "harvest", 4: "plant" };
 
-function beep(n) {
-  if (!browserSound) return;
+function playTone(name) {
+  if (!soundOn) return;
   audioCtx = audioCtx || new AudioContext();
-  (MELODIES[n] || [440]).forEach((freq, i) => {
+  for (const [freq, start, dur] of TONES[name] || []) {
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    const start = audioCtx.currentTime + i * 0.18;
+    const t0 = audioCtx.currentTime + start;
+    osc.type = "triangle";
     osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0.15, start);
-    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.18, t0 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     osc.connect(gain).connect(audioCtx.destination);
-    osc.start(start);
-    osc.stop(start + 0.32);
-  });
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.05);
+  }
 }
 
 // ================= связь с сервером =================
@@ -137,6 +168,8 @@ async function refresh() {
   render(await api("GET", "/api/state"));
 }
 
+const eventHooks = [];   // вкладки могут реагировать на события (урожай, сорняк…)
+
 function handleEvents(events) {
   for (const e of events) {
     if (e.type === "notice") toast(e.text);
@@ -144,7 +177,11 @@ function handleEvents(events) {
     if (e.type === "crop_ready") toast("Урожай созрел! Нажми на грядку, чтобы собрать 🎉");
     if (e.type === "session_started") toast("Сессия началась. Удачи! 🌱");
     if (e.type === "session_ended") toast(e.message);
-    if (e.type === "sound") beep(e.n);
+    if (e.type === "sound") {
+      playTone(SOUND_TONES[e.n]);
+      showStandNote(e.n);
+    }
+    for (const hook of eventHooks) hook(e);
   }
 }
 
@@ -161,16 +198,42 @@ const renderHooks = [];   // сюда вкладки добавляют свои
 
 // ================= шапка =================
 
+function setStateView(pill, iconEl, textEl, stateName) {
+  setStateClass(pill, stateName);
+  setHtml(iconEl, STATE_ICONS[stateName]);
+  textEl.textContent = STATE_LABELS[stateName];
+}
+
+let lastCoins = null;
+
+function dockStatus(s) {
+  const d = s.device;
+  if (d.source === "serial" && d.connected) return { cls: "ok", text: "подставка подключена" };
+  if (d.status) return { cls: "bad", text: "подставка не подключена" };
+  return { cls: "virtual", text: "виртуальная подставка" };
+}
+
 function renderHeader(s) {
-  $("#coins").textContent = s.farm.coins;
+  setStateView($("#state-pill"), $("#state-icon"), $("#state-label"), s.state);
+  const coins = s.farm.coins;
+  if (lastCoins !== null && coins !== lastCoins) bumpCoins();
+  lastCoins = coins;
+  $("#coins").textContent = coins;
   $("#streak").textContent = s.farm.streak;
-  $("#weather").textContent = s.farm.raining ? "🌧 Дождь: рост +10%" : "☀️ Ясно";
-  const pill = $("#state-pill");
-  pill.textContent = STATE_LABELS[s.state];
-  setStateClass(pill, s.state);
+  const dock = dockStatus(s);
+  $("#dock-chip").className = "chip dock-chip " + dock.cls;
+  $("#dock-chip-text").textContent = dock.text;
+  $("#dock-chip").title = s.device.status || dock.text;
   const badge = $("#demo-badge");
   badge.hidden = s.mode !== "demo";
   badge.textContent = `ДЕМО ×${s.speed}`;
+}
+
+function bumpCoins() {
+  const chip = $("#coins-chip");
+  chip.classList.remove("bump");
+  void chip.offsetWidth;   // перезапуск CSS-анимации
+  chip.classList.add("bump");
 }
 
 function renderBanner() {
@@ -269,7 +332,7 @@ $("#farm-grid").onclick = async (e) => {
   if (p.ripe) {
     const r = await api("POST", "/api/farm/harvest", { x, y });
     toast(`+${r.coins} монет ${"★".repeat(r.stars)}${r.weed_penalty ? " (сорняк рядом: −20%)" : ""}`);
-    beep(3);
+    playTone("harvest");
   } else if (p.weeds) {
     await api("POST", "/api/farm/weed", { x, y });
     toast("Сорняк убран 👍");
@@ -284,6 +347,7 @@ $("#farm-start").onclick = () => showTab("session");
 // ================= сессия =================
 
 let selectedPlot = "";   // выбранная для старта грядка ("x,y" или "" — авто)
+const RING_LENGTH = 2 * Math.PI * 112;
 
 function renderStartForm(s) {
   // Грядки, на которых можно начать: пустые или с недоросшим растением.
@@ -309,12 +373,31 @@ function renderStartForm(s) {
   $("#start-crop").disabled = !!(chosen && chosen.crop);
 }
 
+function renderRing(fraction, stateName) {
+  const ring = $("#ring-fg");
+  setStateClass(ring, stateName);
+  ring.style.strokeDasharray = RING_LENGTH;
+  ring.style.strokeDashoffset = RING_LENGTH * (1 - Math.max(0, Math.min(1, fraction)));
+}
+
+function renderCropLine(s) {
+  const p = s.farm.plots.find((q) => q.active);
+  let html = "";
+  if (p && p.crop) {
+    const img = `<img src="${plotSprite(p)}" alt="">`;
+    html = p.ripe
+      ? `${img}<span><b>${p.crop_name}</b> созрела — собери урожай на «Ферме»!</span>`
+      : `${img}<span>Растёт <b>${p.crop_name}</b>: ещё ${minutes(p.left_s)} мин фокуса до урожая</span>`;
+  } else if (!s.session) {
+    html = `<span class="muted">Положи телефон в подставку или нажми «Начать»</span>`;
+  }
+  setHtml($("#crop-line"), html);
+}
+
 function renderSession(s) {
   const session = s.session;
-  setStateClass($("#state-indicator"), s.state);
-  setStateClass($(".state-dot"), s.state);
-  setStateClass($(".progress"), s.state);
-  $("#state-text").textContent = STATE_LABELS[s.state];
+  setStateView($("#state-banner"), $("#state-banner-icon"), $("#state-banner-text"), s.state);
+  renderCropLine(s);
 
   $("#start-form").hidden = !!session;
   $("#session-controls").hidden = !session;
@@ -322,30 +405,25 @@ function renderSession(s) {
 
   if (session) {
     $("#timer").textContent = formatTime(session.remaining_s);
+    $("#timer").classList.toggle("long", session.remaining_s >= 3600);
     $("#timer-sub").textContent = `осталось из ${minutes(session.planned_s)} мин`;
-    $("#session-progress").style.width = `${Math.min(100, (session.elapsed_s / session.planned_s) * 100)}%`;
-    $("#pause-btn").textContent = session.paused ? "▶ Продолжить" : "⏸ Пауза";
+    renderRing(1 - session.elapsed_s / session.planned_s, s.state);
+    $("#pause-btn .ico").textContent = session.paused ? "▶" : "⏸";
+    $("#pause-btn .lbl").textContent = session.paused ? "Продолжить" : "Пауза";
     $("#notebook-btn").classList.toggle("active", session.notebook);
     const totals = Object.entries(session.totals).filter(([, sec]) => sec >= 1);
     setHtml($("#session-totals"), totals.length
-      ? totals.map(([st, sec]) => `<div><span class="cat s-${st}" style="background:var(--c)">${STATE_LABELS[st]}</span><b>${formatTime(sec)}</b></div>`).join("")
+      ? totals.map(([st, sec]) => `<div><span class="cat s-${st}">${STATE_SHORT[st]}</span><b>${formatTime(sec)}</b></div>`).join("")
       : `<p class="muted">Пока пусто</p>`);
   } else {
     renderStartForm(s);
     $("#timer").textContent = formatTime(Number($("#start-length").value || 25) * 60);
-    $("#timer-sub").textContent = s.message || "положи телефон в подставку или нажми «Начать»";
-    $("#session-progress").style.width = "0";
+    $("#timer").classList.toggle("long", Number($("#start-length").value) >= 60);
+    $("#timer-sub").textContent = s.message || "запланировано";
+    renderRing(1, "IDLE");
     setHtml($("#session-totals"), `<p class="muted">Сессия не идёт</p>`);
   }
-
-  // Подставка (настоящая или виртуальная).
-  const d = s.device;
-  $("#dock-led").className = "dock-led " + (d.led || "OFF");
-  let status = d.status;
-  if (!status) status = d.source === "mock" ? "Виртуальная подставка" : (d.connected ? "Подставка подключена" : "Подставка не подключена");
-  $("#dock-status").textContent = status;
-  $("#dock-phone").textContent = s.phone.docked ? "📱 Телефон в подставке" : "📵 Телефона нет в подставке";
-  $("#dock-sound").textContent = d.last_sound ? `последний звук: ${SOUND_NAMES[d.last_sound]}` : "";
+  renderStand(s);
 
   // Активное окно.
   const a = s.activity;
@@ -354,6 +432,41 @@ function renderSession(s) {
   $("#act-process").textContent = a.process;
   $("#act-idle").textContent = Math.round(a.idle_s);
 }
+
+// ---------- нарисованная подставка ----------
+
+const LED_COLORS = { GREEN: "#5BB85C", YELLOW: "#F2B33D", RED: "#E86A5B", BLINK_RED: "#E86A5B", BLUE: "#5B8DEF", OFF: "#9A8B7C" };
+
+function renderStand(s) {
+  const led = s.device.led || "OFF";
+  const color = LED_COLORS[led] || LED_COLORS.OFF;
+  for (const el of [$("#stand-led"), $("#stand-led-glow")]) {
+    el.setAttribute("fill", color);
+    el.classList.toggle("blink", led === "BLINK_RED");
+  }
+  $("#stand-led-glow").setAttribute("opacity", led === "OFF" ? "0" : ".9");
+  $("#stand").classList.toggle("undocked", !s.phone.docked);
+  $("#stand").classList.toggle("clickable", s.dev_tools);
+  $("#stand").title = s.dev_tools ? "Нажми, чтобы положить или взять телефон" : "Подставка";
+  $("#stand-status").textContent = s.phone.docked ? "📱 Телефон в подставке" : "Телефона нет в подставке";
+  const dock = dockStatus(s);
+  let hint = s.device.status || (dock.cls === "virtual" ? "Виртуальная подставка — настоящая не подключена" : "");
+  if (s.dev_tools) hint += (hint ? ". " : "") + "Клик по подставке — взять/положить телефон";
+  $("#stand-hint").textContent = hint;
+}
+
+function showStandNote(n) {
+  const note = $("#stand-note");
+  note.textContent = `♪ ${SOUND_NAMES[n] || "звук"}`;
+  note.classList.remove("show");
+  void note.offsetWidth;
+  note.classList.add("show");
+}
+
+$("#stand").onclick = async () => {
+  if (!state || !state.dev_tools) return;
+  render(await api("POST", "/api/dev/phone", { docked: !state.phone.docked }));
+};
 
 $("#start-plot").onchange = () => renderStartForm(state);
 $("#start-length").oninput = () => { if (state && !state.session) renderSession(state); };
@@ -416,19 +529,19 @@ async function loadStats() {
   if (tl && tl.duration_s > 0) {
     $("#timeline").innerHTML = tl.segments.map((seg) => {
       const width = ((seg.to_s - seg.from_s) / tl.duration_s) * 100;
-      const title = `${STATE_LABELS[seg.state]}: ${formatTime(seg.to_s - seg.from_s)}`;
+      const title = `${STATE_SHORT[seg.state]}: ${formatTime(seg.to_s - seg.from_s)}`;
       return `<div class="s-${seg.state}" style="width:${width}%" title="${title}"></div>`;
     }).join("");
   } else {
     $("#timeline").innerHTML = "";
   }
-  $("#legend").innerHTML = STATE_ORDER.map((s) => `<span class="s-${s}">${STATE_LABELS[s]}</span>`).join("");
+  $("#legend").innerHTML = STATE_ORDER.map((s) => `<span class="s-${s}">${STATE_SHORT[s]}</span>`).join("");
 
   // Время по состояниям.
   const total = Object.values(st.by_state_s).reduce((a, b) => a + b, 0) || 1;
   $("#st-states").innerHTML = STATE_ORDER.map((s) => {
     const sec = st.by_state_s[s] || 0;
-    return `<div class="row s-${s}"><span>${STATE_LABELS[s]}</span>` +
+    return `<div class="row s-${s}"><span>${STATE_SHORT[s]}</span>` +
       `<div><div class="fill" style="width:${(sec / total) * 100}%"></div></div><b>${minutes(sec)} мин</b></div>`;
   }).join("");
 
@@ -570,7 +683,7 @@ async function loadRules() {
 function chipList(i, key, title, placeholder) {
   const words = rules.rules[i][key] || [];
   const chips = words.map((w, j) =>
-    `<span class="chip">${w}<button data-del="${i},${key},${j}" title="Удалить">×</button></span>`).join("");
+    `<span class="chip-word">${w}<button data-del="${i},${key},${j}" title="Удалить">×</button></span>`).join("");
   return `<div class="muted small">${title}</div><div class="chips">${chips}</div>
     <div class="form-row"><input type="text" placeholder="${placeholder}" data-input="${i},${key}">
     <button class="btn small" data-add="${i},${key}">Добавить</button></div>`;
@@ -644,4 +757,4 @@ connect();
 // Ссылка вида http://127.0.0.1:8765/#session сразу открывает нужную вкладку.
 if (location.hash) showTab(location.hash.slice(1));
 
-export { api, toast, formatTime, minutes, showTab, tabLoaders, renderHooks, setHtml, STATE_LABELS, CATEGORY_LABELS };
+export { api, toast, formatTime, minutes, showTab, tabLoaders, renderHooks, eventHooks, setHtml, STATE_LABELS, STATE_SHORT, CATEGORY_LABELS };
