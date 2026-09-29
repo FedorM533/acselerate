@@ -23,6 +23,7 @@ thresholds:
 session:
   auto_start_on_dock: true
   default_length_min: 25
+  demo_length_min: 120         # длина сессии в демо (при ×30 это 4 минуты)
   auto_end_after_phone_out_min: 10
   break_min: 5
 
