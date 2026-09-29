@@ -36,21 +36,41 @@
     <!-- ФЕРМА -->
     <section id="tab-farm" class="tab active">
       <div class="farm-wrap">
-        <div class="farm-scene" id="farm-scene">
-          <div class="rain" id="rain" hidden></div>
+        <div class="farm-scene weather-sunny" id="farm-scene">
+          <div class="sky"></div>
+          <div class="sky-gloom"></div>
+          <img class="sun" src="sprites/sun.svg" alt="">
+          <img class="cloud c1" src="sprites/cloud.svg" alt="">
+          <img class="cloud c2" src="sprites/cloud.svg" alt="">
+          <img class="cloud c3" src="sprites/cloud.svg" alt="">
+          <img class="state-cloud" src="sprites/cloud_grey.svg" alt="">
+          <div class="hills"></div>
+          <div class="grass"></div>
+          <div class="fence-row" id="fence-row"></div>
           <div class="decor decor-left" id="decor-left"></div>
           <div class="farm-grid" id="farm-grid"></div>
           <div class="decor decor-right" id="decor-right"></div>
+          <div class="rain" id="rain"></div>
         </div>
-        <aside class="card farm-side">
-          <h3>Сейчас</h3>
-          <p id="farm-status" class="big-text">Сессия не идёт</p>
-          <p id="farm-hint" class="muted"></p>
-          <button id="farm-start" class="btn primary">Начать сессию</button>
-          <h3>Прополка</h3>
-          <p id="weed-status" class="muted"></p>
-          <h3>Сегодня</h3>
-          <p><b id="today-focus">0</b> мин фокуса</p>
+        <aside class="farm-side">
+          <div class="card side-state">
+            <div class="state-banner small-banner s-IDLE" id="farm-state">
+              <span class="state-icon" id="farm-state-icon"></span><span id="farm-state-text"></span>
+            </div>
+            <p id="farm-weather" class="weather-line"></p>
+            <p id="farm-hint" class="muted"></p>
+            <button id="farm-start" class="btn primary big">▶ Начать сессию</button>
+          </div>
+          <div class="card">
+            <h3>🌿 Прополка</h3>
+            <p id="weed-status" class="muted"></p>
+          </div>
+          <div class="card">
+            <h3>Сегодня</h3>
+            <p class="today"><b id="today-focus">0</b> мин фокуса</p>
+            <div class="goal"><div id="today-goal"></div></div>
+            <p class="muted small" id="today-goal-text"></p>
+          </div>
         </aside>
       </div>
     </section>
@@ -223,6 +243,7 @@
   <!-- Панель разработчика: только в режимах dev/demo -->
   <details id="dev-panel" class="dev-panel" open hidden>
     <summary>🛠 Панель разработчика</summary>
+    <div class="dev-body">
     <label class="switch"><input type="checkbox" id="dev-phone"> Телефон в подставке</label>
     <label>Окно:
       <select id="dev-category">
@@ -232,6 +253,7 @@
         <option value="distraction">отвлечение (YouTube)</option>
       </select>
     </label>
+    </div>
   </details>
 
   <div id="toasts" class="toasts"></div>

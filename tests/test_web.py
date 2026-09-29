@@ -25,3 +25,20 @@ def test_no_external_resources():
     for file in [*WEB.glob("*.html"), *WEB.glob("*.js"), *WEB.glob("*.css")]:
         text = file.read_text(encoding="utf-8")
         assert not re.search(r"https?://(?!127\.0\.0\.1)", text), file.name
+
+
+def test_all_crop_stages_have_sprites_and_valid_svg():
+    """5 культур × 5 стадий — отдельные SVG; все спрайты — корректный XML."""
+    import xml.dom.minidom
+
+    sprites = WEB / "sprites"
+    for crop in DEFAULT_CROPS:
+        for stage in ("seed", "sprout", "young", "adult", "ready"):
+            assert (sprites / f"{crop}_{stage}.svg").exists(), f"{crop}_{stage}"
+    for file in sprites.glob("*.svg"):
+        xml.dom.minidom.parse(str(file))
+
+
+def test_font_is_local_with_license():
+    assert (WEB / "fonts" / "Nunito.ttf").exists()
+    assert "Open Font License" in (WEB / "fonts" / "OFL.txt").read_text(encoding="utf-8")

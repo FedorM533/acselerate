@@ -1,179 +1,259 @@
-"""Генератор SVG-спрайтов фермы (оригинальная графика).
+"""Генератор SVG-спрайтов фермы (оригинальная графика, единый стиль).
 
 Запуск: python -m focusfarm.tools.make_sprites
 Меняй фигуры здесь и перезапускай — файлы в focusfarm/web/sprites/ перезапишутся.
+
+Правила стиля:
+- вид сбоку, растение «стоит» на линии земли y = 92 (грядку рисует bed.svg);
+- у всех фигур одинаковый контур: тёмно-коричневый, толщина 2.5, скруглённые углы;
+- палитра тёплая, без чистого чёрного.
 """
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent / "web" / "sprites"
 
-LEAF = "#5cae4a"
-LEAF_DARK = "#3f8a36"
-STEM = "#4f9a3e"
+INK = "#3B2A1E"
+O = f'stroke="{INK}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"'
 
 
-def svg(body: str) -> str:
-    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">{body}</svg>\n'
+def ow(width):
+    """Тот же контур, но другой толщины."""
+    return f'stroke="{INK}" stroke-width="{width}" stroke-linejoin="round" stroke-linecap="round"'
+
+
+LEAF = "#6CC060"
+LEAF_DARK = "#3F9A45"
+STEM = "#4F9A3E"
+GROUND = 92
+
+CROPS = ("radish", "carrot", "potato", "sunflower", "pumpkin")
+
+
+def svg(body: str, view: str = "0 0 100 100") -> str:
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{view}">{body}</svg>\n'
 
 
 def leaf(cx, cy, rx, ry, rot, color=LEAF):
-    return f'<ellipse cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}" fill="{color}" transform="rotate({rot} {cx} {cy})"/>'
+    return f'<ellipse cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}" fill="{color}" {O} transform="rotate({rot} {cx} {cy})"/>'
 
 
-MOUND = '<ellipse cx="50" cy="84" rx="22" ry="6" fill="#6b4a2f"/>'
+def stem(x1, y1, x2, y2, width=4, bend=0):
+    mx, my = (x1 + x2) / 2 + bend, (y1 + y2) / 2
+    return f'<path d="M{x1} {y1} Q{mx} {my} {x2} {y2}" stroke="{INK}" stroke-width="{width + 2.5}" fill="none" stroke-linecap="round"/>' \
+           f'<path d="M{x1} {y1} Q{mx} {my} {x2} {y2}" stroke="{STEM}" stroke-width="{width}" fill="none" stroke-linecap="round"/>'
+
+
+def crumb():
+    """Маленький холмик земли у основания растения."""
+    return f'<path d="M30 {GROUND} Q50 {GROUND - 12} 70 {GROUND} Z" fill="#7A5134" {O}/>'
+
+
+# ---------------- стадии, общие для всех культур ----------------
+
+SEED_COLORS = {"radish": "#E8698A", "carrot": "#F29A45", "potato": "#D8B274",
+               "sunflower": "#5A4636", "pumpkin": "#F4E3B5"}
+SPROUT_TINT = {"radish": LEAF, "carrot": "#7CC75A", "potato": LEAF_DARK,
+               "sunflower": "#7CC75A", "pumpkin": "#58B056"}
+
+
+def seed(crop):
+    color = SEED_COLORS[crop]
+    stripes = ""
+    if crop == "sunflower":
+        stripes = f'<path d="M46 78 L54 83" stroke="#EDE4D8" stroke-width="1.6"/>'
+    return svg(crumb() + f'<ellipse cx="50" cy="80" rx="9" ry="6.5" fill="{color}" {O} transform="rotate(-20 50 80)"/>' + stripes
+               + f'<path d="M52 74 q3 -8 10 -9" stroke="{INK}" stroke-width="5.5" fill="none" stroke-linecap="round"/>'
+               + f'<path d="M52 74 q3 -8 10 -9" stroke="{LEAF}" stroke-width="3" fill="none" stroke-linecap="round"/>')
+
+
+def sprout(crop):
+    tint = SPROUT_TINT[crop]
+    return svg(crumb() + stem(50, GROUND - 2, 50, 70, 4)
+               + leaf(41, 69, 10, 5, -25, tint) + leaf(59, 69, 10, 5, 25, tint))
+
+
+def young(crop):
+    if crop == "radish":
+        body = stem(50, 90, 50, 64, 4) + leaf(38, 62, 8, 17, -35) + leaf(62, 62, 8, 17, 35) + leaf(50, 56, 8, 18, 0, LEAF_DARK)
+    elif crop == "carrot":
+        body = "".join(stem(50, 90, 50 + dx, 52 + abs(dx), 3, dx / 2) for dx in (-12, 0, 12)) \
+            + "".join(f'<circle cx="{50 + dx}" cy="{52 + abs(dx)}" r="5" fill="{LEAF}" {O}/>' for dx in (-12, 0, 12))
+    elif crop == "potato":
+        body = stem(50, 90, 50, 62, 5) + leaf(36, 70, 12, 7, -20, LEAF_DARK) + leaf(64, 70, 12, 7, 20, LEAF_DARK) + leaf(50, 58, 9, 8, 0)
+    elif crop == "sunflower":
+        body = stem(50, 90, 50, 46, 5) + leaf(39, 72, 11, 5.5, -30, LEAF_DARK) + leaf(61, 64, 11, 5.5, 30) + leaf(40, 52, 8, 4.5, -35) \
+            + f'<circle cx="50" cy="44" r="5" fill="#8CC06A" {O}/>'
+    else:  # pumpkin
+        body = f'<path d="M50 90 Q40 80 30 84" stroke="{STEM}" stroke-width="4" fill="none"/>' + stem(50, 90, 52, 70, 4) \
+            + leaf(38, 70, 13, 10, -15, LEAF_DARK) + leaf(62, 66, 13, 10, 15) + f'<path d="M30 84 q-6 -4 -3 -9" stroke="{STEM}" stroke-width="2" fill="none"/>'
+    return svg(crumb() + body)
+
+
+# ---------------- взрослое и готовое ----------------
+
+def radish(ready):
+    tops = leaf(40, 46, 8, 20, -25) + leaf(60, 46, 8, 20, 25) + leaf(50, 40, 8, 22, 0, LEAF_DARK)
+    if not ready:
+        return tops + f'<ellipse cx="50" cy="80" rx="10" ry="9" fill="#D8456B" {O}/>'
+    return tops + f'<path d="M50 94 L50 99" stroke="#E8C6CF" stroke-width="2.5" stroke-linecap="round"/>' \
+        + f'<ellipse cx="50" cy="78" rx="16" ry="15" fill="#E04A72" {O}/>' \
+        + '<ellipse cx="44" cy="72" rx="4.5" ry="3.5" fill="#F7A3B8"/>'
+
+
+def carrot(ready):
+    tops = "".join(stem(50, 68, 50 + dx * 1.5, 26 + abs(dx), 3.5, dx) for dx in (-12, -5, 0, 5, 12))
+    if not ready:
+        return tops + f'<path d="M41 68 L59 68 L50 92 Z" fill="#EE8A2A" {O}/>'
+    return tops + f'<path d="M37 64 L63 64 L50 99 Z" fill="#F28C28" {O}/>' \
+        + f'<path d="M44 74 H52 M46 82 H53" stroke="{INK}" stroke-width="2" stroke-linecap="round"/>'
+
+
+def potato(ready):
+    bush = stem(50, 90, 50, 58, 5) + leaf(33, 64, 15, 9, -15, LEAF_DARK) + leaf(67, 64, 15, 9, 15, LEAF_DARK) \
+        + leaf(40, 48, 12, 8, -30) + leaf(60, 48, 12, 8, 30) + leaf(50, 40, 10, 8, 0)
+    flowers = f'<circle cx="46" cy="35" r="4" fill="#F4F0FF" {O}/><circle cx="56" cy="33" r="4" fill="#E8E0FF" {O}/>'
+    if not ready:
+        return bush + f'<circle cx="50" cy="34" r="4" fill="#F4F0FF" {O}/>'
+    return bush + flowers \
+        + f'<ellipse cx="28" cy="88" rx="10" ry="7" fill="#D1A86B" {O}/>' \
+        + f'<ellipse cx="72" cy="89" rx="11" ry="7.5" fill="#C99B5C" {O}/>' \
+        + f'<circle cx="26" cy="87" r="1.2" fill="{INK}"/><circle cx="74" cy="88" r="1.2" fill="{INK}"/>'
+
+
+def sunflower(ready):
+    body = stem(50, 92, 50, 34, 5) + leaf(37, 68, 13, 6, -30, LEAF_DARK) + leaf(63, 58, 13, 6, 30)
+    if not ready:
+        return body + f'<circle cx="50" cy="30" r="10" fill="#7DB85A" {O}/>' \
+            + "".join(leaf(50, 21, 3.5, 7, a, "#9ACB74") for a in (-40, 0, 40))
+    petals = "".join(f'<ellipse cx="50" cy="11" rx="5.5" ry="10" fill="#F7C52B" {O} transform="rotate({a} 50 26)"/>'
+                     for a in range(0, 360, 30))
+    return body + petals + f'<circle cx="50" cy="26" r="10.5" fill="#7A4A1E" {O}/>' \
+        + '<circle cx="47" cy="23" r="1.6" fill="#B07B4F"/><circle cx="53" cy="28" r="1.6" fill="#B07B4F"/><circle cx="52" cy="22" r="1.4" fill="#B07B4F"/>'
+
+
+def pumpkin(ready):
+    vine = f'<path d="M12 90 Q30 76 50 84 T88 86" stroke="{STEM}" stroke-width="4" fill="none" stroke-linecap="round"/>' \
+        + leaf(22, 74, 12, 9, -10, LEAF_DARK) + leaf(78, 72, 12, 9, 10, LEAF_DARK)
+    if not ready:
+        return vine + f'<ellipse cx="50" cy="80" rx="12" ry="10" fill="#9FC955" {O}/>' \
+            + f'<path d="M50 71 V89" stroke="{INK}" stroke-width="1.8"/>'
+    return vine \
+        + f'<ellipse cx="37" cy="76" rx="14" ry="16" fill="#E8791F" {O}/>' \
+        + f'<ellipse cx="63" cy="76" rx="14" ry="16" fill="#E8791F" {O}/>' \
+        + f'<ellipse cx="50" cy="76" rx="14" ry="17" fill="#F58A2A" {O}/>' \
+        + f'<path d="M50 60 Q46 52 53 47" stroke="{INK}" stroke-width="6.5" fill="none" stroke-linecap="round"/>' \
+        + f'<path d="M50 60 Q46 52 53 47" stroke="#5B7A2A" stroke-width="4" fill="none" stroke-linecap="round"/>' \
+        + '<ellipse cx="44" cy="69" rx="3" ry="6" fill="#FFB36B"/>'
+
+
+DRAW = {"radish": radish, "carrot": carrot, "potato": potato, "sunflower": sunflower, "pumpkin": pumpkin}
 
 sprites = {}
+for crop in CROPS:
+    sprites[f"{crop}_seed"] = seed(crop)
+    sprites[f"{crop}_sprout"] = sprout(crop)
+    sprites[f"{crop}_young"] = young(crop)
+    sprites[f"{crop}_adult"] = svg(DRAW[crop](False))
+    sprites[f"{crop}_ready"] = svg(DRAW[crop](True))
 
-sprites["plot"] = svg(
-    '<rect x="4" y="4" width="92" height="92" rx="14" fill="#8a5a36"/>'
-    '<rect x="8" y="8" width="84" height="84" rx="11" fill="#9c6a42"/>'
-    '<path d="M14 30 H86 M14 50 H86 M14 70 H86" stroke="#7d5232" stroke-width="4" stroke-linecap="round"/>'
-    '<circle cx="24" cy="40" r="2" fill="#7d5232"/><circle cx="70" cy="60" r="2" fill="#7d5232"/>'
-    '<circle cx="52" cy="22" r="1.6" fill="#b88458"/><circle cx="36" cy="78" r="1.6" fill="#b88458"/>'
-)
+# Общие стадии (для совместимости и магазина) — как у редиса.
+sprites["seed"] = seed("radish")
+sprites["sprout"] = sprout("radish")
+sprites["young"] = young("radish")
 
-sprites["seed"] = svg(
-    MOUND + '<ellipse cx="50" cy="78" rx="6" ry="4.5" fill="#d9b56b" stroke="#a4803e" stroke-width="1.5"/>'
+# ---------------- грядка (вид сбоку) ----------------
+BED = (
+    f'<path d="M6 20 Q10 6 30 5 H110 Q130 6 134 20 L128 36 H12 Z" fill="#8B5E3C" {O}/>'
+    '<path d="M18 14 Q24 10 34 11 M56 10 H76 M98 11 Q110 10 120 14" stroke="#B07B4F" stroke-width="3" stroke-linecap="round" fill="none"/>'
+    '<circle cx="40" cy="24" r="2" fill="#6E4A2E"/><circle cx="92" cy="27" r="2" fill="#6E4A2E"/><circle cx="68" cy="22" r="1.6" fill="#B07B4F"/>'
 )
+sprites["bed"] = svg(BED, "0 0 140 40")
+sprites["plot"] = svg(BED, "0 0 140 40")
 
-sprites["sprout"] = svg(
-    MOUND + f'<path d="M50 84 Q50 70 50 62" stroke="{STEM}" stroke-width="4" fill="none" stroke-linecap="round"/>'
-    + leaf(42, 62, 9, 4.5, -25) + leaf(58, 62, 9, 4.5, 25)
-)
-
-sprites["young"] = svg(
-    MOUND + f'<path d="M50 84 Q49 62 50 44" stroke="{STEM}" stroke-width="5" fill="none" stroke-linecap="round"/>'
-    + leaf(38, 66, 13, 6, -20, LEAF_DARK) + leaf(62, 66, 13, 6, 20, LEAF_DARK)
-    + leaf(41, 48, 11, 5, -35) + leaf(59, 48, 11, 5, 35)
-)
-
-# ---- Редис ----
-radish_tops = (leaf(40, 44, 7, 18, -25) + leaf(60, 44, 7, 18, 25) + leaf(50, 38, 7, 20, 0, LEAF_DARK))
-sprites["radish_adult"] = svg(
-    MOUND + radish_tops + '<ellipse cx="50" cy="72" rx="9" ry="8" fill="#d8456b"/>'
-)
-sprites["radish_ready"] = svg(
-    MOUND + radish_tops + '<ellipse cx="50" cy="72" rx="15" ry="13" fill="#e04a72"/>'
-    '<path d="M50 85 L50 95" stroke="#e8c6cf" stroke-width="2.5" stroke-linecap="round"/>'
-    '<ellipse cx="44" cy="67" rx="4" ry="3" fill="#f28aa5"/>'
-)
-
-# ---- Морковь ----
-carrot_tops = "".join(
-    f'<path d="M50 62 Q{50 + dx} {40} {50 + dx * 1.6} {22 + abs(dx) // 2}" stroke="{LEAF}" stroke-width="4" fill="none" stroke-linecap="round"/>'
-    for dx in (-14, -6, 0, 6, 14)
-)
-sprites["carrot_adult"] = svg(
-    MOUND + carrot_tops + '<path d="M42 64 L58 64 L50 84 Z" fill="#ee8a2a"/>'
-)
-sprites["carrot_ready"] = svg(
-    MOUND + carrot_tops + '<path d="M38 60 L62 60 L50 96 Z" fill="#f28c28"/>'
-    '<path d="M44 70 H52 M46 78 H53" stroke="#c96b15" stroke-width="2" stroke-linecap="round"/>'
-)
-
-# ---- Картофель ----
-potato_bush = (
-    f'<path d="M50 84 L50 56" stroke="{STEM}" stroke-width="5"/>'
-    + leaf(34, 58, 14, 8, -15, LEAF_DARK) + leaf(66, 58, 14, 8, 15, LEAF_DARK)
-    + leaf(40, 44, 12, 7, -30) + leaf(60, 44, 12, 7, 30) + leaf(50, 36, 9, 7, 0)
-)
-sprites["potato_adult"] = svg(MOUND + potato_bush + '<circle cx="50" cy="32" r="4" fill="#f4f0ff"/>')
-sprites["potato_ready"] = svg(
-    MOUND + potato_bush
-    + '<circle cx="46" cy="33" r="4" fill="#f4f0ff"/><circle cx="56" cy="31" r="4" fill="#e8e0ff"/>'
-    '<ellipse cx="30" cy="86" rx="9" ry="6.5" fill="#c9a064" stroke="#9a7440" stroke-width="1.5"/>'
-    '<ellipse cx="70" cy="87" rx="10" ry="7" fill="#d1a86b" stroke="#9a7440" stroke-width="1.5"/>'
-    '<circle cx="28" cy="85" r="1" fill="#8a6a3a"/><circle cx="72" cy="86" r="1" fill="#8a6a3a"/>'
-)
-
-# ---- Подсолнух ----
-sun_stem = (
-    f'<path d="M50 86 Q48 60 50 34" stroke="{STEM}" stroke-width="5" fill="none"/>'
-    + leaf(38, 64, 12, 6, -30, LEAF_DARK) + leaf(62, 56, 12, 6, 30)
-)
-sprites["sunflower_adult"] = svg(
-    MOUND + sun_stem + '<circle cx="50" cy="30" r="10" fill="#6fae4f"/>'
-    + "".join(leaf(50, 20, 3, 7, a, "#8cc06a") for a in (-40, 0, 40))
-)
-petals = "".join(
-    f'<ellipse cx="50" cy="12" rx="5" ry="10" fill="#f7c52b" transform="rotate({a} 50 26)"/>'
-    for a in range(0, 360, 30)
-)
-sprites["sunflower_ready"] = svg(
-    MOUND + sun_stem + petals + '<circle cx="50" cy="26" r="10" fill="#7a4a1e"/>'
-    '<circle cx="47" cy="23" r="1.5" fill="#a0672e"/><circle cx="53" cy="28" r="1.5" fill="#a0672e"/>'
-)
-
-# ---- Тыква ----
-vine = (
-    '<path d="M16 84 Q34 70 50 78 T84 80" stroke="#4f9a3e" stroke-width="3.5" fill="none"/>'
-    + leaf(24, 70, 11, 8, -10, LEAF_DARK) + leaf(76, 68, 11, 8, 10, LEAF_DARK)
-)
-sprites["pumpkin_adult"] = svg(
-    MOUND + vine + '<ellipse cx="50" cy="74" rx="11" ry="9" fill="#8fbf4a"/>'
-    '<path d="M50 65 V83" stroke="#6e9a33" stroke-width="2"/>'
-)
-sprites["pumpkin_ready"] = svg(
-    MOUND + vine
-    + '<ellipse cx="38" cy="70" rx="13" ry="15" fill="#e8791f"/>'
-    '<ellipse cx="62" cy="70" rx="13" ry="15" fill="#e8791f"/>'
-    '<ellipse cx="50" cy="70" rx="14" ry="16" fill="#f58a2a"/>'
-    '<path d="M50 55 Q46 48 52 44" stroke="#5b7a2a" stroke-width="4" fill="none" stroke-linecap="round"/>'
-    '<ellipse cx="44" cy="64" rx="3" ry="5" fill="#ffab5c"/>'
-)
-
-# ---- Сорняк ----
+# ---------------- сорняк: забавный, не страшный ----------------
 sprites["weed"] = svg(
-    '<g transform="translate(58 22) scale(0.8)">'
-    '<path d="M0 90 L-22 20 L-6 60 L0 0 L8 58 L26 18 L8 90 Z" fill="#6d7f2e" stroke="#4a5a1c" stroke-width="3"/>'
-    '<circle cx="0" cy="0" r="8" fill="#a45ec7"/><circle cx="-22" cy="20" r="6" fill="#a45ec7"/>'
-    '<circle cx="26" cy="18" r="6" fill="#a45ec7"/></g>'
+    f'<path d="M50 92 L30 50 L44 66 L48 38 L54 64 L66 44 L62 70 L78 58 L64 92 Z" fill="#8FA33A" {O}/>'
+    f'<circle cx="48" cy="30" r="7" fill="#B77FD6" {O}/><circle cx="48" cy="30" r="2.5" fill="#F5C542"/>'
+    f'<circle cx="46" cy="76" r="6" fill="#fff" {O}/><circle cx="60" cy="75" r="5" fill="#fff" {O}/>'
+    f'<circle cx="47" cy="77" r="2.5" fill="{INK}"/><circle cx="61" cy="76" r="2.2" fill="{INK}"/>'
+    f'<path d="M48 86 q5 4 10 0" stroke="{INK}" stroke-width="2.5" fill="none" stroke-linecap="round"/>'
 )
 
-# ---- Капля «хочет пить» ----
+# ---------------- небо ----------------
+sprites["sun"] = svg(
+    "".join(f'<path d="M50 50 L50 6" stroke="#F5C542" stroke-width="7" stroke-linecap="round" transform="rotate({a} 50 50)"/>'
+            for a in range(0, 360, 30))
+    + f'<circle cx="50" cy="50" r="27" fill="#FFD95A" {O}/>'
+    + f'<circle cx="41" cy="46" r="3" fill="{INK}"/><circle cx="59" cy="46" r="3" fill="{INK}"/>'
+    + f'<path d="M40 57 q10 9 20 0" stroke="{INK}" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    + '<circle cx="35" cy="54" r="4" fill="#F7A3B8" opacity=".7"/><circle cx="65" cy="54" r="4" fill="#F7A3B8" opacity=".7"/>'
+)
+sprites["cloud"] = svg(
+    f'<path d="M22 70 a16 16 0 0 1 6 -31 a24 24 0 0 1 44 -6 a18 18 0 0 1 12 37 Z" fill="#FFFFFF" {O}/>',
+    "0 0 100 80")
+sprites["cloud_grey"] = svg(
+    f'<path d="M22 70 a16 16 0 0 1 6 -31 a24 24 0 0 1 44 -6 a18 18 0 0 1 12 37 Z" fill="#D5DCE3" {O}/>'
+    '<path d="M30 60 q12 5 26 0" stroke="#B9C3CC" stroke-width="3" fill="none" stroke-linecap="round"/>',
+    "0 0 100 80")
+
+# ---------------- мелочи интерфейса ----------------
 sprites["drop"] = svg(
-    '<path d="M50 14 Q70 44 70 58 A20 20 0 0 1 30 58 Q30 44 50 14 Z" fill="#5ab4f0" stroke="#2f86c5" stroke-width="3"/>'
-    '<ellipse cx="42" cy="56" rx="4" ry="7" fill="#bfe4ff"/>'
+    f'<path d="M50 14 Q70 44 70 58 A20 20 0 0 1 30 58 Q30 44 50 14 Z" fill="#7CC4F4" {O}/>'
+    '<ellipse cx="42" cy="56" rx="4" ry="7" fill="#D5EEFF"/>'
 )
-
-# ---- Монета ----
 sprites["coin"] = svg(
-    '<circle cx="50" cy="50" r="40" fill="#f2c230" stroke="#c9961a" stroke-width="6"/>'
-    '<circle cx="50" cy="50" r="27" fill="none" stroke="#e0a91e" stroke-width="4"/>'
-    '<path d="M40 38 L50 30 L60 38 L60 62 L40 62 Z" fill="#e0a91e"/>'
+    f'<circle cx="50" cy="50" r="40" fill="#F5C542" {ow(5)}/>'
+    '<circle cx="50" cy="50" r="27" fill="none" stroke="#E0A91E" stroke-width="4"/>'
+    '<path d="M50 32 C50 44 44 52 36 54 C46 54 50 60 50 70 C50 60 56 54 64 54 C56 52 50 44 50 32 Z" fill="#FFF1B8"/>'
+)
+sprites["lock"] = svg(
+    f'<path d="M34 46 V34 a16 16 0 0 1 32 0 V46" fill="none" stroke="{INK}" stroke-width="7" stroke-linecap="round"/>'
+    f'<rect x="24" y="44" width="52" height="42" rx="10" fill="#F5C542" {ow(4)}/>'
+    f'<circle cx="50" cy="62" r="5" fill="{INK}"/><path d="M50 64 V74" stroke="{INK}" stroke-width="4" stroke-linecap="round"/>'
 )
 
-# ---- Декор ----
+
+def grid_icon(n):
+    cell = 76 / n
+    rects = "".join(
+        f'<rect x="{12 + i * cell + 2}" y="{12 + j * cell + 2}" width="{cell - 4}" height="{cell - 4}" rx="4" fill="#8B5E3C" {ow(2)}/>'
+        for i in range(n) for j in range(n))
+    return svg(f'<rect x="6" y="6" width="88" height="88" rx="14" fill="#9FD27A" {O}/>' + rects)
+
+
+sprites["grid4"] = grid_icon(4)
+sprites["grid5"] = grid_icon(5)
+
+# ---------------- декор ----------------
 sprites["scarecrow"] = svg(
-    '<path d="M50 30 V96" stroke="#8a5a2b" stroke-width="6"/>'
-    '<path d="M18 46 H82" stroke="#8a5a2b" stroke-width="5"/>'
-    '<path d="M34 42 H66 L62 74 H38 Z" fill="#d0643c"/>'
-    '<path d="M38 50 H62 M40 62 H60" stroke="#b04e2a" stroke-width="3"/>'
-    '<circle cx="50" cy="26" r="12" fill="#f0d49a"/>'
-    '<path d="M32 18 H68 L60 8 H40 Z" fill="#6b4a2a"/><rect x="30" y="16" width="40" height="5" rx="2" fill="#6b4a2a"/>'
-    '<circle cx="45" cy="26" r="2" fill="#333"/><circle cx="55" cy="26" r="2" fill="#333"/>'
-    '<path d="M45 32 Q50 35 55 32" stroke="#333" stroke-width="2" fill="none"/>'
-    '<path d="M18 46 l-6 6 M18 46 l-6 -4 M82 46 l6 6 M82 46 l6 -4" stroke="#e6c35c" stroke-width="3"/>'
+    f'<path d="M50 30 V96" stroke="#8A5A2B" stroke-width="6"/>'
+    f'<path d="M16 46 H84" stroke="#8A5A2B" stroke-width="5" stroke-linecap="round"/>'
+    f'<path d="M34 42 H66 L62 76 H38 Z" fill="#D0643C" {O}/>'
+    '<path d="M38 52 H62 M40 64 H60" stroke="#A84E2A" stroke-width="3"/>'
+    f'<circle cx="50" cy="26" r="12" fill="#F0D49A" {O}/>'
+    f'<path d="M32 18 H68 L60 6 H40 Z" fill="#6B4A2A" {O}/>'
+    f'<circle cx="45" cy="26" r="2" fill="{INK}"/><circle cx="55" cy="26" r="2" fill="{INK}"/>'
+    f'<path d="M45 32 Q50 35 55 32" stroke="{INK}" stroke-width="2" fill="none"/>'
+    '<path d="M16 46 l-6 6 M16 46 l-6 -4 M84 46 l6 6 M84 46 l6 -4" stroke="#E6C35C" stroke-width="3" stroke-linecap="round"/>'
 )
 sprites["fence"] = svg(
-    "".join(f'<path d="M{x} 92 V34 L{x + 7} 26 L{x + 14} 34 V92 Z" fill="#c9985e" stroke="#936a39" stroke-width="2.5"/>'
-            for x in (6, 30, 54, 78))
-    + '<rect x="2" y="46" width="96" height="8" fill="#b5844c"/><rect x="2" y="72" width="96" height="8" fill="#b5844c"/>'
+    f'<rect x="2" y="46" width="96" height="8" fill="#C9985E" {O}/><rect x="2" y="72" width="96" height="8" fill="#C9985E" {O}/>'
+    + "".join(f'<path d="M{x} 94 V34 L{x + 7} 26 L{x + 14} 34 V94 Z" fill="#E0B27A" {O}/>' for x in (6, 30, 54, 78))
 )
 sprites["bench"] = svg(
-    '<rect x="10" y="38" width="80" height="10" rx="3" fill="#b5784a"/>'
-    '<rect x="10" y="52" width="80" height="10" rx="3" fill="#a86c40"/>'
-    '<rect x="8" y="64" width="84" height="10" rx="3" fill="#c98b57"/>'
-    '<path d="M18 74 V94 M82 74 V94 M18 30 V64 M82 30 V64" stroke="#5a5a5a" stroke-width="5" stroke-linecap="round"/>'
+    '<path d="M18 74 V94 M82 74 V94 M18 30 V64 M82 30 V64" stroke="#5A4A3E" stroke-width="5" stroke-linecap="round"/>'
+    f'<rect x="10" y="36" width="80" height="11" rx="3" fill="#B5784A" {O}/>'
+    f'<rect x="10" y="50" width="80" height="11" rx="3" fill="#A86C40" {O}/>'
+    f'<rect x="8" y="64" width="84" height="11" rx="3" fill="#C98B57" {O}/>'
 )
 
-# ---- Логотип: росток в подставке ----
+# ---------------- логотип: росток в подставке ----------------
 sprites["logo"] = svg(
-    '<path d="M22 70 H78 L72 92 H28 Z" fill="#B07B4F" stroke="#3B2A1E" stroke-width="3" stroke-linejoin="round"/>'
-    '<rect x="30" y="64" width="40" height="8" rx="4" fill="#5BB85C" stroke="#3B2A1E" stroke-width="3"/>'
+    f'<path d="M22 70 H78 L72 92 H28 Z" fill="#B07B4F" {ow(3)}/>'
+    f'<rect x="30" y="64" width="40" height="8" rx="4" fill="#5BB85C" {ow(3)}/>'
     '<path d="M50 66 C50 52 50 44 50 36" stroke="#2F7D32" stroke-width="5" fill="none" stroke-linecap="round"/>'
-    '<path d="M50 44 C40 44 30 36 30 24 C42 24 50 32 50 44 Z" fill="#5BB85C" stroke="#3B2A1E" stroke-width="3" stroke-linejoin="round"/>'
-    '<path d="M50 38 C60 38 72 30 72 16 C58 16 50 26 50 38 Z" fill="#7ACB6B" stroke="#3B2A1E" stroke-width="3" stroke-linejoin="round"/>'
+    f'<path d="M50 44 C40 44 30 36 30 24 C42 24 50 32 50 44 Z" fill="#5BB85C" {ow(3)}/>'
+    f'<path d="M50 38 C60 38 72 30 72 16 C58 16 50 26 50 38 Z" fill="#7ACB6B" {ow(3)}/>'
 )
 
 if __name__ == "__main__":

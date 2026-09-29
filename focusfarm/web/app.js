@@ -250,25 +250,45 @@ function renderBanner() {
 
 // ================= ферма =================
 
+// Погода мягко отражает состояние: солнце → облако → пасмурно.
+const WEATHER = {
+  FOCUS: "sunny", NOTEBOOK: "sunny", IDLE: "sunny", PAUSED: "sunny",
+  MAYBE_DISTRACTED: "cloudy", DISTRACTED: "gloomy", PHONE_OUT: "gloomy",
+};
+const WEATHER_TEXT = {
+  sunny: "☀️ Солнечно — растения растут",
+  cloudy: "⛅ Набежало облако…",
+  gloomy: "🌥 Пасмурно — огород ждёт тебя",
+};
+
 function plotSprite(p) {
-  if (!p.crop) return null;
-  if (p.stage === "adult" || p.stage === "ready") return `sprites/${p.crop}_${p.stage}.svg`;
-  return `sprites/${p.stage}.svg`;
+  return p.crop ? `sprites/${p.crop}_${p.stage}.svg` : null;
 }
 
-function plotHtml(p) {
-  let html = "";
-  const sprite = plotSprite(p);
-  if (sprite) html += `<img class="plant" src="${sprite}" alt="">`;
+function plotHtml(p, s) {
+  let html = `<img class="bed" src="sprites/bed.svg" alt="">`;
+  if (p.crop) html += `<span class="plant"><img src="${plotSprite(p)}" alt=""></span>`;
   if (p.weeds) html += `<img class="weed" src="sprites/weed.svg" alt="сорняк">`;
   if (p.thirsty) html += `<img class="drop" src="sprites/drop.svg" alt="хочет пить">`;
-  if (p.crop) {
-    html += `<span class="stars">${"★".repeat(p.stars)}</span>`;
-    html += `<span class="label">${p.crop_name}</span>`;
-    if (p.ripe) html += `<span class="harvest">Собрать +${p.value}</span>`;
-    else html += `<span class="bar"><div style="width:${Math.round(p.progress * 100)}%"></div></span>`;
+  if (p.crop && (p.active || p.ripe)) html += `<span class="stars">${"★".repeat(p.stars)}</span>`;
+  if (p.ripe) {
+    html += `<span class="sparkle k1">✦</span><span class="sparkle k2">✦</span><span class="sparkle k3">✦</span>`;
+    html += `<span class="harvest">Собрать +${p.value}</span>`;
+  } else if (p.active) {
+    html += `<span class="bar"><div style="width:${Math.round(p.progress * 100)}%"></div></span>`;
   }
+  const tip = plotTip(p, s);
+  if (tip) html += `<span class="hover-tip">${tip}</span>`;
   return html;
+}
+
+// Короткая подсказка при наведении.
+function plotTip(p, s) {
+  if (p.ripe) return "";
+  if (p.weeds) return s.farm.can_weed ? "Прополоть" : "Прополоть можно после 5 минут фокуса";
+  if (!p.crop) return s.session ? "" : "Посадить";
+  if (!s.session) return "Продолжить растить";
+  return "";
 }
 
 function plotTitle(p) {
@@ -281,46 +301,108 @@ function plotTitle(p) {
   return parts.join(" • ");
 }
 
+// Размер клетки подбираем под сцену, чтобы 3×3 и 5×5 помещались без прокрутки.
+function layoutFarm(size) {
+  const scene = $("#farm-scene");
+  const cell = Math.floor(Math.min(210, (scene.clientHeight * 0.66) / (size * 0.74 + 0.4), (scene.clientWidth - 320) / (size * 1.08)));
+  const grid = $("#farm-grid");
+  grid.style.setProperty("--cell", `${Math.max(60, cell)}px`);
+  grid.style.setProperty("--n", size);
+}
+
 function renderFarm(s) {
   const grid = $("#farm-grid");
   const size = s.farm.size;
   if (grid.childElementCount !== size * size) {
-    grid.style.gridTemplateColumns = `repeat(${size}, auto)`;
     grid.innerHTML = "";
     for (const p of s.farm.plots) {
       const btn = document.createElement("button");
       btn.className = "plot";
       btn.dataset.x = p.x;
       btn.dataset.y = p.y;
+      btn.style.zIndex = p.y + 1;                                 // передние ряды поверх задних
+      btn.style.setProperty("--d", `${-((p.x * 7 + p.y * 3) % 9) / 2}s`);  // растения качаются вразнобой
       grid.append(btn);
     }
+    // Сетка идёт по строкам: y — ряд, x — место в ряду.
+    grid.replaceChildren(...[...grid.children].sort((a, b) => (a.dataset.y - b.dataset.y) || (a.dataset.x - b.dataset.x)));
   }
+  layoutFarm(size);
   for (const p of s.farm.plots) {
     const btn = grid.querySelector(`[data-x="${p.x}"][data-y="${p.y}"]`);
-    setHtml(btn, plotHtml(p));
+    setHtml(btn, plotHtml(p, s));
     btn.title = plotTitle(p);
+    btn.setAttribute("aria-label", plotTitle(p));
     btn.classList.toggle("active", p.active);
     btn.classList.toggle("ripe", !!p.ripe);
+    // Созревшая грядка поднимается над соседями, чтобы кнопку «Собрать» ничто не закрывало.
+    btn.style.zIndex = p.ripe ? 50 + p.y : p.y + 1;
     btn.classList.toggle("thirsty", !!p.thirsty);
   }
 
-  // Декор по краям огорода.
+  // Погода и дождик-бонус.
+  const weather = WEATHER[s.state] || "sunny";
+  const scene = $("#farm-scene");
+  scene.classList.remove("weather-sunny", "weather-cloudy", "weather-gloomy");
+  scene.classList.add("weather-" + weather);
+  scene.classList.toggle("raining", s.farm.raining);
+
+  // Декор.
   const decor = s.farm.decor;
-  setHtml($("#decor-left"), decor.filter((d) => d !== "bench").map((d) => `<img src="sprites/${d}.svg" alt="">`).join(""));
-  setHtml($("#decor-right"), decor.includes("bench") ? `<img src="sprites/bench.svg" alt="">` : "");
-  $("#rain").hidden = !s.farm.raining;
+  $("#fence-row").hidden = !decor.includes("fence");
+  setHtml($("#decor-left"), decor.includes("scarecrow") ? `<img src="sprites/scarecrow.svg" alt="пугало">` : "");
+  setHtml($("#decor-right"), decor.includes("bench") ? `<img src="sprites/bench.svg" alt="скамейка">` : "");
 
   // Боковая панель.
-  $("#farm-status").textContent = STATE_LABELS[s.state];
+  setStateView($("#farm-state"), $("#farm-state-icon"), $("#farm-state-text"), s.state);
+  $("#farm-weather").textContent = s.farm.raining ? "🌦 Дождик-бонус: рост +10%" : WEATHER_TEXT[weather];
   $("#farm-start").hidden = !!s.session;
   const active = s.farm.plots.find((p) => p.active);
-  let hint = s.message || "";
+  let hint = s.message || "Нажми на пустую грядку, чтобы посадить растение.";
   if (s.session && active && !active.ripe) hint = `${active.crop_name}: ещё ${minutes(active.left_s)} мин фокуса`;
+  if (s.session && active && active.ripe) hint = `${active.crop_name} созрела — нажми на грядку!`;
   $("#farm-hint").textContent = hint;
   $("#weed-status").textContent = s.farm.can_weed
     ? "Можно полоть: нажми на сорняк."
-    : `Прополка откроется через ${minutes(s.farm.weed_unlock_left_s)} мин фокуса в сессии.`;
-  $("#today-focus").textContent = minutes(s.farm.today_focus_s);
+    : `Прополоть можно после 5 минут фокуса в сессии (ещё ${minutes(s.farm.weed_unlock_left_s)} мин).`;
+  const todayMin = minutes(s.farm.today_focus_s);
+  $("#today-focus").textContent = todayMin;
+  $("#today-goal").style.width = `${Math.min(100, (todayMin / 25) * 100)}%`;
+  $("#today-goal-text").textContent = todayMin >= 25 ? "День засчитан в серию 🔥" : `До зачёта дня: ${25 - todayMin} мин`;
+}
+
+// ---------- анимация урожая: монеты летят к счётчику ----------
+
+function celebrateHarvest(btn, result) {
+  const from = btn.getBoundingClientRect();
+  const to = $("#coins-chip").getBoundingClientRect();
+  const text = document.createElement("div");
+  text.className = "float-text";
+  text.textContent = `+${result.coins} ${"★".repeat(result.stars)}`;
+  text.style.left = `${from.left + from.width / 2}px`;
+  text.style.top = `${from.top + from.height * 0.2}px`;
+  document.body.append(text);
+  setTimeout(() => text.remove(), 1900);
+  if (reduceMotion) return;
+  const count = Math.min(8, Math.max(3, result.coins));
+  for (let i = 0; i < count; i++) {
+    const coin = document.createElement("img");
+    coin.src = "sprites/coin.svg";
+    coin.className = "fly-coin";
+    document.body.append(coin);
+    const x0 = from.left + from.width / 2 - 17 + (Math.random() - 0.5) * 40;
+    const y0 = from.top + from.height / 2 - 17;
+    const x1 = to.left + 8;
+    const y1 = to.top + 4;
+    coin.animate([
+      { transform: `translate(${x0}px, ${y0}px) scale(.6)`, opacity: 0 },
+      { transform: `translate(${x0}px, ${y0 - 60}px) scale(1.1)`, opacity: 1, offset: 0.3 },
+      { transform: `translate(${x1}px, ${y1}px) scale(.8)`, opacity: 1 },
+    ], { duration: 900 + i * 90, easing: "cubic-bezier(.5,0,.4,1)" }).onfinish = () => {
+      coin.remove();
+      bumpCoins();
+    };
+  }
 }
 
 $("#farm-grid").onclick = async (e) => {
@@ -331,18 +413,26 @@ $("#farm-grid").onclick = async (e) => {
   const p = state.farm.plots.find((q) => q.x === x && q.y === y);
   if (p.ripe) {
     const r = await api("POST", "/api/farm/harvest", { x, y });
-    toast(`+${r.coins} монет ${"★".repeat(r.stars)}${r.weed_penalty ? " (сорняк рядом: −20%)" : ""}`);
+    celebrateHarvest(btn, r);
+    if (r.weed_penalty) toast("Сорняк рядом забрал 20% урожая — в следующий раз прополи 🌿");
     playTone("harvest");
   } else if (p.weeds) {
+    if (!state.farm.can_weed) {
+      toast(`Прополоть можно после 5 минут фокуса — осталось ${minutes(state.farm.weed_unlock_left_s)} мин 🌱`);
+      return;
+    }
     await api("POST", "/api/farm/weed", { x, y });
+    playTone("click");
     toast("Сорняк убран 👍");
   } else if (!state.session) {
     selectedPlot = `${x},${y}`;
+    playTone("click");
     showTab("session");
   }
   refresh();
 };
 $("#farm-start").onclick = () => showTab("session");
+window.addEventListener("resize", () => state && layoutFarm(state.farm.size));
 
 // ================= сессия =================
 

@@ -62,6 +62,8 @@ py -3 -m venv .venv
 - Прошивка: [`firmware/focus_dock/focus_dock.ino`](firmware/focus_dock/focus_dock.ino)
   (пины — константами вверху файла; библиотеки «Adafruit NeoPixel» и
   «DFRobotDFPlayerMini»). Плата в Arduino IDE: «ESP32 Dev Module».
+  Проверено: собирается `arduino-cli compile --fqbn esp32:esp32:esp32` (ядро esp32 3.3.12,
+  Adafruit NeoPixel 1.15.5, DFRobotDFPlayerMini 1.0.6) — 22 % флеша, 7 % памяти.
 - Протокол: [`firmware/PROTOCOL.md`](firmware/PROTOCOL.md).
 - Подключение: вкладка «Настройки» → «Подставка (COM-порт)» → «Сохранить».
   Если связь пропала, программа не падает: пишет «Подставка не подключена»,
