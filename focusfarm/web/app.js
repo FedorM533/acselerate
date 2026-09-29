@@ -351,7 +351,7 @@ function renderSession(s) {
   const a = s.activity;
   $("#act-category").textContent = CATEGORY_LABELS[a.category] || a.category;
   $("#act-category").className = "cat " + a.category;
-  $("#act-process").textContent = a.forced_category ? "(задано в панели разработчика)" : a.process;
+  $("#act-process").textContent = a.process;
   $("#act-idle").textContent = Math.round(a.idle_s);
 }
 
@@ -389,6 +389,252 @@ function renderDevPanel(s) {
 $("#dev-phone").onchange = async (e) => render(await api("POST", "/api/dev/phone", { docked: e.target.checked }));
 $("#dev-category").onchange = async (e) => {
   render(await api("POST", "/api/dev/category", { category: e.target.value || null }));
+};
+
+// ================= статистика =================
+
+// «1 раз», «2 раза», «5 раз»
+function timesWord(n) {
+  const last = n % 10;
+  const lastTwo = n % 100;
+  if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return "раза";
+  return "раз";
+}
+
+let statsRange = "day";
+const STATE_ORDER = ["FOCUS", "NOTEBOOK", "MAYBE_DISTRACTED", "DISTRACTED", "PHONE_OUT", "PAUSED"];
+
+async function loadStats() {
+  const st = await api("GET", `/api/stats?range=${statsRange}`);
+  $("#st-focus").textContent = minutes(st.focus_s);
+  $("#st-sessions").textContent = st.sessions;
+  $("#st-distr").textContent = st.distractions;
+  $("#st-reasons").textContent = `${st.distraction_reasons.window} / ${st.distraction_reasons.phone}`;
+
+  // Хронология последней сессии: полоса из цветных отрезков.
+  const tl = st.timeline;
+  if (tl && tl.duration_s > 0) {
+    $("#timeline").innerHTML = tl.segments.map((seg) => {
+      const width = ((seg.to_s - seg.from_s) / tl.duration_s) * 100;
+      const title = `${STATE_LABELS[seg.state]}: ${formatTime(seg.to_s - seg.from_s)}`;
+      return `<div class="s-${seg.state}" style="width:${width}%" title="${title}"></div>`;
+    }).join("");
+  } else {
+    $("#timeline").innerHTML = "";
+  }
+  $("#legend").innerHTML = STATE_ORDER.map((s) => `<span class="s-${s}">${STATE_LABELS[s]}</span>`).join("");
+
+  // Время по состояниям.
+  const total = Object.values(st.by_state_s).reduce((a, b) => a + b, 0) || 1;
+  $("#st-states").innerHTML = STATE_ORDER.map((s) => {
+    const sec = st.by_state_s[s] || 0;
+    return `<div class="row s-${s}"><span>${STATE_LABELS[s]}</span>` +
+      `<div><div class="fill" style="width:${(sec / total) * 100}%"></div></div><b>${minutes(sec)} мин</b></div>`;
+  }).join("");
+
+  // Куда отвлекались.
+  const top = st.top_processes.map((p) => `<li><b>${p.name}</b> — ${p.count} ${timesWord(p.count)}</li>`);
+  $("#st-top").innerHTML = top.length ? top.join("") : `<p class="muted">Отвлечений не было 🎉</p>`;
+
+  // Минуты фокуса по дням (только для недели). Тёмный столбик — норма 25 мин выполнена.
+  $("#week-card").hidden = statsRange !== "week";
+  const max = Math.max(25, ...st.days.map((d) => d.focus_min));
+  $("#st-days").innerHTML = st.days.map((d) => {
+    const label = new Date(d.day).toLocaleDateString("ru-RU", { weekday: "short" });
+    const goal = d.focus_min >= 25 ? " goal" : "";
+    return `<div class="day"><b>${Math.round(d.focus_min)}</b>` +
+      `<div class="col${goal}" style="height:${(d.focus_min / max) * 80}%"></div>${label}</div>`;
+  }).join("");
+}
+
+$$("#stats-range button").forEach((b) => (b.onclick = () => {
+  statsRange = b.dataset.range;
+  $$("#stats-range button").forEach((x) => x.classList.toggle("active", x === b));
+  loadStats();
+}));
+tabLoaders.stats = loadStats;
+
+// ================= магазин =================
+
+function shopImage(item) {
+  if (item.kind === "crop") return `sprites/${item.item.split(":")[1]}_ready.svg`;
+  if (item.kind === "decor") return `sprites/${item.item.split(":")[1]}.svg`;
+  return "sprites/plot.svg";
+}
+
+function renderShop(s) {
+  const coins = s.farm.coins;
+  setHtml($("#shop"), s.farm.shop.map((item) => {
+    let button;
+    if (item.owned) button = `<button class="btn" disabled>✓ Есть</button>`;
+    else if (item.available === false) button = `<button class="btn" disabled>Сначала предыдущее</button>`;
+    else if (coins < item.price) button = `<button class="btn" disabled>Не хватает ${item.price - coins}</button>`;
+    else button = `<button class="btn primary" data-buy="${item.item}">Купить</button>`;
+    const kind = { crop: "Растение", expand: "Расширение", decor: "Декор" }[item.kind];
+    return `<div class="card shop-item${item.owned ? " owned" : ""}">
+      <div class="muted small">${kind}</div>
+      <img src="${shopImage(item)}" alt="">
+      <h3>${item.name}</h3>
+      <div class="price"><img src="sprites/coin.svg" alt="">${item.price}</div>
+      ${button}
+    </div>`;
+  }).join(""));
+}
+
+$("#shop").onclick = async (e) => {
+  const item = e.target.dataset.buy;
+  if (!item) return;
+  render(await api("POST", "/api/shop/buy", { item }));
+  toast("Покупка удалась! 🎉");
+};
+tabLoaders.shop = () => state && renderShop(state);
+renderHooks.push((s) => { if ($("#tab-shop").classList.contains("active")) renderShop(s); });
+
+// ================= настройки =================
+
+const THRESHOLD_LABELS = {
+  phone_grace_s: "Телефон можно достать без последствий, с",
+  distraction_confirm_s: "Развлекательное окно до «отвлёкся», с",
+  neutral_limit_s: "Нейтральное окно до «кажется, отвлёкся», с",
+  idle_limit_s: "Без клавиатуры и мыши до «кажется», с",
+  maybe_to_distracted_s: "«Кажется» переходит в «отвлёкся» через, с",
+  recover_s: "Секунд работы для возврата в фокус",
+  notebook_max_min: "Режим тетради подряд максимум, мин",
+  notebook_answer_s: "Ждать ответа «Ты ещё здесь?», с",
+};
+const SESSION_LABELS = {
+  auto_start_on_dock: "Начинать, когда кладу телефон",
+  default_length_min: "Длина сессии, мин",
+  auto_end_after_phone_out_min: "Завершать, если телефона нет, мин",
+  break_min: "Перерыв после сессии, мин",
+  demo_length_min: "Длина сессии в демо, мин",
+};
+
+function field(group, key, label, value) {
+  if (typeof value === "boolean") {
+    return `<label>${label}<input type="checkbox" data-group="${group}" data-key="${key}" ${value ? "checked" : ""}></label>`;
+  }
+  return `<label>${label}<input type="number" min="0" data-group="${group}" data-key="${key}" value="${value}"></label>`;
+}
+
+async function loadPorts(selected) {
+  const ports = await api("GET", "/api/ports");
+  $("#set-port").innerHTML = `<option value="">Нет подставки (виртуальная)</option>` +
+    ports.map((p) => `<option value="${p.device}">${p.device} — ${p.description}</option>`).join("");
+  if (selected && !ports.some((p) => p.device === selected)) {
+    $("#set-port").innerHTML += `<option value="${selected}">${selected} (не найден)</option>`;
+  }
+  $("#set-port").value = selected || "";
+}
+
+async function loadSettings() {
+  const s = await api("GET", "/api/settings");
+  $("#thresholds").innerHTML = Object.entries(THRESHOLD_LABELS)
+    .map(([key, label]) => field("thresholds", key, label, s.thresholds[key])).join("");
+  $("#session-settings").innerHTML = Object.entries(SESSION_LABELS)
+    .filter(([key]) => key in s.session)
+    .map(([key, label]) => field("session", key, label, s.session[key])).join("");
+  $("#set-sound").checked = s.sound.enabled;
+  $("#set-mode").value = s.mode;
+  $("#set-speed").value = s.demo_speed;
+  await loadPorts(s.device.serial_port);
+  await loadRules();
+}
+
+$("#ports-refresh").onclick = () => loadPorts($("#set-port").value);
+
+$("#settings-save").onclick = async () => {
+  const body = { thresholds: {}, session: {} };
+  $$("#tab-settings [data-group]").forEach((input) => {
+    body[input.dataset.group][input.dataset.key] = input.type === "checkbox" ? input.checked : Number(input.value);
+  });
+  body.sound = { enabled: $("#set-sound").checked };
+  body.mode = $("#set-mode").value;
+  body.demo_speed = Number($("#set-speed").value);
+  body.device = { serial_port: $("#set-port").value };
+  await api("PUT", "/api/settings", body);
+  toast("Настройки сохранены ✔");
+  refresh();
+};
+tabLoaders.settings = loadSettings;
+
+// ---------- редактор правил ----------
+
+let rules = { default: "neutral", rules: [] };
+
+async function loadRules() {
+  rules = await api("GET", "/api/rules");
+  renderRules();
+}
+
+function chipList(i, key, title, placeholder) {
+  const words = rules.rules[i][key] || [];
+  const chips = words.map((w, j) =>
+    `<span class="chip">${w}<button data-del="${i},${key},${j}" title="Удалить">×</button></span>`).join("");
+  return `<div class="muted small">${title}</div><div class="chips">${chips}</div>
+    <div class="form-row"><input type="text" placeholder="${placeholder}" data-input="${i},${key}">
+    <button class="btn small" data-add="${i},${key}">Добавить</button></div>`;
+}
+
+function renderRules() {
+  $("#rules-default").value = rules.default;
+  $("#rules").innerHTML = rules.rules.map((rule, i) => `
+    <div class="rule">
+      <div class="rule-head">
+        <b>${i + 1}.</b>
+        <select data-cat="${i}">
+          ${Object.entries(CATEGORY_LABELS).map(([v, t]) =>
+            `<option value="${v}" ${rule.category === v ? "selected" : ""}>${t}</option>`).join("")}
+        </select>
+        <button class="btn small" data-move="${i},-1" title="Выше">↑</button>
+        <button class="btn small" data-move="${i},1" title="Ниже">↓</button>
+        <button class="btn small danger" data-remove="${i}">Удалить правило</button>
+      </div>
+      ${chipList(i, "process", "Программы", "например, code.exe")}
+      ${chipList(i, "title_contains", "Слова в заголовке окна", "например, stepik")}
+    </div>`).join("");
+}
+
+$("#rules").onclick = (e) => {
+  const d = e.target.dataset;
+  if (d.del) {
+    const [i, key, j] = d.del.split(",");
+    rules.rules[i][key].splice(Number(j), 1);
+  } else if (d.add) {
+    const [i, key] = d.add.split(",");
+    const input = $(`[data-input="${i},${key}"]`);
+    const word = input.value.trim().toLowerCase();
+    if (!word) return;
+    rules.rules[i][key] = [...(rules.rules[i][key] || []), word];
+  } else if (d.move) {
+    const [i, step] = d.move.split(",").map(Number);
+    const j = i + step;
+    if (j < 0 || j >= rules.rules.length) return;
+    [rules.rules[i], rules.rules[j]] = [rules.rules[j], rules.rules[i]];
+  } else if (d.remove) {
+    rules.rules.splice(Number(d.remove), 1);
+  } else {
+    return;
+  }
+  renderRules();
+};
+$("#rules").onchange = (e) => {
+  if (e.target.dataset.cat !== undefined) rules.rules[e.target.dataset.cat].category = e.target.value;
+};
+$("#rules").onkeydown = (e) => {
+  if (e.key === "Enter" && e.target.dataset.input) $(`[data-add="${e.target.dataset.input}"]`).click();
+};
+$("#rules-default").onchange = (e) => (rules.default = e.target.value);
+$("#rule-add").onclick = () => {
+  rules.rules.push({ category: "distraction", process: [], title_contains: [] });
+  renderRules();
+};
+$("#rules-save").onclick = async () => {
+  // Пустые правила сервер не примет — убираем их перед сохранением.
+  const clean = rules.rules.filter((r) => (r.process || []).length || (r.title_contains || []).length);
+  rules = await api("PUT", "/api/rules", { default: rules.default, rules: clean });
+  renderRules();
+  toast("Правила сохранены ✔");
 };
 
 // ================= запуск =================

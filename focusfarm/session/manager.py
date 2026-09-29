@@ -39,6 +39,7 @@ STATE_LABELS = {
     "PAUSED": "Пауза",
 }
 
+FORCED_PROCESS = "(панель разработчика)"
 MAX_DT_S = 5  # если компьютер «уснул», не засчитываем пропущенное время разом
 
 
@@ -239,10 +240,13 @@ class SessionManager:
         sample = self.monitor.sample()
         category = self.classifier.classify(sample.process_name, sample.window_title)
         idle = sample.idle_seconds
+        process = sample.process_name
         if self.forced_category:
-            category, idle = self.forced_category, 0.0   # «разработчик сам решает»
+            # «Разработчик сам решает»: настоящее окно не учитываем,
+            # чтобы в статистике не винить ни в чём не повинную программу.
+            category, idle, process = self.forced_category, 0.0, FORCED_PROCESS
         # Заголовок окна дальше не передаём и не сохраняем.
-        self.activity = {"category": category, "process": sample.process_name, "idle_s": idle}
+        self.activity = {"category": category, "process": process, "idle_s": idle}
 
     def _check_auto_end(self):
         s = self.session

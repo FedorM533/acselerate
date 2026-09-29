@@ -227,3 +227,22 @@ def test_events_table_filled(env):
     env.tick(40)
     rows = env.db.conn.execute("SELECT state, category, process_name FROM events").fetchall()
     assert [tuple(r) for r in rows][-1] == ("DISTRACTED", "distraction", "telegram.exe")
+
+
+def test_week_stats_and_days(env):
+    env.post("/api/session/start", {})
+    env.tick(120)
+    env.post("/api/session/end")
+    week = env.client.get("/api/stats?range=week").json()
+    assert len(week["days"]) == 7
+    assert week["days"][-1]["focus_min"] == 2
+    assert env.client.get("/api/stats?range=year").status_code == 400
+
+
+def test_forced_category_not_blamed_on_real_process(env):
+    env.monitor.use("cmd.exe")
+    env.post("/api/session/start", {})
+    env.post("/api/dev/category", {"category": "distraction"})
+    env.tick(40)
+    top = env.client.get("/api/stats").json()["top_processes"]
+    assert top[0]["name"] == "(панель разработчика)"
