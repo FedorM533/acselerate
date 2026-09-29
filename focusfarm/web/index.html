@@ -160,17 +160,25 @@
         <button data-range="week">Неделя</button>
       </div>
       <div class="stats-cards">
-        <div class="card stat"><div class="stat-num" id="st-focus">0</div><div class="muted">мин в фокусе</div></div>
-        <div class="card stat"><div class="stat-num" id="st-sessions">0</div><div class="muted">сессий</div></div>
-        <div class="card stat"><div class="stat-num" id="st-distr">0</div><div class="muted">отвлечений</div></div>
-        <div class="card stat"><div class="stat-num" id="st-reasons">—</div><div class="muted">окно / телефон</div></div>
+        <div class="card stat"><div class="stat-ico">🌱</div><div class="stat-num" id="st-focus">0</div><div class="stat-label" id="st-focus-label">минут фокуса сегодня</div></div>
+        <div class="card stat"><div class="stat-ico">☁️</div><div class="stat-num" id="st-distr">0</div><div class="stat-label">отвлечений</div><div class="stat-sub" id="st-reasons"></div></div>
+        <div class="card stat"><div class="stat-ico">🔥</div><div class="stat-num" id="st-streak">0</div><div class="stat-label">дней подряд с 25+ мин</div></div>
+        <div class="card stat"><div class="stat-ico">⏱</div><div class="stat-num" id="st-sessions">0</div><div class="stat-label">сессий</div></div>
       </div>
       <div class="card">
         <h3>Хронология последней сессии</h3>
-        <div class="timeline" id="timeline"></div>
+        <div class="timeline-wrap" id="timeline-wrap">
+          <svg id="timeline" class="timeline" viewBox="0 0 1000 56" preserveAspectRatio="none" role="img" aria-label="Хронология сессии"></svg>
+          <div class="tl-tip" id="tl-tip" hidden></div>
+        </div>
+        <div class="tl-axis"><span id="tl-start"></span><span id="tl-end"></span></div>
         <div class="legend" id="legend"></div>
       </div>
-      <div class="stats-row">
+      <div class="stats-row" id="stats-row">
+        <div class="card" id="week-card">
+          <h3>Фокус по дням</h3>
+          <svg id="st-days" class="days-chart" viewBox="0 0 560 230" role="img" aria-label="Минуты фокуса по дням"></svg>
+        </div>
         <div class="card">
           <h3>Время по состояниям</h3>
           <div id="st-states" class="bars"></div>
@@ -179,61 +187,42 @@
           <h3>Куда уходит внимание</h3>
           <ol id="st-top" class="top-list"></ol>
         </div>
-        <div class="card" id="week-card">
-          <h3>Фокус по дням</h3>
-          <div id="st-days" class="days-chart"></div>
-        </div>
       </div>
     </section>
 
     <!-- МАГАЗИН -->
     <section id="tab-shop" class="tab">
-      <p class="muted">Монеты зарабатываются только урожаем. Декор просто для красоты.</p>
-      <div class="shop" id="shop"></div>
+      <div class="shop-head">
+        <p class="muted">Монеты приносит только урожай. Декор — просто для красоты.</p>
+        <span class="chip wallet"><img src="sprites/coin.svg" alt=""> У тебя <b id="shop-coins">0</b></span>
+      </div>
+      <div class="shop" id="shop-grid"></div>
     </section>
 
     <!-- НАСТРОЙКИ -->
     <section id="tab-settings" class="tab">
       <div class="settings-layout">
-        <div class="card">
-          <h3>Пороги</h3>
-          <div id="thresholds" class="form-grid"></div>
-          <h3>Сессия</h3>
-          <div id="session-settings" class="form-grid"></div>
-          <h3>Звук и режим</h3>
-          <div class="form-grid">
-            <label>Звуки подставки <input type="checkbox" id="set-sound"></label>
-            <label>Режим
-              <select id="set-mode">
-                <option value="normal">обычный</option>
-                <option value="dev">разработчик</option>
-                <option value="demo">демо (ускорение)</option>
-              </select>
-            </label>
-            <label>Ускорение демо, ×<input type="number" id="set-speed" min="1" max="1000"></label>
+        <div class="card settings-card">
+          <div id="settings-groups"></div>
+          <div class="settings-save">
+            <button class="btn primary big" id="settings-save">💾 Сохранить настройки</button>
           </div>
-          <h3>Подставка (COM-порт)</h3>
-          <div class="form-row">
-            <select id="set-port"></select>
-            <button class="btn" id="ports-refresh">↻</button>
-          </div>
-          <p class="muted small">«Нет подставки» — работает виртуальная подставка.</p>
-          <button class="btn primary" id="settings-save">Сохранить настройки</button>
         </div>
         <div class="card">
-          <h3>Правила для окон</h3>
-          <p class="muted small">Сверху вниз, первое совпадение побеждает. Имя программы — точно (например, <code>code.exe</code>), слова заголовка — по вхождению.</p>
-          <label>Если ничего не подошло:
+          <h3>🪟 Какие программы — работа, а какие — отвлечение</h3>
+          <p class="muted small">Правила проверяются сверху вниз, первое совпадение побеждает. Программа — точное имя
+            (например, <code>code.exe</code>), слова заголовка — по вхождению, без учёта регистра.</p>
+          <label class="field inline">Если ничего не подошло, считать:
             <select id="rules-default">
-              <option value="work">работа</option>
-              <option value="neutral">нейтрально</option>
-              <option value="distraction">отвлечение</option>
+              <option value="work">работой</option>
+              <option value="neutral">нейтральным</option>
+              <option value="distraction">отвлечением</option>
             </select>
           </label>
           <div id="rules"></div>
           <div class="form-row">
-            <button class="btn" id="rule-add">+ Правило</button>
-            <button class="btn primary" id="rules-save">Сохранить правила</button>
+            <button class="btn" id="rule-add">+ Добавить правило</button>
+            <button class="btn primary" id="rules-save">💾 Сохранить правила</button>
           </div>
         </div>
       </div>

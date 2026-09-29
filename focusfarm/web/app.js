@@ -604,50 +604,98 @@ function timesWord(n) {
   return "раз";
 }
 
+function clock(ts) {
+  return new Date(ts * 1000).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+
 let statsRange = "day";
+let timelineData = null;
 const STATE_ORDER = ["FOCUS", "NOTEBOOK", "MAYBE_DISTRACTED", "DISTRACTED", "PHONE_OUT", "PAUSED"];
 
 async function loadStats() {
   const st = await api("GET", `/api/stats?range=${statsRange}`);
   $("#st-focus").textContent = minutes(st.focus_s);
+  $("#st-focus-label").textContent = statsRange === "week" ? "минут фокуса за неделю" : "минут фокуса сегодня";
   $("#st-sessions").textContent = st.sessions;
   $("#st-distr").textContent = st.distractions;
-  $("#st-reasons").textContent = `${st.distraction_reasons.window} / ${st.distraction_reasons.phone}`;
+  $("#st-reasons").textContent = `окно: ${st.distraction_reasons.window} · телефон: ${st.distraction_reasons.phone}`;
+  $("#st-streak").textContent = state ? state.farm.streak : 0;
+  renderTimeline(st.timeline);
+  renderStateBars(st.by_state_s);
+  renderTop(st.top_processes);
+  renderDays(st.days);
+}
 
-  // Хронология последней сессии: полоса из цветных отрезков.
-  const tl = st.timeline;
-  if (tl && tl.duration_s > 0) {
-    $("#timeline").innerHTML = tl.segments.map((seg) => {
-      const width = ((seg.to_s - seg.from_s) / tl.duration_s) * 100;
-      const title = `${STATE_SHORT[seg.state]}: ${formatTime(seg.to_s - seg.from_s)}`;
-      return `<div class="s-${seg.state}" style="width:${width}%" title="${title}"></div>`;
-    }).join("");
-  } else {
-    $("#timeline").innerHTML = "";
-  }
+// ---------- хронология: полоса из цветных отрезков ----------
+
+function renderTimeline(tl) {
+  timelineData = tl;
+  const svg = $("#timeline");
   $("#legend").innerHTML = STATE_ORDER.map((s) => `<span class="s-${s}">${STATE_SHORT[s]}</span>`).join("");
+  if (!tl || tl.duration_s <= 0 || !tl.segments.length) {
+    svg.innerHTML = "";
+    $("#tl-start").textContent = "Сессий ещё не было — положи телефон в подставку 🌱";
+    $("#tl-end").textContent = "";
+    return;
+  }
+  svg.innerHTML = tl.segments.map((seg, i) => {
+    const x = (seg.from_s / tl.duration_s) * 1000;
+    const w = Math.max(2, ((seg.to_s - seg.from_s) / tl.duration_s) * 1000);
+    return `<rect class="s-${seg.state}" data-i="${i}" x="${x}" y="0" width="${w}" height="56"></rect>`;
+  }).join("");
+  $("#tl-start").textContent = `начало ${clock(tl.start)}`;
+  $("#tl-end").textContent = tl.end ? `конец ${clock(tl.end)}` : "идёт сейчас";
+}
 
-  // Время по состояниям.
-  const total = Object.values(st.by_state_s).reduce((a, b) => a + b, 0) || 1;
+$("#timeline").addEventListener("mousemove", (e) => {
+  const rect = e.target.closest("rect");
+  const tip = $("#tl-tip");
+  if (!rect || !timelineData) { tip.hidden = true; return; }
+  const seg = timelineData.segments[Number(rect.dataset.i)];
+  const start = timelineData.start;
+  tip.textContent = `${STATE_SHORT[seg.state]}: ${formatTime(seg.to_s - seg.from_s)} (${clock(start + seg.from_s)}–${clock(start + seg.to_s)})`;
+  const box = $("#timeline-wrap").getBoundingClientRect();
+  tip.style.left = `${Math.min(Math.max(e.clientX - box.left, 120), box.width - 120)}px`;
+  tip.hidden = false;
+});
+$("#timeline").addEventListener("mouseleave", () => { $("#tl-tip").hidden = true; });
+
+function renderStateBars(byState) {
+  const total = Object.values(byState).reduce((a, b) => a + b, 0) || 1;
   $("#st-states").innerHTML = STATE_ORDER.map((s) => {
-    const sec = st.by_state_s[s] || 0;
+    const sec = byState[s] || 0;
     return `<div class="row s-${s}"><span>${STATE_SHORT[s]}</span>` +
-      `<div><div class="fill" style="width:${(sec / total) * 100}%"></div></div><b>${minutes(sec)} мин</b></div>`;
+      `<div class="track"><div class="fill" style="width:${(sec / total) * 100}%"></div></div><b>${minutes(sec)} мин</b></div>`;
   }).join("");
+}
 
-  // Куда отвлекались.
-  const top = st.top_processes.map((p) => `<li><b>${p.name}</b> — ${p.count} ${timesWord(p.count)}</li>`);
-  $("#st-top").innerHTML = top.length ? top.join("") : `<p class="muted">Отвлечений не было 🎉</p>`;
+function renderTop(top) {
+  $("#st-top").innerHTML = top.length
+    ? top.map((p) => `<li>${p.name} <span class="cnt">— ${p.count} ${timesWord(p.count)}</span></li>`).join("")
+    : `<p class="empty-note">Отвлечений не было 🎉</p>`;
+}
 
-  // Минуты фокуса по дням (только для недели). Тёмный столбик — норма 25 мин выполнена.
+// ---------- неделя: столбцы по дням (SVG, без библиотек) ----------
+
+function renderDays(days) {
   $("#week-card").hidden = statsRange !== "week";
-  const max = Math.max(25, ...st.days.map((d) => d.focus_min));
-  $("#st-days").innerHTML = st.days.map((d) => {
+  $("#stats-row").classList.toggle("two", statsRange !== "week");
+  const W = 560, H = 230, top = 24, bottom = 36, left = 10;
+  const max = Math.max(30, ...days.map((d) => d.focus_min));
+  const step = (W - left * 2) / days.length;
+  const barW = step * 0.6;
+  const y = (v) => top + (H - top - bottom) * (1 - v / max);
+  let html = `<line class="goal-line" x1="0" x2="${W}" y1="${y(25)}" y2="${y(25)}"/>`;
+  html += `<text x="${W - 4}" y="${y(25) - 6}" text-anchor="end">цель 25 мин</text>`;
+  days.forEach((d, i) => {
+    const x = left + i * step + (step - barW) / 2;
+    const h = Math.max(3, H - bottom - y(d.focus_min));
     const label = new Date(d.day).toLocaleDateString("ru-RU", { weekday: "short" });
-    const goal = d.focus_min >= 25 ? " goal" : "";
-    return `<div class="day"><b>${Math.round(d.focus_min)}</b>` +
-      `<div class="col${goal}" style="height:${(d.focus_min / max) * 80}%"></div>${label}</div>`;
-  }).join("");
+    html += `<rect class="bar${d.focus_min >= 25 ? " goal" : ""}" x="${x}" y="${H - bottom - h}" width="${barW}" height="${h}" rx="8"><title>${d.day}: ${Math.round(d.focus_min)} мин</title></rect>`;
+    html += `<text class="val" x="${x + barW / 2}" y="${H - bottom - h - 6}" text-anchor="middle">${Math.round(d.focus_min)}</text>`;
+    html += `<text x="${x + barW / 2}" y="${H - 10}" text-anchor="middle">${label}</text>`;
+  });
+  $("#st-days").innerHTML = html;
 }
 
 $$("#stats-range button").forEach((b) => (b.onclick = () => {
@@ -659,35 +707,48 @@ tabLoaders.stats = loadStats;
 
 // ================= магазин =================
 
+const SHOP_DESC = {
+  crop: (item, s) => {
+    const c = s.farm.crops.find((q) => `crop:${q.id}` === item.item);
+    return c ? `${c.focus_min} мин фокуса → ${c.coins} монет` : "";
+  },
+  expand: (item) => `Больше грядок — больше урожая`,
+  decor: () => "Для красоты, на игру не влияет",
+};
+
 function shopImage(item) {
   if (item.kind === "crop") return `sprites/${item.item.split(":")[1]}_ready.svg`;
   if (item.kind === "decor") return `sprites/${item.item.split(":")[1]}.svg`;
-  return "sprites/plot.svg";
+  return item.item === "expand_5" ? "sprites/grid5.svg" : "sprites/grid4.svg";
 }
 
 function renderShop(s) {
   const coins = s.farm.coins;
-  setHtml($("#shop"), s.farm.shop.map((item) => {
+  $("#shop-coins").textContent = coins;
+  const price = (n) => `<span class="price-tag"><img src="sprites/coin.svg" alt="">${n}</span>`;
+  setHtml($("#shop-grid"), s.farm.shop.map((item) => {
     let button;
-    if (item.owned) button = `<button class="btn" disabled>✓ Есть</button>`;
-    else if (item.available === false) button = `<button class="btn" disabled>Сначала предыдущее</button>`;
-    else if (coins < item.price) button = `<button class="btn" disabled>Не хватает ${item.price - coins}</button>`;
-    else button = `<button class="btn primary" data-buy="${item.item}">Купить</button>`;
-    const kind = { crop: "Растение", expand: "Расширение", decor: "Декор" }[item.kind];
-    return `<div class="card shop-item${item.owned ? " owned" : ""}">
-      <div class="muted small">${kind}</div>
-      <img src="${shopImage(item)}" alt="">
+    if (item.owned) button = `<span class="owned-tag">✓ ${item.kind === "crop" ? "Открыто" : "Куплено"}</span>`;
+    else if (item.available === false) button = `<button class="btn" disabled>Сначала огород поменьше</button>`;
+    else if (coins < item.price) button = `<button class="btn" disabled>ещё ${price(item.price - coins)}</button>`;
+    else button = `<button class="btn primary" data-buy="${item.item}">Купить за ${price(item.price)}</button>`;
+    const kind = { crop: "Растение", expand: "Огород", decor: "Декор" }[item.kind];
+    const locked = item.kind === "crop" && !item.owned;
+    return `<div class="card shop-item${locked ? " locked" : ""}">
+      <span class="shop-kind">${kind}</span>
+      <div class="shop-pic"><img class="main" src="${shopImage(item)}" alt="">${locked ? `<img class="lock" src="sprites/lock.svg" alt="закрыто">` : ""}</div>
       <h3>${item.name}</h3>
-      <div class="price"><img src="sprites/coin.svg" alt="">${item.price}</div>
+      <p class="desc">${SHOP_DESC[item.kind](item, s)}</p>
       ${button}
     </div>`;
   }).join(""));
 }
 
-$("#shop").onclick = async (e) => {
-  const item = e.target.dataset.buy;
-  if (!item) return;
-  render(await api("POST", "/api/shop/buy", { item }));
+$("#shop-grid").onclick = async (e) => {
+  const btn = e.target.closest("[data-buy]");
+  if (!btn) return;
+  render(await api("POST", "/api/shop/buy", { item: btn.dataset.buy }));
+  playTone("harvest");
   toast("Покупка удалась! 🎉");
 };
 tabLoaders.shop = () => state && renderShop(state);
@@ -695,29 +756,38 @@ renderHooks.push((s) => { if ($("#tab-shop").classList.contains("active")) rende
 
 // ================= настройки =================
 
-const THRESHOLD_LABELS = {
-  phone_grace_s: "Телефон можно достать без последствий, с",
-  distraction_confirm_s: "Развлекательное окно до «отвлёкся», с",
-  neutral_limit_s: "Нейтральное окно до «кажется, отвлёкся», с",
-  idle_limit_s: "Без клавиатуры и мыши до «кажется», с",
-  maybe_to_distracted_s: "«Кажется» переходит в «отвлёкся» через, с",
-  recover_s: "Секунд работы для возврата в фокус",
-  notebook_max_min: "Режим тетради подряд максимум, мин",
-  notebook_answer_s: "Ждать ответа «Ты ещё здесь?», с",
-};
-const SESSION_LABELS = {
-  auto_start_on_dock: "Начинать, когда кладу телефон",
-  default_length_min: "Длина сессии, мин",
-  auto_end_after_phone_out_min: "Завершать, если телефона нет, мин",
-  break_min: "Перерыв после сессии, мин",
-  demo_length_min: "Длина сессии в демо, мин",
-};
+// Группы настроек: [раздел, ключ, подпись, единица].
+const SETTINGS_GROUPS = [
+  ["📱 Телефон", [
+    ["thresholds", "phone_grace_s", "Сколько секунд можно смотреть в телефон без последствий", "с"],
+    ["session", "auto_start_on_dock", "Начинать сессию, когда кладу телефон в подставку"],
+    ["session", "auto_end_after_phone_out_min", "Через сколько минут без телефона завершать сессию", "мин"],
+  ]],
+  ["🎮 Отвлечения", [
+    ["thresholds", "distraction_confirm_s", "Сколько секунд на YouTube и т. п. до «Отвлёкся»", "с"],
+    ["thresholds", "neutral_limit_s", "Сколько секунд в «нейтральной» программе до «Кажется, отвлёкся»", "с"],
+    ["thresholds", "idle_limit_s", "Сколько секунд без клавиатуры и мыши до «Кажется, отвлёкся»", "с"],
+    ["thresholds", "maybe_to_distracted_s", "Через сколько секунд «Кажется» становится «Отвлёкся»", "с"],
+    ["thresholds", "recover_s", "Сколько секунд работы нужно, чтобы вернуться в фокус", "с"],
+  ]],
+  ["✏️ Режим тетради", [
+    ["thresholds", "notebook_max_min", "Сколько минут подряд можно писать до вопроса «Ты ещё здесь?»", "мин"],
+    ["thresholds", "notebook_answer_s", "Сколько секунд ждать ответа", "с"],
+  ]],
+  ["⏱ Сессия", [
+    ["session", "default_length_min", "Длина сессии", "мин"],
+    ["session", "break_min", "Перерыв после сессии", "мин"],
+    ["session", "demo_length_min", "Длина сессии в демо-режиме", "мин"],
+  ]],
+];
 
-function field(group, key, label, value) {
+function fieldHtml(group, key, label, unit, value) {
   if (typeof value === "boolean") {
-    return `<label>${label}<input type="checkbox" data-group="${group}" data-key="${key}" ${value ? "checked" : ""}></label>`;
+    return `<label class="field"><span>${label}</span>
+      <span class="toggle"><input type="checkbox" data-group="${group}" data-key="${key}" ${value ? "checked" : ""}><span></span></span></label>`;
   }
-  return `<label>${label}<input type="number" min="0" data-group="${group}" data-key="${key}" value="${value}"></label>`;
+  return `<label class="field"><span>${label}</span>
+    <span class="input-unit"><input type="number" min="0" data-group="${group}" data-key="${key}" value="${value}">${unit || ""}</span></label>`;
 }
 
 async function loadPorts(selected) {
@@ -732,23 +802,37 @@ async function loadPorts(selected) {
 
 async function loadSettings() {
   const s = await api("GET", "/api/settings");
-  $("#thresholds").innerHTML = Object.entries(THRESHOLD_LABELS)
-    .map(([key, label]) => field("thresholds", key, label, s.thresholds[key])).join("");
-  $("#session-settings").innerHTML = Object.entries(SESSION_LABELS)
-    .filter(([key]) => key in s.session)
-    .map(([key, label]) => field("session", key, label, s.session[key])).join("");
-  $("#set-sound").checked = s.sound.enabled;
+  let html = SETTINGS_GROUPS.map(([title, fields]) => `<div class="settings-group"><h3>${title}</h3>` +
+    fields.filter(([group, key]) => key in s[group])
+      .map(([group, key, label, unit]) => fieldHtml(group, key, label, unit, s[group][key])).join("") +
+    `</div>`).join("");
+  html += `<div class="settings-group"><h3>🔊 Звук и режим</h3>
+    <label class="field"><span>Звуки подставки</span>
+      <span class="toggle"><input type="checkbox" id="set-sound" ${s.sound.enabled ? "checked" : ""}><span></span></span></label>
+    <label class="field"><span>Режим работы</span>
+      <select id="set-mode">
+        <option value="normal">обычный</option>
+        <option value="dev">разработчик</option>
+        <option value="demo">демо (ускорение)</option>
+      </select></label>
+    <label class="field"><span>Во сколько раз ускорять время в демо</span>
+      <span class="input-unit">×<input type="number" id="set-speed" min="1" max="1000" value="${s.demo_speed}"></span></label>
+  </div>
+  <div class="settings-group"><h3>🔌 Подставка</h3>
+    <label class="field"><span>COM-порт</span>
+      <span class="input-unit"><select id="set-port"></select><button class="btn small" id="ports-refresh" title="Обновить список">↻</button></span></label>
+    <p class="muted small">«Нет подставки» — работает виртуальная подставка на вкладке «Сессия».</p>
+  </div>`;
+  $("#settings-groups").innerHTML = html;
   $("#set-mode").value = s.mode;
-  $("#set-speed").value = s.demo_speed;
+  $("#ports-refresh").onclick = (e) => { e.preventDefault(); loadPorts($("#set-port").value); };
   await loadPorts(s.device.serial_port);
   await loadRules();
 }
 
-$("#ports-refresh").onclick = () => loadPorts($("#set-port").value);
-
 $("#settings-save").onclick = async () => {
   const body = { thresholds: {}, session: {} };
-  $$("#tab-settings [data-group]").forEach((input) => {
+  $$("#settings-groups [data-group]").forEach((input) => {
     body[input.dataset.group][input.dataset.key] = input.type === "checkbox" ? input.checked : Number(input.value);
   });
   body.sound = { enabled: $("#set-sound").checked };
@@ -774,24 +858,25 @@ function chipList(i, key, title, placeholder) {
   const words = rules.rules[i][key] || [];
   const chips = words.map((w, j) =>
     `<span class="chip-word">${w}<button data-del="${i},${key},${j}" title="Удалить">×</button></span>`).join("");
-  return `<div class="muted small">${title}</div><div class="chips">${chips}</div>
+  return `<div class="muted small">${title}</div><div class="chips">${chips || '<span class="muted small">пока пусто</span>'}</div>
     <div class="form-row"><input type="text" placeholder="${placeholder}" data-input="${i},${key}">
-    <button class="btn small" data-add="${i},${key}">Добавить</button></div>`;
+    <button class="btn small" data-add="${i},${key}">+ Добавить</button></div>`;
 }
 
 function renderRules() {
   $("#rules-default").value = rules.default;
   $("#rules").innerHTML = rules.rules.map((rule, i) => `
-    <div class="rule">
+    <div class="rule cat-${rule.category}">
       <div class="rule-head">
-        <b>${i + 1}.</b>
+        <span class="num">${i + 1}</span>
         <select data-cat="${i}">
           ${Object.entries(CATEGORY_LABELS).map(([v, t]) =>
             `<option value="${v}" ${rule.category === v ? "selected" : ""}>${t}</option>`).join("")}
         </select>
+        <span class="spacer"></span>
         <button class="btn small" data-move="${i},-1" title="Выше">↑</button>
         <button class="btn small" data-move="${i},1" title="Ниже">↓</button>
-        <button class="btn small danger" data-remove="${i}">Удалить правило</button>
+        <button class="btn small danger" data-remove="${i}" title="Удалить правило">✕</button>
       </div>
       ${chipList(i, "process", "Программы", "например, code.exe")}
       ${chipList(i, "title_contains", "Слова в заголовке окна", "например, stepik")}
@@ -822,7 +907,10 @@ $("#rules").onclick = (e) => {
   renderRules();
 };
 $("#rules").onchange = (e) => {
-  if (e.target.dataset.cat !== undefined) rules.rules[e.target.dataset.cat].category = e.target.value;
+  if (e.target.dataset.cat !== undefined) {
+    rules.rules[e.target.dataset.cat].category = e.target.value;
+    renderRules();
+  }
 };
 $("#rules").onkeydown = (e) => {
   if (e.key === "Enter" && e.target.dataset.input) $(`[data-add="${e.target.dataset.input}"]`).click();
