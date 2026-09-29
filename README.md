@@ -39,6 +39,9 @@ py -3 -m venv .venv
 | `--no-browser` | не открывать браузер |
 
 Демо для защиты: **`run_demo.bat`** и сценарий [`docs/DEMO.md`](docs/DEMO.md).
+Автопилот показа: `python scripts/demo_autopilot.py` (`--step` — по Enter).
+Скриншоты для самопроверки: `pip install -r requirements-dev.txt`, затем
+`python scripts/screenshots.py` → [`docs/screenshots/`](docs/screenshots/README.md).
 Ускорение можно включить и переменной окружения `FOCUSFARM_DEMO_SPEED=30`.
 
 ## Как это работает
@@ -105,7 +108,8 @@ focusfarm/
   reactions.py   состояние → свет и звук (с ограничением частоты)
   storage/db.py  SQLite и миграции
   api/server.py  REST + WebSocket
-  web/           интерфейс: index.html, app.js, style.css, sprites/
+  web/           интерфейс: index.html, app.js, style.css, sprites/, fonts/ (Nunito, OFL)
+scripts/         автопилот демо и скриншоты
 firmware/        прошивка ESP32 и протокол
 docs/DEMO.md     сценарий демо
 tests/           pytest

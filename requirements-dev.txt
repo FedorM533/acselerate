@@ -1,0 +1,5 @@
+# Только для разработки (приложению не нужно).
+-r requirements.txt
+# Скриншоты интерфейса для самопроверки: scripts/screenshots.py
+# После установки: python -m playwright install chromium (или используется установленный Google Chrome)
+playwright>=1.45

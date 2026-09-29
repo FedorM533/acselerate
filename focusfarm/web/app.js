@@ -208,9 +208,9 @@ let lastCoins = null;
 
 function dockStatus(s) {
   const d = s.device;
-  if (d.source === "serial" && d.connected) return { cls: "ok", text: "подставка подключена" };
-  if (d.status) return { cls: "bad", text: "подставка не подключена" };
-  return { cls: "virtual", text: "виртуальная подставка" };
+  if (d.source === "serial" && d.connected) return { cls: "ok", text: "подключена" };
+  if (d.status) return { cls: "bad", text: "не подключена" };
+  return { cls: "virtual", text: "виртуальная" };
 }
 
 function renderHeader(s) {
@@ -223,7 +223,7 @@ function renderHeader(s) {
   const dock = dockStatus(s);
   $("#dock-chip").className = "chip dock-chip " + dock.cls;
   $("#dock-chip-text").textContent = dock.text;
-  $("#dock-chip").title = s.device.status || dock.text;
+  $("#dock-chip").title = s.device.status || `Подставка: ${dock.text}`;
   const badge = $("#demo-badge");
   badge.hidden = s.mode !== "demo";
   badge.textContent = `ДЕМО ×${s.speed}`;
@@ -540,7 +540,7 @@ function renderStand(s) {
   $("#stand").title = s.dev_tools ? "Нажми, чтобы положить или взять телефон" : "Подставка";
   $("#stand-status").textContent = s.phone.docked ? "📱 Телефон в подставке" : "Телефона нет в подставке";
   const dock = dockStatus(s);
-  let hint = s.device.status || (dock.cls === "virtual" ? "Виртуальная подставка — настоящая не подключена" : "");
+  let hint = s.device.status || (dock.cls === "virtual" ? "Виртуальная подставка — настоящая не подключена" : "Подставка подключена");
   if (s.dev_tools) hint += (hint ? ". " : "") + "Клик по подставке — взять/положить телефон";
   $("#stand-hint").textContent = hint;
 }
