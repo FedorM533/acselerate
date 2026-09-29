@@ -1,0 +1,12 @@
+# Правила классификации окон. Применяются сверху вниз, первое совпадение побеждает.
+# process — имя процесса (без учёта регистра), title_contains — слова в заголовке окна.
+default: neutral
+rules:
+  - category: work
+    process: [code.exe, idea64.exe, pycharm64.exe, winword.exe, excel.exe, powerpnt.exe, acrord32.exe, notepad++.exe]
+  - category: work
+    title_contains: [moodle, stepik, "google docs", "документ", overleaf, leetcode]
+  - category: distraction
+    title_contains: [youtube, "вконтакте", vk.com, tiktok, twitch, "кинопоиск", "steam"]
+  - category: distraction
+    process: [steam.exe, telegram.exe, discord.exe]
