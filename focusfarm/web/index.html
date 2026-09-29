@@ -1,5 +1,217 @@
 <!doctype html>
 <html lang="ru">
-<head><meta charset="utf-8"><title>Фокус-ферма</title></head>
-<body><h1>Hello, Фокус-ферма!</h1></body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Фокус-ферма</title>
+  <link rel="icon" href="sprites/sunflower_ready.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="sprites/sunflower_ready.svg" alt=""> Фокус-ферма</div>
+    <div id="demo-badge" class="demo-badge" hidden>ДЕМО ×30</div>
+    <div class="top-stats">
+      <span class="pill" title="Монеты"><img src="sprites/coin.svg" alt=""> <b id="coins">0</b></span>
+      <span class="pill" title="Дней подряд с 25+ минутами фокуса">🔥 <b id="streak">0</b> дн.</span>
+      <span class="pill" id="weather" title="Погода">☀️</span>
+      <span class="pill state-pill" id="state-pill">…</span>
+      <button class="pill icon-btn" id="browser-sound" title="Звук в браузере">🔈</button>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <nav class="tabs">
+    <button data-tab="farm" class="active">🌱 Ферма</button>
+    <button data-tab="session">⏱ Сессия</button>
+    <button data-tab="stats">📊 Статистика</button>
+    <button data-tab="shop">🛒 Магазин</button>
+    <button data-tab="settings">⚙️ Настройки</button>
+  </nav>
+
+  <main>
+    <!-- ФЕРМА -->
+    <section id="tab-farm" class="tab active">
+      <div class="farm-wrap">
+        <div class="farm-scene" id="farm-scene">
+          <div class="rain" id="rain" hidden></div>
+          <div class="decor decor-left" id="decor-left"></div>
+          <div class="farm-grid" id="farm-grid"></div>
+          <div class="decor decor-right" id="decor-right"></div>
+        </div>
+        <aside class="card farm-side">
+          <h3>Сейчас</h3>
+          <p id="farm-status" class="big-text">Сессия не идёт</p>
+          <p id="farm-hint" class="muted"></p>
+          <button id="farm-start" class="btn primary">Начать сессию</button>
+          <h3>Прополка</h3>
+          <p id="weed-status" class="muted"></p>
+          <h3>Сегодня</h3>
+          <p><b id="today-focus">0</b> мин фокуса</p>
+        </aside>
+      </div>
+    </section>
+
+    <!-- СЕССИЯ -->
+    <section id="tab-session" class="tab">
+      <div class="session-layout">
+        <div class="card session-main">
+          <div class="state-indicator" id="state-indicator">
+            <div class="state-dot"></div>
+            <div class="state-text" id="state-text">Сессия не идёт</div>
+          </div>
+          <div class="timer" id="timer">25:00</div>
+          <div class="timer-sub muted" id="timer-sub">запланировано</div>
+          <div class="progress"><div id="session-progress"></div></div>
+
+          <div id="start-form" class="start-form">
+            <label>Грядка <select id="start-plot"></select></label>
+            <label>Растение <select id="start-crop"></select></label>
+            <label>Минут <input id="start-length" type="number" min="1" max="240" value="25"></label>
+            <button id="start-btn" class="btn primary big">▶ Начать</button>
+          </div>
+
+          <div id="session-controls" class="controls" hidden>
+            <button id="pause-btn" class="btn">⏸ Пауза</button>
+            <button id="notebook-btn" class="btn">📓 Пишу в тетради</button>
+            <button id="end-btn" class="btn danger">⏹ Завершить</button>
+          </div>
+          <div id="presence" class="presence" hidden>
+            <p>Ты ещё здесь? Режим тетради идёт уже долго.</p>
+            <button id="presence-btn" class="btn primary big">Я здесь!</button>
+          </div>
+        </div>
+
+        <div class="session-side">
+          <div class="card">
+            <h3>Подставка</h3>
+            <div class="dock">
+              <div class="dock-led" id="dock-led"></div>
+              <div>
+                <div id="dock-status" class="big-text">—</div>
+                <div id="dock-phone" class="muted">—</div>
+                <div id="dock-sound" class="muted"></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Активное окно</h3>
+            <p><span class="cat" id="act-category">—</span> <span id="act-process" class="muted">—</span></p>
+            <p class="muted">Без ввода: <span id="act-idle">0</span> с</p>
+            <p class="muted small">Заголовки окон не сохраняются — только категория и имя программы.</p>
+          </div>
+          <div class="card">
+            <h3>За эту сессию</h3>
+            <div id="session-totals" class="totals"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- СТАТИСТИКА -->
+    <section id="tab-stats" class="tab">
+      <div class="seg" id="stats-range">
+        <button data-range="day" class="active">Сегодня</button>
+        <button data-range="week">Неделя</button>
+      </div>
+      <div class="stats-cards">
+        <div class="card stat"><div class="stat-num" id="st-focus">0</div><div class="muted">мин в фокусе</div></div>
+        <div class="card stat"><div class="stat-num" id="st-sessions">0</div><div class="muted">сессий</div></div>
+        <div class="card stat"><div class="stat-num" id="st-distr">0</div><div class="muted">отвлечений</div></div>
+        <div class="card stat"><div class="stat-num" id="st-reasons">—</div><div class="muted">окно / телефон</div></div>
+      </div>
+      <div class="card">
+        <h3>Хронология последней сессии</h3>
+        <div class="timeline" id="timeline"></div>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="stats-row">
+        <div class="card">
+          <h3>Время по состояниям</h3>
+          <div id="st-states" class="bars"></div>
+        </div>
+        <div class="card">
+          <h3>Куда уходит внимание</h3>
+          <ol id="st-top" class="top-list"></ol>
+        </div>
+        <div class="card" id="week-card">
+          <h3>Фокус по дням</h3>
+          <div id="st-days" class="days-chart"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- МАГАЗИН -->
+    <section id="tab-shop" class="tab">
+      <p class="muted">Монеты зарабатываются только урожаем. Декор просто для красоты.</p>
+      <div class="shop" id="shop"></div>
+    </section>
+
+    <!-- НАСТРОЙКИ -->
+    <section id="tab-settings" class="tab">
+      <div class="settings-layout">
+        <div class="card">
+          <h3>Пороги</h3>
+          <div id="thresholds" class="form-grid"></div>
+          <h3>Сессия</h3>
+          <div id="session-settings" class="form-grid"></div>
+          <h3>Звук и режим</h3>
+          <div class="form-grid">
+            <label>Звуки подставки <input type="checkbox" id="set-sound"></label>
+            <label>Режим
+              <select id="set-mode">
+                <option value="normal">обычный</option>
+                <option value="dev">разработчик</option>
+                <option value="demo">демо (ускорение)</option>
+              </select>
+            </label>
+            <label>Ускорение демо, ×<input type="number" id="set-speed" min="1" max="1000"></label>
+          </div>
+          <h3>Подставка (COM-порт)</h3>
+          <div class="form-row">
+            <select id="set-port"></select>
+            <button class="btn" id="ports-refresh">↻</button>
+          </div>
+          <p class="muted small">«Нет подставки» — работает виртуальная подставка.</p>
+          <button class="btn primary" id="settings-save">Сохранить настройки</button>
+        </div>
+        <div class="card">
+          <h3>Правила для окон</h3>
+          <p class="muted small">Сверху вниз, первое совпадение побеждает. Имя программы — точно (например, <code>code.exe</code>), слова заголовка — по вхождению.</p>
+          <label>Если ничего не подошло:
+            <select id="rules-default">
+              <option value="work">работа</option>
+              <option value="neutral">нейтрально</option>
+              <option value="distraction">отвлечение</option>
+            </select>
+          </label>
+          <div id="rules"></div>
+          <div class="form-row">
+            <button class="btn" id="rule-add">+ Правило</button>
+            <button class="btn primary" id="rules-save">Сохранить правила</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Панель разработчика: только в режимах dev/demo -->
+  <div id="dev-panel" class="dev-panel" hidden>
+    <b>🛠 Панель разработчика</b>
+    <label class="switch"><input type="checkbox" id="dev-phone"> Телефон в подставке</label>
+    <label>Окно:
+      <select id="dev-category">
+        <option value="">настоящее</option>
+        <option value="work">работа</option>
+        <option value="neutral">нейтрально</option>
+        <option value="distraction">отвлечение (YouTube)</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
 </html>
