@@ -1,0 +1,14 @@
+# Сервер
+fastapi>=0.110
+uvicorn[standard]>=0.29
+# Конфиги
+PyYAML>=6.0
+# Имя процесса активного окна
+psutil>=5.9
+# Активное окно на Windows
+pywin32>=306; sys_platform == "win32"
+# Связь с подставкой ESP32
+pyserial>=3.5
+# Тесты (httpx нужен для TestClient из FastAPI)
+pytest>=8.0
+httpx>=0.27
