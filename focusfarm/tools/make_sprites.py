@@ -60,7 +60,7 @@ def seed(crop):
     color = SEED_COLORS[crop]
     stripes = ""
     if crop == "sunflower":
-        stripes = f'<path d="M46 78 L54 83" stroke="#EDE4D8" stroke-width="1.6"/>'
+        stripes = '<path d="M46 78 L54 83" stroke="#EDE4D8" stroke-width="1.6"/>'
     return svg(crumb() + f'<ellipse cx="50" cy="80" rx="9" ry="6.5" fill="{color}" {O} transform="rotate(-20 50 80)"/>' + stripes
                + f'<path d="M52 74 q3 -8 10 -9" stroke="{INK}" stroke-width="5.5" fill="none" stroke-linecap="round"/>'
                + f'<path d="M52 74 q3 -8 10 -9" stroke="{LEAF}" stroke-width="3" fill="none" stroke-linecap="round"/>')
@@ -95,7 +95,7 @@ def radish(ready):
     tops = leaf(40, 46, 8, 20, -25) + leaf(60, 46, 8, 20, 25) + leaf(50, 40, 8, 22, 0, LEAF_DARK)
     if not ready:
         return tops + f'<ellipse cx="50" cy="80" rx="10" ry="9" fill="#D8456B" {O}/>'
-    return tops + f'<path d="M50 94 L50 99" stroke="#E8C6CF" stroke-width="2.5" stroke-linecap="round"/>' \
+    return tops + '<path d="M50 94 L50 99" stroke="#E8C6CF" stroke-width="2.5" stroke-linecap="round"/>' \
         + f'<ellipse cx="50" cy="78" rx="16" ry="15" fill="#E04A72" {O}/>' \
         + '<ellipse cx="44" cy="72" rx="4.5" ry="3.5" fill="#F7A3B8"/>'
 
@@ -142,7 +142,7 @@ def pumpkin(ready):
         + f'<ellipse cx="63" cy="76" rx="14" ry="16" fill="#E8791F" {O}/>' \
         + f'<ellipse cx="50" cy="76" rx="14" ry="17" fill="#F58A2A" {O}/>' \
         + f'<path d="M50 60 Q46 52 53 47" stroke="{INK}" stroke-width="6.5" fill="none" stroke-linecap="round"/>' \
-        + f'<path d="M50 60 Q46 52 53 47" stroke="#5B7A2A" stroke-width="4" fill="none" stroke-linecap="round"/>' \
+        + '<path d="M50 60 Q46 52 53 47" stroke="#5B7A2A" stroke-width="4" fill="none" stroke-linecap="round"/>' \
         + '<ellipse cx="44" cy="69" rx="3" ry="6" fill="#FFB36B"/>'
 
 
