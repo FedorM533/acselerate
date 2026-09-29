@@ -1,0 +1,58 @@
+# Основные настройки «Фокус-фермы».
+# Изменения из раздела «Настройки» в интерфейсе хранятся в базе и
+# накладываются поверх этого файла.
+
+server:
+  port: 8765
+
+# normal — обычная работа; dev — видна панель разработчика;
+# demo — ускоренное время (demo_speed) + панель разработчика.
+mode: normal
+demo_speed: 30
+
+thresholds:
+  phone_grace_s: 30            # телефон можно достать на 30 с без последствий
+  distraction_confirm_s: 30    # сколько секунд в категории distraction до DISTRACTED
+  neutral_limit_s: 90          # сколько секунд в neutral до MAYBE_DISTRACTED
+  idle_limit_s: 180            # простой без ввода до MAYBE_DISTRACTED (не в режиме тетради)
+  maybe_to_distracted_s: 180   # сколько длится MAYBE до DISTRACTED
+  recover_s: 5                 # сколько секунд «хороших» сигналов нужно, чтобы вернуться в FOCUS
+  notebook_max_min: 45         # максимум режима тетради подряд, затем вопрос «ты ещё тут?»
+  notebook_answer_s: 120       # сколько ждём ответа на «ты ещё тут?»
+
+session:
+  auto_start_on_dock: true
+  default_length_min: 25
+  auto_end_after_phone_out_min: 10
+  break_min: 5
+
+sound:
+  enabled: true
+  distracted_repeat_s: 180     # звук «отвлёкся» не чаще раза в 3 минуты
+  min_gap_s: 5                 # любые два звука — не чаще, чем раз в 5 секунд
+
+device:
+  serial_port: ""              # "" — подставки нет, работаем с виртуальной
+
+game:
+  crops:
+    radish:    {name: "Редис",     focus_min: 10, coins: 5,  price: 0}
+    carrot:    {name: "Морковь",   focus_min: 25, coins: 15, price: 30}
+    potato:    {name: "Картофель", focus_min: 40, coins: 25, price: 80}
+    sunflower: {name: "Подсолнух", focus_min: 60, coins: 45, price: 150}
+    pumpkin:   {name: "Тыква",     focus_min: 90, coins: 80, price: 300}
+  start_size: 3
+  expansions:
+    expand_4: {size: 4, price: 200}
+    expand_5: {size: 5, price: 500}
+  decor:
+    scarecrow: {name: "Пугало",  price: 20}
+    fence:     {name: "Забор",   price: 40}
+    bench:     {name: "Скамейка", price: 60}
+  weed_every_s: 60             # сорняк за каждые 60 с непрерывного отвлечения
+  max_weeds: 3
+  weed_unlock_focus_s: 300     # прополка доступна после 5 минут фокуса в сессии
+  weed_penalty: 0.2            # −20% урожая, если рядом сорняк
+  streak_day_min: 25           # день засчитан при ≥ 25 минутах фокуса
+  rain_streak_days: 3
+  rain_bonus: 0.1              # +10% к скорости роста в дождь
