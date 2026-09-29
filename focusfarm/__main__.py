@@ -6,8 +6,10 @@
   --port N       порт (по умолчанию из settings.yaml)
   --no-browser   не открывать браузер
   --db PATH      другой файл базы (например, чистая ферма для демо)
+  --fresh        начать с чистой фермы (стирает файл из --db; основную базу не трогает)
 """
 import argparse
+from pathlib import Path
 import logging
 import threading
 import webbrowser
@@ -30,7 +32,12 @@ def main():
     parser.add_argument("--port", type=int, help="порт сервера")
     parser.add_argument("--no-browser", action="store_true", help="не открывать браузер")
     parser.add_argument("--db", help="путь к файлу базы (по умолчанию data/focusfarm.db)")
+    parser.add_argument("--fresh", action="store_true", help="чистая ферма (только вместе с --db)")
     args = parser.parse_args()
+    if args.fresh:
+        if not args.db or Path(args.db).resolve() == DEFAULT_PATH.resolve():
+            parser.error("--fresh работает только с отдельной базой: --db data/demo.db")
+        Path(args.db).unlink(missing_ok=True)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 

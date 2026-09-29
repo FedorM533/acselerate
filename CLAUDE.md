@@ -11,10 +11,12 @@ pywin32 (Windows), pyserial, pytest. Фронтенд — `focusfarm/web/`: чи
 
 ## Команды
 - Установка: `py -3 -m venv .venv` → `.venv\Scripts\python -m pip install -r requirements.txt`
-- Запуск: `run.bat` (или `.venv\Scripts\python -m focusfarm`), флаги `--no-browser`, `--demo 30`, `--dev`
+- Запуск: `run.bat` (или `.venv\Scripts\python -m focusfarm`), флаги `--no-browser`, `--demo 30`, `--dev`, `--port`, `--db`, `--fresh`
+- Демо для защиты: `run_demo.bat` (×30, чистая ферма в `data/demo.db`), сценарий — `docs/DEMO.md`
 - Тесты: `.venv\Scripts\python -m pytest -q`
 - Монитор активности в консоли: `python -m focusfarm.activity`
 - Проверка подставки: `python -m focusfarm.tools.serial_console --list`
+- Перерисовать спрайты: `python -m focusfarm.tools.make_sprites`
 
 ## Принципы (не нарушать)
 1. Приватность: без камеры, микрофона, скриншотов и кейлоггера. Заголовки окон —
@@ -25,3 +27,10 @@ pywin32 (Windows), pyserial, pytest. Фронтенд — `focusfarm/web/`: чи
 5. Простота: минимум зависимостей, код понятен первокурснику, комментарии на русском.
 6. Тестируемость: время только через `Clock` (`FakeClock` в тестах).
 7. Ошибки оборудования/монитора не роняют программу — лог + сообщение в интерфейсе.
+
+## Как устроено (коротко)
+- `SessionManager.tick()` раз в секунду: монитор → классификатор → `StateMachine` → `GameEngine` → БД и шина событий.
+- Демо: «игровое» время = настоящее × `demo_speed`; им меряются пороги и рост. Простой клавиатуры НЕ ускоряется.
+- `Dock` = датчик телефона + свет/звук: ESP32 по serial, при потере связи — виртуальная подставка.
+- Тесты API — через `tests/conftest.py` (`Env`: FakeClock, база в памяти, `FakeMonitor`).
+- Толкования неоднозначных мест ТЗ — `docs/DECISIONS.md`. Спорное — спрашивать у команды.
