@@ -15,8 +15,8 @@ from pydantic import BaseModel
 
 from focusfarm.activity.classifier import RULES_PATH, save_rules
 from focusfarm.activity.monitor import create_monitor
-from focusfarm.device.dock import Dock
 from focusfarm.config import ConfigError, deep_merge, load_settings
+from focusfarm.device.dock import Dock
 from focusfarm.game.engine import GameError
 from focusfarm.session.manager import SessionManager
 from focusfarm.session.stats import compute_stats
