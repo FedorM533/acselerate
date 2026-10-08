@@ -29,8 +29,8 @@ def ticks(game, state, seconds, today=TODAY):
 
 def test_crop_table():
     crops = load_crops()
-    assert crops["radish"].focus_min == 10 and crops["radish"].price == 0
-    assert crops["pumpkin"].coins == 80 and crops["pumpkin"].price == 300
+    assert crops["guppy"].focus_min == 10 and crops["guppy"].price == 0
+    assert crops["arowana"].coins == 80 and crops["arowana"].price == 300
 
 
 def test_stages():
@@ -40,31 +40,31 @@ def test_stages():
 
 def test_start_grid_3x3_and_only_radish_unlocked(game):
     assert game.size == 3 and len(game.plots) == 9
-    assert game.unlocks == {"radish"}
+    assert game.unlocks == {"guppy"}
 
 
 def test_default_crop_closest_to_length(game):
-    game.unlocks |= {"carrot", "potato"}
-    assert game.default_crop(25) == "carrot"
-    assert game.default_crop(35) == "potato"
-    assert game.default_crop(5) == "radish"
+    game.unlocks |= {"goldfish", "koi"}
+    assert game.default_crop(25) == "goldfish"
+    assert game.default_crop(35) == "koi"
+    assert game.default_crop(5) == "guppy"
 
 
 def test_begin_session_plants_on_empty_plot(game):
     pos = game.begin_session(length_min=25)
     assert pos == (0, 0)
-    assert game.plot(0, 0).crop_id == "radish"
+    assert game.plot(0, 0).crop_id == "guppy"
 
 
 def test_cannot_plant_locked_crop(game):
     with pytest.raises(GameError):
-        game.begin_session((0, 0), "pumpkin")
+        game.begin_session((0, 0), "arowana")
 
 
 # ---------- рост ----------
 
 def test_grows_only_in_focus_and_notebook(game):
-    game.begin_session((0, 0), "radish")
+    game.begin_session((0, 0), "guppy")
     ticks(game, FOCUS, 10)
     ticks(game, NOTEBOOK, 10)
     for state in (MAYBE_DISTRACTED, DISTRACTED, PHONE_OUT, PAUSED):
@@ -73,14 +73,14 @@ def test_grows_only_in_focus_and_notebook(game):
 
 
 def test_ripens_and_emits_event(game):
-    game.begin_session((0, 0), "radish")
+    game.begin_session((0, 0), "guppy")
     events = ticks(game, FOCUS, 600)
     assert game.is_ripe(0, 0)
-    assert events == [{"type": "crop_ready", "x": 0, "y": 0, "crop": "radish"}]
+    assert events == [{"type": "crop_ready", "x": 0, "y": 0, "crop": "guppy"}]
 
 
 def test_progress_kept_between_sessions(game):
-    game.begin_session((0, 0), "radish")
+    game.begin_session((0, 0), "guppy")
     ticks(game, FOCUS, 100)
     game.end_session()
     assert game.default_plot() == (0, 0)   # продолжаем недоросшее
@@ -92,14 +92,14 @@ def test_progress_kept_between_sessions(game):
 # ---------- сорняки ----------
 
 def test_weed_every_60s_of_continuous_distraction(game):
-    game.begin_session((0, 0), "radish")
+    game.begin_session((0, 0), "guppy")
     assert ticks(game, DISTRACTED, 59) == []
     events = ticks(game, PHONE_OUT, 1)
     assert events == [{"type": "weed", "x": 0, "y": 0}]
 
 
 def test_interrupted_distraction_restarts_weed_timer(game):
-    game.begin_session((0, 0), "radish")
+    game.begin_session((0, 0), "guppy")
     ticks(game, DISTRACTED, 50)
     ticks(game, MAYBE_DISTRACTED, 1)
     assert ticks(game, DISTRACTED, 50) == []
@@ -107,7 +107,7 @@ def test_interrupted_distraction_restarts_weed_timer(game):
 
 def test_weeds_only_on_plots_with_plants_max_3(game):
     for pos in [(0, 0), (1, 1), (2, 2), (0, 2)]:
-        game.plots[pos].crop_id = "radish"
+        game.plots[pos].crop_id = "guppy"
     game.active_plot = (0, 0)
     ticks(game, DISTRACTED, 600)
     assert game.weeds_total() == 3
@@ -117,8 +117,8 @@ def test_weeds_only_on_plots_with_plants_max_3(game):
 
 
 def test_weeding_requires_5_min_focus(game):
-    game.begin_session((0, 0), "radish")
-    game.plots[(1, 0)].crop_id = "radish"
+    game.begin_session((0, 0), "guppy")
+    game.plots[(1, 0)].crop_id = "guppy"
     game.plots[(1, 0)].weeds = 1
     ticks(game, FOCUS, 299)
     with pytest.raises(GameError):
@@ -129,17 +129,17 @@ def test_weeding_requires_5_min_focus(game):
 
 
 def test_weed_on_neighbour_reduces_harvest_by_20_percent(game):
-    game.begin_session((1, 1), "radish")
+    game.begin_session((1, 1), "guppy")
     game.plots[(1, 1)].quality_hits = 1        # ★★ ×1.0 → 5 монет
     game.plots[(1, 1)].progress_s = 600
-    game.plots[(2, 1)].crop_id = "radish"
+    game.plots[(2, 1)].crop_id = "guppy"
     game.plots[(2, 1)].weeds = 1
     assert game.harvest_value(1, 1)["coins"] == 4   # floor(5 × 0.8)
 
 
 def test_far_weed_does_not_reduce_harvest(game):
-    game.plots[(0, 0)] = game.plots[(0, 0)].__class__("radish", 600, 0, 1)
-    game.plots[(2, 2)].crop_id = "radish"
+    game.plots[(0, 0)] = game.plots[(0, 0)].__class__("guppy", 600, 0, 1)
+    game.plots[(2, 2)].crop_id = "guppy"
     game.plots[(2, 2)].weeds = 1
     assert game.harvest_value(0, 0)["coins"] == 5
 
@@ -154,7 +154,7 @@ def test_quality_table():
 
 
 def test_quality_counts_episodes_not_seconds(game):
-    game.begin_session((0, 0), "radish")
+    game.begin_session((0, 0), "guppy")
     ticks(game, DISTRACTED, 10)
     ticks(game, PHONE_OUT, 10)      # продолжение того же эпизода
     ticks(game, FOCUS, 5)
@@ -165,7 +165,7 @@ def test_quality_counts_episodes_not_seconds(game):
 # ---------- урожай и монеты ----------
 
 def test_harvest_perfect_quality(game):
-    game.begin_session((0, 0), "radish")
+    game.begin_session((0, 0), "guppy")
     ticks(game, FOCUS, 600)
     result = game.harvest(0, 0)
     assert result["coins"] == 7 and result["stars"] == 3   # floor(5 × 1.5)
@@ -173,24 +173,24 @@ def test_harvest_perfect_quality(game):
 
 
 def test_harvest_unripe_forbidden(game):
-    game.begin_session((0, 0), "radish")
+    game.begin_session((0, 0), "guppy")
     with pytest.raises(GameError):
         game.harvest(0, 0)
 
 
 def test_harvest_active_plot_replants(game):
-    game.begin_session((0, 0), "radish")
+    game.begin_session((0, 0), "guppy")
     ticks(game, FOCUS, 600)
     game.harvest(0, 0)
-    assert game.plot(0, 0).crop_id == "radish"
+    assert game.plot(0, 0).crop_id == "guppy"
     assert game.plot(0, 0).progress_s == 0
 
 
 def test_plants_never_die(game):
-    game.begin_session((0, 0), "radish")
+    game.begin_session((0, 0), "guppy")
     ticks(game, FOCUS, 100)
     ticks(game, PHONE_OUT, 10_000)
-    assert game.plot(0, 0).crop_id == "radish"
+    assert game.plot(0, 0).crop_id == "guppy"
     assert game.plot(0, 0).progress_s == 100
 
 
@@ -220,7 +220,7 @@ def test_streak_broken_by_gap(game):
 def test_rain_speeds_growth_10_percent(game):
     for back in (0, 1, 2):
         game.days[(TODAY - dt.timedelta(days=back)).isoformat()] = 1500
-    game.begin_session((0, 0), "radish")
+    game.begin_session((0, 0), "guppy")
     ticks(game, FOCUS, 100)
     assert game.plot(0, 0).progress_s == pytest.approx(110)
 
@@ -229,14 +229,14 @@ def test_rain_speeds_growth_10_percent(game):
 
 def test_buy_crop(game):
     game.coins = 30
-    game.buy("crop:carrot")
-    assert "carrot" in game.unlocks and game.coins == 0
+    game.buy("crop:goldfish")
+    assert "goldfish" in game.unlocks and game.coins == 0
 
 
 def test_buy_without_money_fails(game):
     game.coins = 10
     with pytest.raises(GameError):
-        game.buy("crop:carrot")
+        game.buy("crop:goldfish")
     assert game.coins == 10
 
 
@@ -253,17 +253,17 @@ def test_expansions_in_order(game):
 
 def test_decor_has_no_game_effect(game):
     game.coins = 20
-    game.buy("decor:scarecrow")
-    assert "decor:scarecrow" in game.unlocks
+    game.buy("decor:plants")
+    assert "decor:plants" in game.unlocks
     with pytest.raises(GameError):
-        game.buy("decor:scarecrow")
+        game.buy("decor:plants")
 
 
 # ---------- сохранение ----------
 
 def test_save_and_load_roundtrip(game):
     game.coins = 42
-    game.begin_session((1, 2), "radish")
+    game.begin_session((1, 2), "guppy")
     ticks(game, FOCUS, 30)
     restored = GameEngine()
     restored.load_dict(game.to_dict())

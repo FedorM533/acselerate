@@ -1,4 +1,4 @@
-# Основные настройки «Фокус-фермы».
+# Основные настройки «Фокус-пруда».
 # Изменения из раздела «Настройки» в интерфейсе хранятся в базе и
 # накладываются поверх этого файла.
 
@@ -33,27 +33,29 @@ sound:
   min_gap_s: 5                 # любые два звука — не чаще, чем раз в 5 секунд
 
 device:
-  serial_port: ""              # "" — подставки нет, работаем с виртуальной
+  serial_port: ""              # "" — подставки ESP32 нет
+  phone_source: auto           # auto — любой способ; usb — кабель; serial — подставка; mock — вручную
+  usb_phone: {id: "", name: ""}  # телефон, привязанный по USB (заполняется мастером привязки)
 
 game:
   crops:
-    radish:    {name: "Редис",     focus_min: 10, coins: 5,  price: 0}
-    carrot:    {name: "Морковь",   focus_min: 25, coins: 15, price: 30}
-    potato:    {name: "Картофель", focus_min: 40, coins: 25, price: 80}
-    sunflower: {name: "Подсолнух", focus_min: 60, coins: 45, price: 150}
-    pumpkin:   {name: "Тыква",     focus_min: 90, coins: 80, price: 300}
+    guppy:    {name: "Гуппи",     focus_min: 10, coins: 5,  price: 0}
+    goldfish:    {name: "Золотая рыбка", focus_min: 25, coins: 15, price: 30}
+    koi:    {name: "Карп кои", focus_min: 40, coins: 25, price: 80}
+    angelfish: {name: "Скалярия", focus_min: 60, coins: 45, price: 150}
+    arowana:   {name: "Аравана", focus_min: 90, coins: 80, price: 300}
   start_size: 3
   expansions:
     expand_4: {size: 4, price: 200}
     expand_5: {size: 5, price: 500}
   decor:
-    scarecrow: {name: "Пугало",  price: 20}
-    fence:     {name: "Забор",   price: 40}
-    bench:     {name: "Скамейка", price: 60}
-  weed_every_s: 60             # сорняк за каждые 60 с непрерывного отвлечения
+    plants: {name: "Водоросли", price: 20}
+    rocks:     {name: "Камни", price: 40}
+    castle:     {name: "Замок", price: 60}
+  weed_every_s: 60             # ил за каждые 60 с непрерывного отвлечения
   max_weeds: 3
-  weed_unlock_focus_s: 300     # прополка доступна после 5 минут фокуса в сессии
-  weed_penalty: 0.2            # −20% урожая, если рядом сорняк
+  weed_unlock_focus_s: 300     # очистка воды доступна после 5 минут фокуса в сессии
+  weed_penalty: 0.2            # −20% монет, если рядом ил
   streak_day_min: 25           # день засчитан при ≥ 25 минутах фокуса
   rain_streak_days: 3
-  rain_bonus: 0.1              # +10% к скорости роста в дождь
+  rain_bonus: 0.1              # +10% к скорости роста (родник)

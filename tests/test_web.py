@@ -8,7 +8,7 @@ WEB = Path(__file__).resolve().parent.parent / "focusfarm" / "web"
 
 
 def test_static_files_served(env):
-    for path in ("/", "/app.js", "/style.css", "/sprites/plot.svg", "/sprites/weed.svg"):
+    for path in ("/", "/app.js", "/style.css", "/sprites/spot.svg", "/sprites/silt.svg"):
         assert env.client.get(path).status_code == 200, path
 
 
@@ -16,7 +16,7 @@ def test_sprites_for_every_crop_and_stage(env):
     for crop in DEFAULT_CROPS:
         for stage in ("adult", "ready"):
             assert env.client.get(f"/sprites/{crop}_{stage}.svg").status_code == 200
-    for name in ("seed", "sprout", "young", "drop", "coin", "scarecrow", "fence", "bench"):
+    for name in ("seed", "sprout", "young", "bubble", "coin", "plants", "rocks", "castle"):
         assert env.client.get(f"/sprites/{name}.svg").status_code == 200
 
 
@@ -28,7 +28,7 @@ def test_no_external_resources():
 
 
 def test_all_crop_stages_have_sprites_and_valid_svg():
-    """5 культур × 5 стадий — отдельные SVG; все спрайты — корректный XML."""
+    """5 рыбок × 5 стадий — отдельные SVG; все спрайты — корректный XML."""
     import xml.dom.minidom
 
     sprites = WEB / "sprites"

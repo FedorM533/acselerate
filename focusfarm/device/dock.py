@@ -7,16 +7,24 @@ Dock одновременно реализует PhoneSensor и DeviceOutput, п
 - Порт задан и связь есть → датчик и свет/звук идут через ESP32.
 - Связь пропала → «подставка не подключена», автоматически работаем через
   mock, а в фоне переподключаемся. После переподключения повторяем цвет LED.
+- Телефон, подключённый кабелем (UsbPhoneSensor), считается «в подставке»
+  независимо от ESP32: достаточно любого из двух способов.
 """
+from focusfarm.config import PHONE_SOURCES
 from focusfarm.device.output import DeviceOutput, MockDeviceOutput
 from focusfarm.device.serial_link import SerialDeviceOutput, SerialLink, SerialPhoneSensor, open_serial
 from focusfarm.sensors.phone import MockPhoneSensor, PhoneSensor
+from focusfarm.sensors.usb_phone import UsbPhoneSensor
+
 
 
 class Dock(PhoneSensor, DeviceOutput):
-    def __init__(self, port: str = "", mock_docked: bool = False, opener=None):
+    def __init__(self, port: str = "", mock_docked: bool = False, opener=None,
+                 usb: UsbPhoneSensor | None = None, phone_source: str = "auto"):
         PhoneSensor.__init__(self)
         self.opener = opener or open_serial   # в тестах подменяется заглушкой
+        self.usb = usb or UsbPhoneSensor()
+        self.phone_source = phone_source
         self.mock_phone = MockPhoneSensor(docked=mock_docked)
         self.mock_device = MockDeviceOutput()   # всегда хранит «что сейчас горит» для интерфейса
         self.port = ""
@@ -48,6 +56,11 @@ class Dock(PhoneSensor, DeviceOutput):
             self.link.stop()
         self.link = self.serial_phone = self.serial_device = None
 
+    def shutdown(self):
+        """Полная остановка при выходе из программы: USB-опрос и serial."""
+        self.usb.stop()
+        self.stop()
+
     @property
     def serial_ok(self) -> bool:
         return bool(self.link and self.link.connected)
@@ -59,12 +72,28 @@ class Dock(PhoneSensor, DeviceOutput):
 
     # ---------- PhoneSensor ----------
 
+    def set_phone_source(self, source: str):
+        """auto — любой способ; usb / serial / mock — только выбранный."""
+        self.phone_source = source if source in PHONE_SOURCES else "auto"
+        if self._use_usb():
+            self.usb.start()
+
+    def _use_usb(self) -> bool:
+        return self.phone_source in ("auto", "usb")
+
+    def _use_serial(self) -> bool:
+        return self.serial_ok and self.phone_source in ("auto", "serial")
+
     @property
     def source(self) -> str:
-        return "serial" if self.serial_ok else "mock"
+        if self._use_usb() and self.usb.is_docked():
+            return "usb"
+        return "serial" if self._use_serial() else "mock"
 
     def is_docked(self) -> bool:
-        if self.serial_ok:
+        if self._use_usb() and self.usb.is_docked():
+            return True
+        if self._use_serial():
             return self.serial_phone.is_docked()
         return self.mock_phone.is_docked()
 

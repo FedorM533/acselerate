@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Фокус-ферма</title>
+  <title>Фокус-пруд</title>
   <link rel="icon" href="sprites/logo.svg">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><img src="sprites/logo.svg" alt="" class="logo"><span>Фокус-ферма</span></div>
+    <div class="brand"><img src="sprites/logo.svg" alt="" class="logo"><span>Фокус-пруд</span></div>
     <div id="demo-badge" class="demo-badge" hidden>ДЕМО ×30</div>
     <div class="state-pill s-IDLE" id="state-pill" role="status">
       <span class="state-icon" id="state-icon"></span><span id="state-label">…</span>
@@ -17,7 +17,7 @@
     <div class="top-right">
       <span class="chip coins-chip" id="coins-chip" title="Монеты"><img src="sprites/coin.svg" alt=""><b id="coins">0</b></span>
       <span class="chip" title="Дней подряд с 25+ минутами фокуса">🔥 <b id="streak">0</b>&nbsp;дн.</span>
-      <span class="chip dock-chip" id="dock-chip" title="Подставка">🔌<span class="dot"></span><span id="dock-chip-text">подставка</span></span>
+      <span class="chip dock-chip" id="dock-chip" title="Телефон">📱<span class="dot"></span><span id="dock-chip-text">телефон</span></span>
       <button class="chip icon-btn" id="sound-toggle" title="Звуки интерфейса">🔈</button>
     </div>
   </header>
@@ -25,7 +25,7 @@
   <div id="banner" class="banner" hidden></div>
 
   <nav class="tabs">
-    <button data-tab="farm" class="active">🌱 Ферма</button>
+    <button data-tab="farm" class="active">🐟 Пруд</button>
     <button data-tab="session">⏱ Сессия</button>
     <button data-tab="stats">📊 Статистика</button>
     <button data-tab="shop">🛒 Магазин</button>
@@ -33,20 +33,20 @@
   </nav>
 
   <main>
-    <!-- ФЕРМА -->
+    <!-- ПРУД -->
     <section id="tab-farm" class="tab active">
       <div class="farm-wrap">
         <div class="farm-scene weather-sunny" id="farm-scene">
-          <div class="sky"></div>
-          <div class="sky-gloom"></div>
-          <img class="sun" src="sprites/sun.svg" alt="">
-          <img class="cloud c1" src="sprites/cloud.svg" alt="">
-          <img class="cloud c2" src="sprites/cloud.svg" alt="">
-          <img class="cloud c3" src="sprites/cloud.svg" alt="">
-          <img class="state-cloud" src="sprites/cloud_grey.svg" alt="">
-          <div class="hills"></div>
-          <div class="grass"></div>
-          <div class="fence-row" id="fence-row"></div>
+          <div class="water"></div>
+          <div class="water-murk"></div>
+          <div class="rays"></div>
+          <div class="bubbles" aria-hidden="true">
+            <i style="--x:12%;--s:14px;--t:9s;--d:-2s"></i><i style="--x:28%;--s:9px;--t:7s;--d:-5s"></i>
+            <i style="--x:47%;--s:18px;--t:11s;--d:-8s"></i><i style="--x:63%;--s:10px;--t:8s;--d:-1s"></i>
+            <i style="--x:79%;--s:15px;--t:10s;--d:-6s"></i><i style="--x:91%;--s:8px;--t:6s;--d:-3s"></i>
+          </div>
+          <div class="sand"></div>
+          <div class="rocks-row" id="fence-row"></div>
           <div class="decor decor-left" id="decor-left"></div>
           <div class="farm-grid" id="farm-grid"></div>
           <div class="decor decor-right" id="decor-right"></div>
@@ -62,7 +62,7 @@
             <button id="farm-start" class="btn primary big">▶ Начать сессию</button>
           </div>
           <div class="card">
-            <h3>🌿 Прополка</h3>
+            <h3>🫧 Чистота воды</h3>
             <p id="weed-status" class="muted"></p>
           </div>
           <div class="card">
@@ -95,10 +95,12 @@
           <div class="crop-line" id="crop-line"></div>
 
           <div id="start-form" class="start-form">
-            <label>Грядка <select id="start-plot"></select></label>
-            <label>Растение <select id="start-crop"></select></label>
+            <label>Место <select id="start-plot"></select></label>
+            <label>Рыбка <select id="start-crop"></select></label>
             <label>Минут <input id="start-length" type="number" min="1" max="240" value="25"></label>
             <button id="start-btn" class="btn primary big">▶ Начать</button>
+            <p class="phone-need" id="phone-need" hidden>📱 Подключи телефон кабелем или поставь на подставку — таймер запустится сам.</p>
+            <button id="start-nophone-btn" class="btn small" title="Время пойдёт в статистику, но рыбки не растут">Начать без телефона (рыбки не растут)</button>
           </div>
 
           <div id="session-controls" class="controls" hidden>
@@ -114,8 +116,8 @@
 
         <div class="session-side">
           <div class="card stand-card">
-            <h3>Подставка</h3>
-            <div class="stand" id="stand" title="Подставка">
+            <h3>Телефон</h3>
+            <div class="stand" id="stand" title="Телефон">
               <svg viewBox="0 0 240 190" aria-hidden="true">
                 <defs>
                   <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -160,7 +162,7 @@
         <button data-range="week">Неделя</button>
       </div>
       <div class="stats-cards">
-        <div class="card stat"><div class="stat-ico">🌱</div><div class="stat-num" id="st-focus">0</div><div class="stat-label" id="st-focus-label">минут фокуса сегодня</div></div>
+        <div class="card stat"><div class="stat-ico">🐟</div><div class="stat-num" id="st-focus">0</div><div class="stat-label" id="st-focus-label">минут фокуса сегодня</div></div>
         <div class="card stat"><div class="stat-ico">☁️</div><div class="stat-num" id="st-distr">0</div><div class="stat-label">отвлечений</div><div class="stat-sub" id="st-reasons"></div></div>
         <div class="card stat"><div class="stat-ico">🔥</div><div class="stat-num" id="st-streak">0</div><div class="stat-label">дней подряд с 25+ мин</div></div>
         <div class="card stat"><div class="stat-ico">⏱</div><div class="stat-num" id="st-sessions">0</div><div class="stat-label">сессий</div></div>
@@ -193,7 +195,7 @@
     <!-- МАГАЗИН -->
     <section id="tab-shop" class="tab">
       <div class="shop-head">
-        <p class="muted">Монеты приносит только урожай. Декор — просто для красоты.</p>
+        <p class="muted">Монеты приносит только выпуск выросших рыбок. Декор — просто для красоты.</p>
         <span class="chip wallet"><img src="sprites/coin.svg" alt=""> У тебя <b id="shop-coins">0</b></span>
       </div>
       <div class="shop" id="shop-grid"></div>
@@ -233,7 +235,7 @@
   <details id="dev-panel" class="dev-panel" open hidden>
     <summary>🛠 Панель разработчика</summary>
     <div class="dev-body">
-    <label class="switch"><input type="checkbox" id="dev-phone"> Телефон в подставке</label>
+    <label class="switch"><input type="checkbox" id="dev-phone"> Телефон подключён (вручную)</label>
     <label>Окно:
       <select id="dev-category">
         <option value="">настоящее</option>

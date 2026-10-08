@@ -19,7 +19,7 @@ def test_full_cycle_through_api(make_env):
     # 2. Работаем 5 минут — редис растёт.
     env.tick(300)
     plot = next(p for p in env.state()["farm"]["plots"] if p["active"])
-    assert plot["crop"] == "radish" and plot["stage"] == "young"
+    assert plot["crop"] == "guppy" and plot["stage"] == "young"
 
     # 3. Открыли YouTube → «кажется, отвлёкся» → «отвлёкся».
     env.monitor.use("chrome.exe", "Котики - YouTube")
@@ -76,8 +76,8 @@ def test_window_titles_never_saved(env):
 
 def test_manual_start_with_plot_and_crop(env):
     env.manager.game.coins = 30
-    env.post("/api/shop/buy", {"item": "crop:carrot"})
-    s = env.post("/api/session/start", {"plot": [2, 1], "crop": "carrot", "length_min": 25}).json()
+    env.post("/api/shop/buy", {"item": "crop:goldfish"})
+    s = env.post("/api/session/start", {"plot": [2, 1], "crop": "goldfish", "length_min": 25}).json()
     assert s["session"]["plot"] == [2, 1]
     assert s["session"]["planned_s"] == 1500
 

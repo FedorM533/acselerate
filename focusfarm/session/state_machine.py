@@ -14,7 +14,7 @@ PHONE_OUT = "PHONE_OUT"
 PAUSED = "PAUSED"
 
 ALL_STATES = (IDLE, FOCUS, NOTEBOOK, MAYBE_DISTRACTED, DISTRACTED, PHONE_OUT, PAUSED)
-GOOD_STATES = (FOCUS, NOTEBOOK)  # в них растут растения
+GOOD_STATES = (FOCUS, NOTEBOOK)  # в них растут рыбки
 # Из этих состояний возвращаемся в FOCUS только после recover_s «хороших» секунд.
 HYSTERESIS_STATES = (MAYBE_DISTRACTED, DISTRACTED, PHONE_OUT)
 

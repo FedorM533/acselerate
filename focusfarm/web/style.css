@@ -1,4 +1,4 @@
-/* «Уютный огород». Все цвета и размеры — токены в :root.
+/* «Уютный пруд». Все цвета и размеры — токены в :root.
    Шрифт Nunito (SIL OFL 1.1) лежит локально в fonts/ — интернет не нужен. */
 
 @font-face {
@@ -214,61 +214,55 @@ main { padding: 20px 24px; background: var(--card); min-height: calc(100vh - 150
 .totals div { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
 .totals .cat { background: color-mix(in srgb, var(--c) 22%, white); }
 
-/* ---------- ферма: сцена «вид сбоку» ---------- */
+/* ---------- пруд: сцена «вид сбоку, под водой» ---------- */
 .farm-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
 .farm-scene {
   --scene-h: clamp(440px, calc(100vh - 200px), 780px);
-  --ground: 58%;
+  --ground: 22%;
   position: relative; overflow: hidden; height: var(--scene-h);
   border-radius: 24px; box-shadow: var(--shadow);
 }
-.sky { position: absolute; inset: 0; background: linear-gradient(var(--sky-1), var(--sky-2) 60%); }
-.sky-gloom { position: absolute; inset: 0; background: linear-gradient(#8F9BA7, #CBD2D8 60%); opacity: 0; transition: opacity 1.6s; }
-.weather-cloudy .sky-gloom { opacity: .3; }
-.weather-gloomy .sky-gloom { opacity: .75; }
+.water { position: absolute; inset: 0; background: linear-gradient(#8FE0F5, #4FB3DE 45%, #2A7BB3); }
+/* Мутная вода при отвлечении: мягко проступает и так же мягко уходит. */
+.water-murk { position: absolute; inset: 0; background: linear-gradient(#B3A468, #8A7C4A); opacity: 0; transition: opacity 1.6s; }
+.weather-cloudy .water-murk { opacity: .25; }
+.weather-gloomy .water-murk { opacity: .55; }
 
-.sun { position: absolute; right: 7%; top: 5%; width: 120px; transition: opacity 1.6s, filter 1.6s; animation: glow 6s ease-in-out infinite; }
-@keyframes glow { 50% { transform: scale(1.05); } }
-.weather-gloomy .sun { opacity: .35; filter: grayscale(.7); }
-
-.cloud { position: absolute; left: 0; width: 150px; animation: drift linear infinite; transition: filter 1.6s; }
-.cloud.c1 { top: 8%; animation-duration: 90s; animation-delay: -25s; }
-.cloud.c2 { top: 20%; width: 105px; animation-duration: 120s; animation-delay: -80s; opacity: .9; }
-.cloud.c3 { top: 3%; width: 180px; animation-duration: 150s; animation-delay: -120s; }
-@keyframes drift { from { transform: translateX(-220px); } to { transform: translateX(100vw); } }
-.weather-gloomy .cloud { filter: brightness(.85) saturate(.4); }
-.state-cloud {
-  position: absolute; right: 3%; top: 2%; width: 220px; opacity: 0;
-  transform: translateX(340px); transition: transform 1.6s ease-in-out, opacity 1.6s, filter 1.6s;
+.rays {
+  position: absolute; left: -20%; right: -20%; top: 0; height: 80%; opacity: .35; transition: opacity 1.6s;
+  background: repeating-linear-gradient(105deg, transparent 0 60px, rgba(255, 255, 255, .5) 60px 110px, transparent 110px 190px);
+  mask-image: linear-gradient(#000, transparent); -webkit-mask-image: linear-gradient(#000, transparent);
+  animation: sway-rays 14s ease-in-out infinite alternate;
 }
-.weather-cloudy .state-cloud, .weather-gloomy .state-cloud { transform: none; opacity: 1; }
-.weather-gloomy .state-cloud { filter: brightness(.82); }
+@keyframes sway-rays { from { transform: translateX(-30px); } to { transform: translateX(30px); } }
+.weather-gloomy .rays { opacity: .08; }
 
-.hills {
-  position: absolute; left: -10%; right: -10%; bottom: calc(var(--ground) - 4px); height: 14%;
-  background:
-    radial-gradient(ellipse 30% 100% at 18% 100%, #A3D47E 98%, transparent 100%),
-    radial-gradient(ellipse 36% 90% at 70% 100%, #93CC70 98%, transparent 100%);
-  transition: filter 1.6s;
+.bubbles { position: absolute; inset: 0; pointer-events: none; }
+.bubbles i {
+  position: absolute; bottom: -30px; left: var(--x); width: var(--s); height: var(--s); border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #fff, rgba(255, 255, 255, .25) 60%, transparent 70%);
+  border: 1.5px solid rgba(255, 255, 255, .6); animation: rise var(--t) linear infinite; animation-delay: var(--d);
 }
-.grass {
+@keyframes rise { to { transform: translateY(calc(var(--scene-h) * -1.1)) translateX(14px); } }
+
+.sand {
   position: absolute; left: 0; right: 0; bottom: 0; height: var(--ground);
-  background: linear-gradient(#8ACB5F, #5BB85C 30%, #4DA64E);
-  border-top: 4px solid #7AC257; transition: filter 1.6s;
+  background: linear-gradient(#EAD7A4, #D6BD82); border-top: 4px solid #F3E6BD;
+  border-radius: 60% 60% 0 0 / 14px 14px 0 0; transition: filter 1.6s;
 }
-.weather-gloomy .grass, .weather-gloomy .hills { filter: saturate(.6) brightness(.92); }
-.fence-row {
-  position: absolute; left: 0; right: 0; bottom: calc(var(--ground) - 8px); height: 70px;
-  background: url(sprites/fence.svg) repeat-x bottom / 70px 70px;
+.weather-gloomy .sand { filter: saturate(.6) brightness(.9); }
+.rocks-row {
+  position: absolute; left: 0; right: 0; bottom: calc(var(--ground) - 14px); height: 54px;
+  background: url(sprites/rocks.svg) repeat-x bottom / 64px 54px; opacity: .95;
 }
 
-.decor { position: absolute; bottom: 10%; z-index: 20; display: flex; gap: 6px; align-items: end; }
+.decor { position: absolute; bottom: 6%; z-index: 20; display: flex; gap: 6px; align-items: end; }
 .decor-left { left: 2%; }
 .decor-right { right: 2%; }
-.decor img { width: clamp(80px, 9vw, 130px); height: auto; filter: drop-shadow(0 6px 0 rgba(0,0,0,.12)); }
+.decor img { width: clamp(80px, 9vw, 130px); height: auto; filter: drop-shadow(0 6px 0 rgba(0, 0, 0, .12)); }
 
 .farm-grid {
-  position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%); z-index: 10;
+  position: absolute; left: 50%; bottom: 5%; transform: translateX(-50%); z-index: 10;
   display: grid; grid-template-columns: repeat(var(--n), var(--cell));
   grid-auto-rows: calc(var(--cell) * .74);
   column-gap: calc(var(--cell) * .08);
@@ -283,29 +277,34 @@ main { padding: 20px 24px; background: var(--card); min-height: calc(100vh - 150
   content: ""; position: absolute; left: -8%; right: -8%; bottom: -6%; height: 42%;
   background: radial-gradient(ellipse, rgba(255, 245, 157, .95), transparent 70%);
 }
+/* Рыбка плавает туда-сюда над песчаным пятном. */
 .plot .plant {
-  position: absolute; left: 8%; width: 84%; bottom: 13%;
-  transform-origin: 50% 92%; animation: sway 4.5s ease-in-out infinite alternate; animation-delay: var(--d, 0s);
+  position: absolute; left: 8%; width: 84%; bottom: 16%;
+  animation: swim 6s ease-in-out infinite alternate; animation-delay: var(--d, 0s);
   pointer-events: none;
 }
-.plot .plant img { width: 100%; display: block; transform-origin: 50% 92%; transition: transform 1.6s, filter 1.6s; }
-@keyframes sway { from { transform: rotate(-2.5deg); } to { transform: rotate(2.5deg); } }
-.weather-gloomy .plot .plant img { transform: rotate(-7deg) scaleY(.92); filter: saturate(.6); }
-.plot.thirsty .plant img { filter: saturate(.55); transform: rotate(-4deg); }
-.plot.ripe .plant { animation: hop 1.6s ease-in-out infinite; }
+.plot .plant img { width: 100%; display: block; transition: transform 1.6s, filter 1.6s; }
+@keyframes swim {
+  from { transform: translate(-7%, 2%) rotate(-3deg); }
+  to   { transform: translate(7%, -5%) rotate(3deg); }
+}
+.plot .plant.egg { animation: none; bottom: 6%; }
+.weather-gloomy .plot .plant img { filter: saturate(.6) brightness(.95); }
+.plot.thirsty .plant img { filter: saturate(.55); }
+.plot.ripe .plant { animation: hop 1.8s ease-in-out infinite; }
 @keyframes hop { 0%, 55%, 100% { transform: translateY(0); } 25% { transform: translateY(-9%); } 40% { transform: translateY(1%); } }
 
 .plot .weed {
   position: absolute; right: -6%; bottom: 10%; width: 46%; pointer-events: none; z-index: 2;
-  transform-origin: 50% 95%; animation: wiggle 2.2s ease-in-out infinite;
+  animation: wiggle 2.8s ease-in-out infinite;
 }
-@keyframes wiggle { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg) scale(1.04); } }
+@keyframes wiggle { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-5px) scale(1.04); } }
 .plot .drop { position: absolute; left: 4%; bottom: 40%; width: 20%; animation: bob 1.2s ease-in-out infinite; pointer-events: none; }
 @keyframes bob { 50% { transform: translateY(-6px); } }
 
 .plot .stars {
   position: absolute; left: -2%; bottom: 22%; font-size: clamp(13px, calc(var(--cell) * .13), 20px);
-  color: var(--gold); -webkit-text-stroke: 1px #6B4A1E; letter-spacing: -1px; pointer-events: none;
+  color: var(--gold); -webkit-text-stroke: 1px #1F3550; letter-spacing: -1px; pointer-events: none;
 }
 .plot .sparkle { position: absolute; color: #FFE27A; font-size: calc(var(--cell) * .16); text-shadow: 0 0 6px #fff; animation: twinkle 1.4s ease-in-out infinite; pointer-events: none; }
 .plot .sparkle.k1 { left: 12%; top: 22%; }
@@ -316,11 +315,11 @@ main { padding: 20px 24px; background: var(--card); min-height: calc(100vh - 150
   position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); z-index: 3;
   background: var(--gold); border: 3px solid var(--text); border-radius: 999px;
   font-weight: 900; font-size: clamp(13px, calc(var(--cell) * .12), 18px); padding: 2px 12px; white-space: nowrap;
-  box-shadow: 0 3px 0 rgba(59, 42, 30, .5);
+  box-shadow: 0 3px 0 rgba(31, 53, 80, .5);
 }
 .plot .bar {
   position: absolute; left: 14%; right: 14%; bottom: -12px; height: 8px;
-  background: rgba(59, 42, 30, .25); border-radius: 6px; overflow: hidden;
+  background: rgba(31, 53, 80, .3); border-radius: 6px; overflow: hidden;
 }
 .plot .bar div { height: 100%; background: #CBF27A; border-radius: 6px; transition: width .9s linear; }
 .plot .hover-tip {
@@ -331,13 +330,18 @@ main { padding: 20px 24px; background: var(--card); min-height: calc(100vh - 150
 .plot:hover .hover-tip, .plot:focus-visible .hover-tip { opacity: 1; }
 .plot:focus-visible { outline: 3px solid #fff; outline-offset: 4px; border-radius: 12px; }
 
+/* «Родник» (бонус за серию дней): струйки пузырьков снизу вверх. */
 .rain {
   position: absolute; inset: 0; pointer-events: none; z-index: 30; opacity: 0; transition: opacity 1.6s;
-  background-image: linear-gradient(transparent 0 72%, rgba(120, 180, 240, .6) 72% 100%);
-  background-size: 3px 28px; animation: rain .45s linear infinite;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, .9) 0 2px, transparent 3px);
+  background-size: 46px 70px; animation: spring .9s linear infinite;
 }
-.raining .rain { opacity: .6; }
-@keyframes rain { to { background-position: 0 28px; } }
+.raining .rain { opacity: .5; }
+@keyframes spring { to { background-position: 0 -70px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rays, .bubbles i, .plot .plant, .plot .weed, .plot .drop { animation: none; }
+}
 
 /* вылетающие монеты и «+15 ★★★» */
 .fly-coin { position: fixed; left: 0; top: 0; width: 34px; height: 34px; z-index: 50; pointer-events: none; }
@@ -494,3 +498,10 @@ main { padding: 20px 24px; background: var(--card); min-height: calc(100vh - 150
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- телефон по кабелю ---------- */
+.phone-need { grid-column: 1 / -1; margin: 0; padding: 10px 14px; background: var(--card-soft); border-radius: var(--radius-sm); font-weight: 700; }
+.pair-box { margin: 8px 0 14px; }
+.pair-box p { margin: 0 0 8px; }
+.pair-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; }
+.start-form #start-nophone-btn { grid-column: 1 / -1; justify-self: start; }

@@ -1,18 +1,20 @@
-"""Генератор SVG-спрайтов фермы (оригинальная графика, единый стиль).
+"""Генератор SVG-спрайтов пруда (оригинальная графика, единый стиль).
 
 Запуск: python -m focusfarm.tools.make_sprites
 Меняй фигуры здесь и перезапускай — файлы в focusfarm/web/sprites/ перезапишутся.
 
 Правила стиля:
-- вид сбоку, растение «стоит» на линии земли y = 92 (грядку рисует bed.svg);
-- у всех фигур одинаковый контур: тёмно-коричневый, толщина 2.5, скруглённые углы;
-- палитра тёплая, без чистого чёрного.
+- рыбки нарисованы сбоку и плывут вправо, центр тела около (50, 52);
+- у всех фигур одинаковый контур: тёмно-синий, толщина 2.5, скруглённые углы;
+- палитра яркая, но мягкая, без чистого чёрного.
+Пять стадий: seed (икринка), sprout (малёк), young (подросток),
+adult (взрослая), ready (готова к выпуску — с сиянием).
 """
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent / "web" / "sprites"
 
-INK = "#3B2A1E"
+INK = "#1F3550"
 O = f'stroke="{INK}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"'
 
 
@@ -21,185 +23,143 @@ def ow(width):
     return f'stroke="{INK}" stroke-width="{width}" stroke-linejoin="round" stroke-linecap="round"'
 
 
-LEAF = "#6CC060"
-LEAF_DARK = "#3F9A45"
-STEM = "#4F9A3E"
-GROUND = 92
+FISH = ("guppy", "goldfish", "koi", "angelfish", "arowana")
 
-CROPS = ("radish", "carrot", "potato", "sunflower", "pumpkin")
+# Цвета: тело, плавники, пятна/полоски.
+LOOK = {
+    "guppy":     {"body": "#6BC4E8", "fin": "#F58A4B", "mark": "#F7C52B"},
+    "goldfish":  {"body": "#F7A23B", "fin": "#F2762E", "mark": "#FFD27A"},
+    "koi":       {"body": "#FFF4E6", "fin": "#F4F0E8", "mark": "#E8502E"},
+    "angelfish": {"body": "#E4EDF5", "fin": "#C9D8E8", "mark": "#3F5F8A"},
+    "arowana":   {"body": "#C9D2D8", "fin": "#9EB0BA", "mark": "#F2C14E"},
+}
+# Длина тела (rx) и толщина (ry) — у видов разные пропорции.
+SHAPE = {
+    "guppy": (21, 11), "goldfish": (22, 16), "koi": (26, 12),
+    "angelfish": (17, 19), "arowana": (30, 11),
+}
+# Во сколько раз рисуем рыбку на каждой стадии (икринка рисуется отдельно).
+STAGE_SCALE = {"sprout": 0.46, "young": 0.68, "adult": 0.85, "ready": 0.92}
+FISH_VIEW = "0 8 100 88"   # рамка плотнее к рыбке, чтобы она не терялась в клетке
 
 
 def svg(body: str, view: str = "0 0 100 100") -> str:
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{view}">{body}</svg>\n'
 
 
-def leaf(cx, cy, rx, ry, rot, color=LEAF):
-    return f'<ellipse cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}" fill="{color}" {O} transform="rotate({rot} {cx} {cy})"/>'
+def fish_body(kind: str) -> str:
+    """Рыбка в масштабе 1, центр (50, 52)."""
+    c = LOOK[kind]
+    rx, ry = SHAPE[kind]
+    cx, cy = 50, 52
+    head_x = cx + rx
+    tail_x = cx - rx
+
+    # Хвост.
+    if kind == "guppy":
+        tail = f'<path d="M{tail_x + 4} {cy} L{tail_x - 20} {cy - 17} Q{tail_x - 12} {cy} {tail_x - 20} {cy + 17} Z" fill="{c["fin"]}" {O}/>'
+    elif kind == "goldfish":
+        tail = (f'<path d="M{tail_x + 4} {cy} Q{tail_x - 22} {cy - 24} {tail_x - 20} {cy - 4} '
+                f'Q{tail_x - 12} {cy} {tail_x - 20} {cy + 6} Q{tail_x - 22} {cy + 24} {tail_x + 4} {cy} Z" fill="{c["fin"]}" {O}/>')
+    elif kind == "angelfish":
+        tail = f'<path d="M{tail_x + 4} {cy} L{tail_x - 12} {cy - 12} L{tail_x - 8} {cy} L{tail_x - 12} {cy + 12} Z" fill="{c["fin"]}" {O}/>'
+    else:
+        tail = f'<path d="M{tail_x + 4} {cy} L{tail_x - 14} {cy - 13} L{tail_x - 8} {cy} L{tail_x - 14} {cy + 13} Z" fill="{c["fin"]}" {O}/>'
+
+    # Плавники сверху и снизу.
+    if kind == "angelfish":
+        dorsal = f'<path d="M{cx - 8} {cy - ry + 4} L{cx + 4} {cy - ry - 24} L{cx + 12} {cy - ry + 3} Z" fill="{c["fin"]}" {O}/>'
+        belly_fin = f'<path d="M{cx - 6} {cy + ry - 4} L{cx + 2} {cy + ry + 24} L{cx + 10} {cy + ry - 3} Z" fill="{c["fin"]}" {O}/>'
+    else:
+        dorsal = f'<path d="M{cx - 8} {cy - ry + 3} Q{cx} {cy - ry - 14} {cx + 12} {cy - ry + 4} Z" fill="{c["fin"]}" {O}/>'
+        belly_fin = f'<path d="M{cx - 2} {cy + ry - 3} Q{cx + 4} {cy + ry + 9} {cx + 12} {cy + ry - 3} Z" fill="{c["fin"]}" {O}/>'
+
+    body = f'<ellipse cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}" fill="{c["body"]}" {O}/>'
+    shine = f'<ellipse cx="{cx + 2}" cy="{cy - ry * 0.45}" rx="{rx * 0.55}" ry="{ry * 0.22}" fill="#fff" opacity=".45"/>'
+
+    # Узор вида.
+    if kind == "guppy":
+        marks = (f'<circle cx="{cx - 4}" cy="{cy + 1}" r="4" fill="{c["mark"]}" opacity=".9"/>'
+                 f'<circle cx="{cx - 12}" cy="{cy - 3}" r="2.5" fill="{c["mark"]}" opacity=".9"/>')
+    elif kind == "goldfish":
+        marks = (f'<path d="M{cx - 6} {cy - ry + 2} Q{cx - 2} {cy} {cx - 6} {cy + ry - 2}" '
+                 f'stroke="{c["mark"]}" stroke-width="3" fill="none" stroke-linecap="round" opacity=".8"/>')
+    elif kind == "koi":
+        marks = (f'<ellipse cx="{cx - 8}" cy="{cy - 4}" rx="9" ry="6" fill="{c["mark"]}"/>'
+                 f'<ellipse cx="{cx + 10}" cy="{cy + 3}" rx="6" ry="5" fill="#2B3A4F"/>'
+                 f'<ellipse cx="{cx + 2}" cy="{cy + 6}" rx="4" ry="3" fill="{c["mark"]}"/>')
+    elif kind == "angelfish":
+        marks = "".join(f'<path d="M{x} {cy - ry + 2} Q{x + 3} {cy} {x} {cy + ry - 2}" stroke="{c["mark"]}" '
+                        f'stroke-width="3.5" fill="none" stroke-linecap="round"/>' for x in (cx - 6, cx + 6))
+    else:
+        marks = "".join(f'<path d="M{x} {cy - 5} q3 5 0 10" stroke="{c["mark"]}" stroke-width="2.4" '
+                        f'fill="none" stroke-linecap="round"/>' for x in range(cx - 20, cx + 14, 8))
+
+    eye = (f'<circle cx="{head_x - 8}" cy="{cy - 3}" r="4.2" fill="#fff" {ow(1.8)}/>'
+           f'<circle cx="{head_x - 7}" cy="{cy - 3}" r="2" fill="{INK}"/>')
+    mouth = f'<path d="M{head_x - 1} {cy + 3} q-3 2 -6 0" stroke="{INK}" stroke-width="1.8" fill="none" stroke-linecap="round"/>'
+    extra = ""
+    if kind == "koi":   # усики
+        extra = f'<path d="M{head_x - 2} {cy + 4} q5 4 7 8" stroke="{INK}" stroke-width="1.8" fill="none" stroke-linecap="round"/>'
+    return tail + dorsal + belly_fin + body + marks + shine + eye + mouth + extra
 
 
-def stem(x1, y1, x2, y2, width=4, bend=0):
-    mx, my = (x1 + x2) / 2 + bend, (y1 + y2) / 2
-    return f'<path d="M{x1} {y1} Q{mx} {my} {x2} {y2}" stroke="{INK}" stroke-width="{width + 2.5}" fill="none" stroke-linecap="round"/>' \
-           f'<path d="M{x1} {y1} Q{mx} {my} {x2} {y2}" stroke="{STEM}" stroke-width="{width}" fill="none" stroke-linecap="round"/>'
+def scaled(inner: str, k: float, cx=50, cy=52) -> str:
+    return f'<g transform="translate({cx} {cy}) scale({k}) translate({-cx} {-cy})">{inner}</g>'
 
 
-def crumb():
-    """Маленький холмик земли у основания растения."""
-    return f'<path d="M30 {GROUND} Q50 {GROUND - 12} 70 {GROUND} Z" fill="#7A5134" {O}/>'
+def egg(kind: str) -> str:
+    """Икринка: пара жемчужинок цвета будущей рыбки."""
+    color = LOOK[kind]["body"]
+    pearls = ""
+    for x, y, r in ((44, 60, 8), (58, 63, 7), (51, 50, 6.5)):
+        pearls += (f'<circle cx="{x}" cy="{y}" r="{r}" fill="{color}" opacity=".8" {O}/>'
+                   f'<circle cx="{x}" cy="{y}" r="{r * 0.35}" fill="{INK}" opacity=".55"/>'
+                   f'<circle cx="{x - r * 0.35}" cy="{y - r * 0.4}" r="{r * 0.22}" fill="#fff"/>')
+    return svg(pearls)
 
 
-# ---------------- стадии, общие для всех культур ----------------
+def sparkle(x, y, r):
+    return (f'<path d="M{x} {y - r} L{x + r * .3} {y - r * .3} L{x + r} {y} L{x + r * .3} {y + r * .3} '
+            f'L{x} {y + r} L{x - r * .3} {y + r * .3} L{x - r} {y} L{x - r * .3} {y - r * .3} Z" '
+            f'fill="#FFE27A" stroke="{INK}" stroke-width="1.2" stroke-linejoin="round"/>')
 
-SEED_COLORS = {"radish": "#E8698A", "carrot": "#F29A45", "potato": "#D8B274",
-               "sunflower": "#5A4636", "pumpkin": "#F4E3B5"}
-SPROUT_TINT = {"radish": LEAF, "carrot": "#7CC75A", "potato": LEAF_DARK,
-               "sunflower": "#7CC75A", "pumpkin": "#58B056"}
-
-
-def seed(crop):
-    color = SEED_COLORS[crop]
-    stripes = ""
-    if crop == "sunflower":
-        stripes = '<path d="M46 78 L54 83" stroke="#EDE4D8" stroke-width="1.6"/>'
-    return svg(crumb() + f'<ellipse cx="50" cy="80" rx="9" ry="6.5" fill="{color}" {O} transform="rotate(-20 50 80)"/>' + stripes
-               + f'<path d="M52 74 q3 -8 10 -9" stroke="{INK}" stroke-width="5.5" fill="none" stroke-linecap="round"/>'
-               + f'<path d="M52 74 q3 -8 10 -9" stroke="{LEAF}" stroke-width="3" fill="none" stroke-linecap="round"/>')
-
-
-def sprout(crop):
-    tint = SPROUT_TINT[crop]
-    return svg(crumb() + stem(50, GROUND - 2, 50, 70, 4)
-               + leaf(41, 69, 10, 5, -25, tint) + leaf(59, 69, 10, 5, 25, tint))
-
-
-def young(crop):
-    if crop == "radish":
-        body = stem(50, 90, 50, 64, 4) + leaf(38, 62, 8, 17, -35) + leaf(62, 62, 8, 17, 35) + leaf(50, 56, 8, 18, 0, LEAF_DARK)
-    elif crop == "carrot":
-        body = "".join(stem(50, 90, 50 + dx, 52 + abs(dx), 3, dx / 2) for dx in (-12, 0, 12)) \
-            + "".join(f'<circle cx="{50 + dx}" cy="{52 + abs(dx)}" r="5" fill="{LEAF}" {O}/>' for dx in (-12, 0, 12))
-    elif crop == "potato":
-        body = stem(50, 90, 50, 62, 5) + leaf(36, 70, 12, 7, -20, LEAF_DARK) + leaf(64, 70, 12, 7, 20, LEAF_DARK) + leaf(50, 58, 9, 8, 0)
-    elif crop == "sunflower":
-        body = stem(50, 90, 50, 46, 5) + leaf(39, 72, 11, 5.5, -30, LEAF_DARK) + leaf(61, 64, 11, 5.5, 30) + leaf(40, 52, 8, 4.5, -35) \
-            + f'<circle cx="50" cy="44" r="5" fill="#8CC06A" {O}/>'
-    else:  # pumpkin
-        body = f'<path d="M50 90 Q40 80 30 84" stroke="{STEM}" stroke-width="4" fill="none"/>' + stem(50, 90, 52, 70, 4) \
-            + leaf(38, 70, 13, 10, -15, LEAF_DARK) + leaf(62, 66, 13, 10, 15) + f'<path d="M30 84 q-6 -4 -3 -9" stroke="{STEM}" stroke-width="2" fill="none"/>'
-    return svg(crumb() + body)
-
-
-# ---------------- взрослое и готовое ----------------
-
-def radish(ready):
-    tops = leaf(40, 46, 8, 20, -25) + leaf(60, 46, 8, 20, 25) + leaf(50, 40, 8, 22, 0, LEAF_DARK)
-    if not ready:
-        return tops + f'<ellipse cx="50" cy="80" rx="10" ry="9" fill="#D8456B" {O}/>'
-    return tops + '<path d="M50 94 L50 99" stroke="#E8C6CF" stroke-width="2.5" stroke-linecap="round"/>' \
-        + f'<ellipse cx="50" cy="78" rx="16" ry="15" fill="#E04A72" {O}/>' \
-        + '<ellipse cx="44" cy="72" rx="4.5" ry="3.5" fill="#F7A3B8"/>'
-
-
-def carrot(ready):
-    tops = "".join(stem(50, 68, 50 + dx * 1.5, 26 + abs(dx), 3.5, dx) for dx in (-12, -5, 0, 5, 12))
-    if not ready:
-        return tops + f'<path d="M41 68 L59 68 L50 92 Z" fill="#EE8A2A" {O}/>'
-    return tops + f'<path d="M37 64 L63 64 L50 99 Z" fill="#F28C28" {O}/>' \
-        + f'<path d="M44 74 H52 M46 82 H53" stroke="{INK}" stroke-width="2" stroke-linecap="round"/>'
-
-
-def potato(ready):
-    bush = stem(50, 90, 50, 58, 5) + leaf(33, 64, 15, 9, -15, LEAF_DARK) + leaf(67, 64, 15, 9, 15, LEAF_DARK) \
-        + leaf(40, 48, 12, 8, -30) + leaf(60, 48, 12, 8, 30) + leaf(50, 40, 10, 8, 0)
-    flowers = f'<circle cx="46" cy="35" r="4" fill="#F4F0FF" {O}/><circle cx="56" cy="33" r="4" fill="#E8E0FF" {O}/>'
-    if not ready:
-        return bush + f'<circle cx="50" cy="34" r="4" fill="#F4F0FF" {O}/>'
-    return bush + flowers \
-        + f'<ellipse cx="28" cy="88" rx="10" ry="7" fill="#D1A86B" {O}/>' \
-        + f'<ellipse cx="72" cy="89" rx="11" ry="7.5" fill="#C99B5C" {O}/>' \
-        + f'<circle cx="26" cy="87" r="1.2" fill="{INK}"/><circle cx="74" cy="88" r="1.2" fill="{INK}"/>'
-
-
-def sunflower(ready):
-    body = stem(50, 92, 50, 34, 5) + leaf(37, 68, 13, 6, -30, LEAF_DARK) + leaf(63, 58, 13, 6, 30)
-    if not ready:
-        return body + f'<circle cx="50" cy="30" r="10" fill="#7DB85A" {O}/>' \
-            + "".join(leaf(50, 21, 3.5, 7, a, "#9ACB74") for a in (-40, 0, 40))
-    petals = "".join(f'<ellipse cx="50" cy="11" rx="5.5" ry="10" fill="#F7C52B" {O} transform="rotate({a} 50 26)"/>'
-                     for a in range(0, 360, 30))
-    return body + petals + f'<circle cx="50" cy="26" r="10.5" fill="#7A4A1E" {O}/>' \
-        + '<circle cx="47" cy="23" r="1.6" fill="#B07B4F"/><circle cx="53" cy="28" r="1.6" fill="#B07B4F"/><circle cx="52" cy="22" r="1.4" fill="#B07B4F"/>'
-
-
-def pumpkin(ready):
-    vine = f'<path d="M12 90 Q30 76 50 84 T88 86" stroke="{STEM}" stroke-width="4" fill="none" stroke-linecap="round"/>' \
-        + leaf(22, 74, 12, 9, -10, LEAF_DARK) + leaf(78, 72, 12, 9, 10, LEAF_DARK)
-    if not ready:
-        return vine + f'<ellipse cx="50" cy="80" rx="12" ry="10" fill="#9FC955" {O}/>' \
-            + f'<path d="M50 71 V89" stroke="{INK}" stroke-width="1.8"/>'
-    return vine \
-        + f'<ellipse cx="37" cy="76" rx="14" ry="16" fill="#E8791F" {O}/>' \
-        + f'<ellipse cx="63" cy="76" rx="14" ry="16" fill="#E8791F" {O}/>' \
-        + f'<ellipse cx="50" cy="76" rx="14" ry="17" fill="#F58A2A" {O}/>' \
-        + f'<path d="M50 60 Q46 52 53 47" stroke="{INK}" stroke-width="6.5" fill="none" stroke-linecap="round"/>' \
-        + '<path d="M50 60 Q46 52 53 47" stroke="#5B7A2A" stroke-width="4" fill="none" stroke-linecap="round"/>' \
-        + '<ellipse cx="44" cy="69" rx="3" ry="6" fill="#FFB36B"/>'
-
-
-DRAW = {"radish": radish, "carrot": carrot, "potato": potato, "sunflower": sunflower, "pumpkin": pumpkin}
 
 sprites = {}
-for crop in CROPS:
-    sprites[f"{crop}_seed"] = seed(crop)
-    sprites[f"{crop}_sprout"] = sprout(crop)
-    sprites[f"{crop}_young"] = young(crop)
-    sprites[f"{crop}_adult"] = svg(DRAW[crop](False))
-    sprites[f"{crop}_ready"] = svg(DRAW[crop](True))
+for kind in FISH:
+    sprites[f"{kind}_seed"] = egg(kind)
+    for stage in ("sprout", "young", "adult"):
+        sprites[f"{kind}_{stage}"] = svg(scaled(fish_body(kind), STAGE_SCALE[stage]), FISH_VIEW)
+    glow = '<circle cx="50" cy="52" r="42" fill="#FFF3B0" opacity=".45"/>'
+    sprites[f"{kind}_ready"] = svg(glow + scaled(fish_body(kind), STAGE_SCALE["ready"])
+                                   + sparkle(14, 18, 8) + sparkle(88, 26, 6), FISH_VIEW)
 
-# Общие стадии (для совместимости и магазина) — как у редиса.
-sprites["seed"] = seed("radish")
-sprites["sprout"] = sprout("radish")
-sprites["young"] = young("radish")
+# Общие стадии (для совместимости и магазина) — как у гуппи.
+sprites["seed"] = egg("guppy")
+sprites["sprout"] = sprites["guppy_sprout"]
+sprites["young"] = sprites["guppy_young"]
 
-# ---------------- грядка (вид сбоку) ----------------
-BED = (
-    f'<path d="M6 20 Q10 6 30 5 H110 Q130 6 134 20 L128 36 H12 Z" fill="#8B5E3C" {O}/>'
-    '<path d="M18 14 Q24 10 34 11 M56 10 H76 M98 11 Q110 10 120 14" stroke="#B07B4F" stroke-width="3" stroke-linecap="round" fill="none"/>'
-    '<circle cx="40" cy="24" r="2" fill="#6E4A2E"/><circle cx="92" cy="27" r="2" fill="#6E4A2E"/><circle cx="68" cy="22" r="1.6" fill="#B07B4F"/>'
+# ---------------- место в пруду: песчаное пятно ----------------
+sprites["spot"] = svg(
+    '<ellipse cx="70" cy="22" rx="62" ry="15" fill="#E8D5A3" opacity=".55"/>'
+    '<ellipse cx="70" cy="22" rx="46" ry="10" fill="#F2E3B8" opacity=".5"/>'
+    '<circle cx="40" cy="24" r="2" fill="#B89F6A" opacity=".7"/><circle cx="98" cy="20" r="1.8" fill="#B89F6A" opacity=".7"/>'
+    '<circle cx="76" cy="27" r="1.4" fill="#B89F6A" opacity=".7"/>',
+    "0 0 140 40")
+
+# ---------------- ил: мутное облачко, забавное, не страшное ----------------
+sprites["silt"] = svg(
+    f'<path d="M20 70 a14 14 0 0 1 4 -27 a20 20 0 0 1 38 -8 a18 18 0 0 1 22 18 a12 12 0 0 1 -6 17 Z" fill="#9C8F5A" opacity=".85" {O}/>'
+    '<path d="M30 60 q10 6 22 0 M52 50 q8 4 16 0" stroke="#7B7040" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    f'<circle cx="42" cy="52" r="5" fill="#fff" {ow(2)}/><circle cx="60" cy="52" r="5" fill="#fff" {ow(2)}/>'
+    f'<circle cx="43" cy="53" r="2.2" fill="{INK}"/><circle cx="61" cy="53" r="2.2" fill="{INK}"/>'
+    f'<path d="M46 63 q5 4 10 0" stroke="{INK}" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
 )
-sprites["bed"] = svg(BED, "0 0 140 40")
-sprites["plot"] = svg(BED, "0 0 140 40")
-
-# ---------------- сорняк: забавный, не страшный ----------------
-sprites["weed"] = svg(
-    f'<path d="M50 92 L30 50 L44 66 L48 38 L54 64 L66 44 L62 70 L78 58 L64 92 Z" fill="#8FA33A" {O}/>'
-    f'<circle cx="48" cy="30" r="7" fill="#B77FD6" {O}/><circle cx="48" cy="30" r="2.5" fill="#F5C542"/>'
-    f'<circle cx="46" cy="76" r="6" fill="#fff" {O}/><circle cx="60" cy="75" r="5" fill="#fff" {O}/>'
-    f'<circle cx="47" cy="77" r="2.5" fill="{INK}"/><circle cx="61" cy="76" r="2.2" fill="{INK}"/>'
-    f'<path d="M48 86 q5 4 10 0" stroke="{INK}" stroke-width="2.5" fill="none" stroke-linecap="round"/>'
-)
-
-# ---------------- небо ----------------
-sprites["sun"] = svg(
-    "".join(f'<path d="M50 50 L50 6" stroke="#F5C542" stroke-width="7" stroke-linecap="round" transform="rotate({a} 50 50)"/>'
-            for a in range(0, 360, 30))
-    + f'<circle cx="50" cy="50" r="27" fill="#FFD95A" {O}/>'
-    + f'<circle cx="41" cy="46" r="3" fill="{INK}"/><circle cx="59" cy="46" r="3" fill="{INK}"/>'
-    + f'<path d="M40 57 q10 9 20 0" stroke="{INK}" stroke-width="3" fill="none" stroke-linecap="round"/>'
-    + '<circle cx="35" cy="54" r="4" fill="#F7A3B8" opacity=".7"/><circle cx="65" cy="54" r="4" fill="#F7A3B8" opacity=".7"/>'
-)
-sprites["cloud"] = svg(
-    f'<path d="M22 70 a16 16 0 0 1 6 -31 a24 24 0 0 1 44 -6 a18 18 0 0 1 12 37 Z" fill="#FFFFFF" {O}/>',
-    "0 0 100 80")
-sprites["cloud_grey"] = svg(
-    f'<path d="M22 70 a16 16 0 0 1 6 -31 a24 24 0 0 1 44 -6 a18 18 0 0 1 12 37 Z" fill="#D5DCE3" {O}/>'
-    '<path d="M30 60 q12 5 26 0" stroke="#B9C3CC" stroke-width="3" fill="none" stroke-linecap="round"/>',
-    "0 0 100 80")
 
 # ---------------- мелочи интерфейса ----------------
-sprites["drop"] = svg(
-    f'<path d="M50 14 Q70 44 70 58 A20 20 0 0 1 30 58 Q30 44 50 14 Z" fill="#7CC4F4" {O}/>'
-    '<ellipse cx="42" cy="56" rx="4" ry="7" fill="#D5EEFF"/>'
+sprites["bubble"] = svg(
+    f'<circle cx="50" cy="50" r="34" fill="#DDF3FF" opacity=".75" {O}/>'
+    '<ellipse cx="38" cy="38" rx="9" ry="6" fill="#fff" transform="rotate(-35 38 38)"/>'
 )
 sprites["coin"] = svg(
     f'<circle cx="50" cy="50" r="40" fill="#F5C542" {ow(5)}/>'
@@ -213,47 +173,41 @@ sprites["lock"] = svg(
 )
 
 
-def grid_icon(n):
+def pond_icon(n):
+    """Значок «пруд n×n» для магазина: вода и n×n песчаных пятен-мест."""
     cell = 76 / n
-    rects = "".join(
-        f'<rect x="{12 + i * cell + 2}" y="{12 + j * cell + 2}" width="{cell - 4}" height="{cell - 4}" rx="4" fill="#8B5E3C" {ow(2)}/>'
+    spots = "".join(
+        f'<circle cx="{12 + i * cell + cell / 2}" cy="{12 + j * cell + cell / 2}" r="{cell / 2 - 3}" fill="#E8D5A3" opacity=".85" {ow(1.6)}/>'
         for i in range(n) for j in range(n))
-    return svg(f'<rect x="6" y="6" width="88" height="88" rx="14" fill="#9FD27A" {O}/>' + rects)
+    return svg(f'<rect x="6" y="6" width="88" height="88" rx="22" fill="#6BC4E8" {O}/>' + spots)
 
 
-sprites["grid4"] = grid_icon(4)
-sprites["grid5"] = grid_icon(5)
+sprites["grid4"] = pond_icon(4)
+sprites["grid5"] = pond_icon(5)
 
-# ---------------- декор ----------------
-sprites["scarecrow"] = svg(
-    f'<path d="M50 30 V96" stroke="#8A5A2B" stroke-width="6"/>'
-    f'<path d="M16 46 H84" stroke="#8A5A2B" stroke-width="5" stroke-linecap="round"/>'
-    f'<path d="M34 42 H66 L62 76 H38 Z" fill="#D0643C" {O}/>'
-    '<path d="M38 52 H62 M40 64 H60" stroke="#A84E2A" stroke-width="3"/>'
-    f'<circle cx="50" cy="26" r="12" fill="#F0D49A" {O}/>'
-    f'<path d="M32 18 H68 L60 6 H40 Z" fill="#6B4A2A" {O}/>'
-    f'<circle cx="45" cy="26" r="2" fill="{INK}"/><circle cx="55" cy="26" r="2" fill="{INK}"/>'
-    f'<path d="M45 32 Q50 35 55 32" stroke="{INK}" stroke-width="2" fill="none"/>'
-    '<path d="M16 46 l-6 6 M16 46 l-6 -4 M84 46 l6 6 M84 46 l6 -4" stroke="#E6C35C" stroke-width="3" stroke-linecap="round"/>'
+# ---------------- декор: водоросли, камни, замок ----------------
+sprites["plants"] = svg("".join(
+    f'<path d="M{x} 94 C{x - 10} 74 {x + 10} 58 {x} {top}" stroke="{INK}" stroke-width="{w + 2.5}" fill="none" stroke-linecap="round"/>'
+    f'<path d="M{x} 94 C{x - 10} 74 {x + 10} 58 {x} {top}" stroke="{col}" stroke-width="{w}" fill="none" stroke-linecap="round"/>'
+    for x, top, w, col in ((32, 24, 7, "#3F9A45"), (50, 12, 8, "#5BB85C"), (68, 30, 7, "#3F9A45"))))
+sprites["rocks"] = svg(
+    f'<path d="M6 94 Q10 62 36 58 Q56 56 62 94 Z" fill="#8E9AA6" {O}/>'
+    f'<path d="M44 94 Q50 70 72 68 Q92 68 96 94 Z" fill="#A9B4BE" {O}/>'
+    '<path d="M18 74 q6 -6 12 -2 M62 82 q6 -5 14 -1" stroke="#6C7884" stroke-width="2.4" fill="none" stroke-linecap="round"/>'
 )
-sprites["fence"] = svg(
-    f'<rect x="2" y="46" width="96" height="8" fill="#C9985E" {O}/><rect x="2" y="72" width="96" height="8" fill="#C9985E" {O}/>'
-    + "".join(f'<path d="M{x} 94 V34 L{x + 7} 26 L{x + 14} 34 V94 Z" fill="#E0B27A" {O}/>' for x in (6, 30, 54, 78))
-)
-sprites["bench"] = svg(
-    '<path d="M18 74 V94 M82 74 V94 M18 30 V64 M82 30 V64" stroke="#5A4A3E" stroke-width="5" stroke-linecap="round"/>'
-    f'<rect x="10" y="36" width="80" height="11" rx="3" fill="#B5784A" {O}/>'
-    f'<rect x="10" y="50" width="80" height="11" rx="3" fill="#A86C40" {O}/>'
-    f'<rect x="8" y="64" width="84" height="11" rx="3" fill="#C98B57" {O}/>'
+sprites["castle"] = svg(
+    f'<rect x="20" y="52" width="60" height="42" fill="#D8C7A2" {O}/>'
+    f'<rect x="12" y="34" width="22" height="60" fill="#CDBA91" {O}/><rect x="66" y="34" width="22" height="60" fill="#CDBA91" {O}/>'
+    f'<path d="M10 34 L23 12 L36 34 Z M64 34 L77 12 L90 34 Z" fill="#E8795B" {O}/>'
+    f'<path d="M40 94 V74 a10 10 0 0 1 20 0 V94 Z" fill="#3B5C7A" {O}/>'
+    '<rect x="18" y="52" width="8" height="8" rx="2" fill="#3B5C7A"/><rect x="74" y="52" width="8" height="8" rx="2" fill="#3B5C7A"/>'
 )
 
-# ---------------- логотип: росток в подставке ----------------
+# ---------------- логотип: рыбка в пузыре ----------------
 sprites["logo"] = svg(
-    f'<path d="M22 70 H78 L72 92 H28 Z" fill="#B07B4F" {ow(3)}/>'
-    f'<rect x="30" y="64" width="40" height="8" rx="4" fill="#5BB85C" {ow(3)}/>'
-    '<path d="M50 66 C50 52 50 44 50 36" stroke="#2F7D32" stroke-width="5" fill="none" stroke-linecap="round"/>'
-    f'<path d="M50 44 C40 44 30 36 30 24 C42 24 50 32 50 44 Z" fill="#5BB85C" {ow(3)}/>'
-    f'<path d="M50 38 C60 38 72 30 72 16 C58 16 50 26 50 38 Z" fill="#7ACB6B" {ow(3)}/>'
+    f'<circle cx="50" cy="50" r="42" fill="#DDF3FF" {ow(3)}/>'
+    + scaled(fish_body("goldfish"), 0.8)
+    + '<circle cx="76" cy="26" r="5" fill="#fff" opacity=".8"/><circle cx="84" cy="38" r="3" fill="#fff" opacity=".8"/>'
 )
 
 if __name__ == "__main__":

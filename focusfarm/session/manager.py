@@ -55,9 +55,9 @@ class SessionManager:
         self.db = db
         self.monitor = monitor if isinstance(monitor, SafeMonitor) else SafeMonitor(monitor or FallbackMonitor())
         self.classifier = classifier or Classifier(load_rules())
-        # Без подставки в обычном режиме считаем, что телефон «лежит» —
-        # иначе сессию нельзя было бы вести. В dev/demo телефон кладут вручную.
-        self.phone = phone or MockPhoneSensor(docked=settings.get("mode", "normal") == "normal")
+        # Без датчика телефон «не подключён»: сессия стартует только по сигналу
+        # USB/подставки (в dev/demo телефон кладут вручную из панели).
+        self.phone = phone or MockPhoneSensor(docked=False)
         self.device = device or MockDeviceOutput()
         self.lock = threading.RLock()
 
@@ -95,13 +95,21 @@ class SessionManager:
             if self.sm:
                 self.sm.th.update(settings["thresholds"])
             self.reactions.set_sound_cfg(settings.get("sound"))
+            device = settings.get("device", {})
             if hasattr(self.phone, "set_port"):   # настоящая подставка: порт из настроек
-                self.phone.set_port(settings.get("device", {}).get("serial_port", ""))
+                self.phone.set_port(device.get("serial_port", ""))
+            if hasattr(self.phone, "set_phone_source"):
+                self.phone.set_phone_source(device.get("phone_source", "auto"))
+            usb = getattr(self.phone, "usb", None)
+            if usb is not None:   # телефон, привязанный по USB-кабелю
+                paired = device.get("usb_phone") or {}
+                usb.set_paired(paired.get("id", ""), paired.get("name", ""))
 
     def close(self):
         """Вызывается при остановке сервера: закрываем порт подставки."""
-        if hasattr(self.phone, "stop"):
-            self.phone.stop()
+        closer = getattr(self.phone, "shutdown", None) or getattr(self.phone, "stop", None)
+        if closer:
+            closer()
 
     @property
     def dev_tools(self) -> bool:
@@ -134,15 +142,25 @@ class SessionManager:
 
     # ---------- жизненный цикл сессии ----------
 
-    def start_session(self, plot=None, crop: str | None = None, length_min: float | None = None):
+    def start_session(self, plot=None, crop: str | None = None, length_min: float | None = None,
+                      without_phone: bool = False):
+        """without_phone — тренировка без телефона: время считается в статистике,
+        но рыбки не растут (награды нет)."""
         with self.lock:
             if self.session:
                 raise GameError("Сессия уже идёт")
+            if not without_phone and not self.phone.is_docked():
+                raise GameError("Подключи телефон кабелем или поставь на подставку — "
+                                "без него таймер не запускается.")
             length = float(length_min or self.default_length_min())
             if length <= 0:
                 raise GameError("Длина сессии должна быть больше нуля")
-            pos = self.game.begin_session(tuple(plot) if plot else None, crop, length)
-            crop_id = self.game.plot(*pos).crop_id if pos else None
+            if without_phone:
+                pos = self.game.begin_practice()
+                crop_id = None
+            else:
+                pos = self.game.begin_session(tuple(plot) if plot else None, crop, length)
+                crop_id = self.game.plot(*pos).crop_id if pos else None
             now = self.clock.now()
             self.session = {
                 "id": self.db.start_session(now, length, crop_id),
@@ -151,10 +169,16 @@ class SessionManager:
                 "elapsed_s": 0.0,
                 "totals": {},
                 "plot": pos,
+                "no_phone": without_phone,
             }
             self.sm = StateMachine(self.settings["thresholds"], start_state=FOCUS)
             self.paused = self.notebook = False
-            self.message = None if pos else "Все грядки заняты урожаем — собери его, чтобы посадить новое."
+            if without_phone:
+                self.message = "Тренировка без телефона: время идёт в статистику, но рыбки не растут."
+            elif not pos:
+                self.message = "Все места заняты готовыми рыбками — выпусти их в пруд, чтобы вывести новых."
+            else:
+                self.message = None
             self.bus.publish("session_started", {"plot": pos, "crop": crop_id, "length_min": length})
             self._set_state(FOCUS)
             self._save()
@@ -211,11 +235,17 @@ class SessionManager:
 
     def _update_state(self):
         """Пересчитать состояние сразу (по кнопке), не дожидаясь тика."""
-        inp = Inputs(self.phone.is_docked(), self.activity["idle_s"], self.activity["category"],
+        inp = Inputs(self._phone_ok(), self.activity["idle_s"], self.activity["category"],
                      self.notebook, self.paused)
         new_state = self.sm.update(inp, self.game_now)
         if new_state != self.state:
             self._set_state(new_state)
+
+    def _phone_ok(self) -> bool:
+        """В тренировке без телефона телефон не проверяем."""
+        if self.session and self.session.get("no_phone"):
+            return True
+        return self.phone.is_docked()
 
     # ---------- тик ----------
 
@@ -327,6 +357,10 @@ class SessionManager:
                 raise GameError(f"Категория должна быть одной из {CATEGORIES}")
             self.forced_category = category
 
+    def usb_view(self) -> dict | None:
+        usb = getattr(self.phone, "usb", None)
+        return usb.view() if usb is not None else None
+
     # ---------- снимок для интерфейса ----------
 
     def snapshot(self) -> dict:
@@ -341,7 +375,8 @@ class SessionManager:
                 "activity": {**self.activity, "available": self.monitor.available,
                              "monitor": self.monitor.name, "error": self.monitor.last_error,
                              "forced_category": self.forced_category},
-                "phone": {"docked": self.phone.is_docked(), "source": self.phone.source},
+                "phone": {"docked": self.phone.is_docked(), "source": self.phone.source,
+                          "usb": self.usb_view()},
                 "device": self._device_view(),
                 "farm": self._farm_view(),
                 "message": self.message,
@@ -361,6 +396,7 @@ class SessionManager:
             "notebook": self.notebook,
             "ask_presence": self.sm.ask_presence,
             "plot": s["plot"],
+            "no_phone": s.get("no_phone", False),
         }
 
     def _device_view(self):

@@ -35,6 +35,7 @@ class StartBody(BaseModel):
     plot: list[int] | None = None
     crop: str | None = None
     length_min: float | None = None
+    without_phone: bool = False
 
 
 class NotebookBody(BaseModel):
@@ -54,6 +55,11 @@ class PhoneBody(BaseModel):
     docked: bool
 
 
+class UsbPairBody(BaseModel):
+    id: str
+    name: str = ""
+
+
 class CategoryBody(BaseModel):
     category: str | None = None
 
@@ -67,8 +73,7 @@ def build_manager(db_path=DEFAULT_PATH, cli_overrides: dict | None = None, **kwa
     kwargs.setdefault("monitor", create_monitor())
     if "phone" not in kwargs and "device" not in kwargs:
         # Одна подставка = и датчик, и свет/звук; без порта — виртуальная.
-        dock = Dock(settings.get("device", {}).get("serial_port", ""),
-                    mock_docked=settings.get("mode", "normal") == "normal")
+        dock = Dock(settings.get("device", {}).get("serial_port", ""))
         kwargs["phone"] = kwargs["device"] = dock
     manager = SessionManager(settings, db, **kwargs)
     manager.cli_overrides = cli_overrides or {}
@@ -110,7 +115,7 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
         if closer:
             closer()
 
-    app = FastAPI(title="Фокус-ферма", lifespan=lifespan)
+    app = FastAPI(title="Фокус-пруд", lifespan=lifespan)
     app.state.manager = manager
 
     @app.exception_handler(GameError)
@@ -129,7 +134,7 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
 
     @app.get("/api/hello")
     def hello():
-        return {"message": "Hello, Фокус-ферма!"}
+        return {"message": "Hello, Фокус-пруд!"}
 
     @app.get("/api/state")
     def get_state():
@@ -137,7 +142,7 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
 
     @app.post("/api/session/start")
     def session_start(body: StartBody):
-        return manager.start_session(body.plot, body.crop, body.length_min)
+        return manager.start_session(body.plot, body.crop, body.length_min, body.without_phone)
 
     @app.post("/api/session/pause")
     def session_pause():
@@ -214,6 +219,61 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
     def put_rules(body: dict):
         manager.classifier.set_rules(body)          # сначала проверка
         return save_rules(manager.classifier.rules, rules_path)
+
+    # ---------- привязка телефона по USB ----------
+
+    def usb_sensor():
+        usb = getattr(manager.phone, "usb", None)
+        if usb is None:
+            raise HTTPException(400, "USB-датчик недоступен")
+        return usb
+
+    def save_usb_pairing(device_id: str, name: str):
+        """Запоминает телефон в настройках (в базе), как и остальные настройки из интерфейса."""
+        patch = {"device": {"usb_phone": {"id": device_id, "name": name}}}
+        overrides = deep_merge(manager.db.get_overrides(), patch)
+        settings = load_settings(overrides=deep_merge(overrides, getattr(manager, "cli_overrides", {})))
+        manager.db.set_overrides(overrides)
+        manager.apply_settings(settings)
+        usb_sensor().poll()
+
+    @app.get("/api/phone")
+    def phone_info():
+        return {"usb": manager.usb_view(), "docked": manager.phone.is_docked(),
+                "source": manager.phone.source}
+
+    @app.get("/api/phone/devices")
+    def phone_devices():
+        """Все USB-устройства — для ручного выбора, если автоопределение не сработало."""
+        usb = usb_sensor()
+        usb.poll()
+        return {"devices": usb.devices, "error": usb.error}
+
+    @app.post("/api/phone/pair/begin")
+    def phone_pair_begin():
+        """Шаг 1 мастера: телефон ещё НЕ подключён, запоминаем список устройств."""
+        usb_sensor().pair_begin()
+        return {"ok": True}
+
+    @app.post("/api/phone/pair/finish")
+    def phone_pair_finish():
+        """Шаг 2: телефон подключили. Одно новое устройство — это он, и мы его запоминаем."""
+        usb = usb_sensor()
+        found = usb.pair_finish()
+        if len(found) == 1:
+            save_usb_pairing(found[0]["id"], found[0]["name"])
+        return {"candidates": found, "paired": len(found) == 1, "usb": manager.usb_view()}
+
+    @app.post("/api/phone/pair")
+    def phone_pair(body: UsbPairBody):
+        """Ручная привязка: выбрать устройство из списка."""
+        save_usb_pairing(body.id, body.name)
+        return manager.usb_view()
+
+    @app.delete("/api/phone/pair")
+    def phone_unpair():
+        save_usb_pairing("", "")
+        return manager.usb_view()
 
     @app.get("/api/ports")
     def ports():

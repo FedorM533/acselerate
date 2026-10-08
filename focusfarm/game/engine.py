@@ -1,5 +1,8 @@
-"""Игровая логика «Фокус-фермы» (раздел 9 ТЗ): рост, сорняки, качество,
-урожай, монеты, серия дней, магазин.
+"""Игровая логика «Фокус-пруда»: рост рыбок, ил в воде, качество,
+выпуск рыбок, монеты, серия дней, магазин.
+
+Внутренние имена остались от фермы (plot, crop, weeds, harvest): «грядка» —
+это место в пруду, «растение» — рыбка, «сорняк» — ил, «урожай» — выпуск.
 
 Движок ничего не знает про базу данных и время компьютера: ему передают
 состояние, прошедшие секунды `dt` и сегодняшнюю дату. Сохранением
@@ -18,9 +21,9 @@ BAD_STATES = (DISTRACTED, PHONE_OUT)  # за них появляются сор�
 DEFAULT_GAME = {
     "start_size": 3,
     "expansions": {"expand_4": {"size": 4, "price": 200}, "expand_5": {"size": 5, "price": 500}},
-    "decor": {"scarecrow": {"name": "Пугало", "price": 20},
-              "fence": {"name": "Забор", "price": 40},
-              "bench": {"name": "Скамейка", "price": 60}},
+    "decor": {"plants": {"name": "Водоросли", "price": 20},
+              "rocks": {"name": "Камни", "price": 40},
+              "castle": {"name": "Замок", "price": 60}},
     "weed_every_s": 60,
     "max_weeds": 3,
     "weed_unlock_focus_s": 300,
@@ -80,7 +83,7 @@ class GameEngine:
 
     def plot(self, x: int, y: int) -> Plot:
         if (x, y) not in self.plots:
-            raise GameError("Такой грядки нет")
+            raise GameError("Такого места в пруду нет")
         return self.plots[(x, y)]
 
     def is_ripe(self, x: int, y: int) -> bool:
@@ -107,12 +110,12 @@ class GameEngine:
     # ---------- начало и конец сессии ----------
 
     def default_crop(self, length_min: float) -> str:
-        """Открытое растение, чьё время роста ближе всего к длине сессии."""
+        """Открытая рыбка, чьё время роста ближе всего к длине сессии."""
         unlocked = [c for c in self.crops.values() if c.id in self.unlocks]
         return min(unlocked, key=lambda c: abs(c.focus_min - length_min)).id
 
     def default_plot(self) -> tuple[int, int] | None:
-        """Сначала недоросшее растение (продолжаем), иначе первая пустая грядка."""
+        """Сначала недоросшая рыбка (продолжаем), иначе первое пустое место."""
         for pos in sorted(self.plots):
             if self.plots[pos].crop_id and not self.is_ripe(*pos):
                 return pos
@@ -135,14 +138,23 @@ class GameEngine:
         if p.crop_id is None:
             crop_id = crop_id or self.default_crop(length_min)
             if crop_id not in self.crops:
-                raise GameError("Нет такого растения")
+                raise GameError("Нет такой рыбки")
             if crop_id not in self.unlocks:
-                raise GameError("Это растение ещё не открыто")
+                raise GameError("Эта рыбка ещё не открыта")
             self.plots[pos] = Plot(crop_id=crop_id)
         elif self.is_ripe(*pos):
-            raise GameError("Сначала собери урожай с этой грядки")
+            raise GameError("Сначала выпусти готовую рыбку в пруд")
         self.active_plot = pos
         return pos
+
+    def begin_practice(self) -> None:
+        """Тренировка без телефона: счётчики сессии сбрасываем, но рыбку не выбираем —
+        значит, расти и получать награду нечему."""
+        self.session_focus_s = 0.0
+        self._distract_run_s = 0.0
+        self._prev_state = None
+        self.active_plot = None
+        return None
 
     def end_session(self):
         self.active_plot = None
@@ -206,10 +218,10 @@ class GameEngine:
     def weed(self, x: int, y: int):
         p = self.plot(x, y)
         if not p.weeds:
-            raise GameError("Здесь нет сорняка")
+            raise GameError("Здесь вода и так чистая")
         if not self.can_weed():
             minutes = self.cfg["weed_unlock_focus_s"] // 60
-            raise GameError(f"Прополоть можно после {minutes} минут фокуса в этой сессии")
+            raise GameError(f"Очистить воду можно после {minutes} минут фокуса в этой сессии")
         p.weeds = 0
 
     def harvest_value(self, x: int, y: int) -> dict:
@@ -221,7 +233,7 @@ class GameEngine:
 
     def harvest(self, x: int, y: int) -> dict:
         if not self.is_ripe(x, y):
-            raise GameError("Растение ещё не созрело")
+            raise GameError("Рыбка ещё не выросла")
         p = self.plot(x, y)
         result = {**self.harvest_value(x, y), "crop": p.crop_id, "x": x, "y": y}
         self.coins += result["coins"]
@@ -263,7 +275,7 @@ class GameEngine:
                               "price": c.price, "owned": c.id in self.unlocks})
         prev_size = self.cfg["start_size"]
         for item_id, e in self.cfg["expansions"].items():
-            items.append({"item": item_id, "kind": "expand", "name": f"Огород {e['size']}×{e['size']}",
+            items.append({"item": item_id, "kind": "expand", "name": f"Пруд {e['size']}×{e['size']}",
                           "price": e["price"], "owned": self.size >= e["size"],
                           "available": self.size >= prev_size})
             prev_size = e["size"]

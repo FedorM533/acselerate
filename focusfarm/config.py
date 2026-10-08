@@ -8,6 +8,7 @@ import yaml
 CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 
 MODES = ("normal", "dev", "demo")
+PHONE_SOURCES = ("auto", "usb", "serial", "mock")   # как определяем «телефон подключён»
 
 # Пороги, которые обязаны быть в settings.yaml, и их допустимые границы.
 THRESHOLD_KEYS = [
@@ -53,6 +54,9 @@ def validate_settings(s: dict) -> dict:
     speed = s.get("demo_speed", 1)
     if not isinstance(speed, (int, float)) or not 1 <= speed <= 1000:
         raise ConfigError("demo_speed должен быть числом от 1 до 1000")
+    source = s.get("device", {}).get("phone_source", "auto")
+    if source not in PHONE_SOURCES:
+        raise ConfigError(f"device.phone_source должен быть одним из {PHONE_SOURCES}")
     length = s.get("session", {}).get("default_length_min", 25)
     if not isinstance(length, (int, float)) or length <= 0:
         raise ConfigError("session.default_length_min должен быть больше нуля")

@@ -1,4 +1,4 @@
-"""Автопилот демо «Фокус-фермы».
+"""Автопилот демо «Фокус-пруда».
 
 Проигрывает сценарий показа через dev-API и API сессии и печатает, что
 происходит. Основная база не трогается: демо живёт в data/demo.db.
@@ -10,14 +10,14 @@
     python scripts/demo_autopilot.py --attach http://127.0.0.1:8765   # к уже запущенному серверу
 
 Сценарий:
- 1. сброс демо-данных (+ стартовые монеты, открыта морковь);
- 2. телефон в подставку → сессия, сажается морковь;
- 3. работа — растение растёт;
- 4. «Пишу в тетради» на 15 с — растение растёт дальше;
- 5. отвлечение: жёлтый → красный → сорняк;
- 6. возврат к работе, прополка;
+ 1. сброс демо-данных (+ стартовые монеты, открыта золотая рыбка);
+ 2. телефон подключён → сессия, поселяется рыбка;
+ 3. работа — рыбка растёт;
+ 4. «Пишу в тетради» на 15 с — рыбка растёт дальше;
+ 5. отвлечение: жёлтый → красный → ил;
+ 6. возврат к работе, очистка воды;
  7. телефон вынут на 10 игровых секунд — льготный период, без последствий;
- 8. морковь созрела → урожай → монеты;
+ 8. рыбка выросла → выпуск → монеты;
  9. завершение сессии → статистика.
 """
 import argparse
@@ -45,7 +45,7 @@ class DemoError(RuntimeError):
 # ---------------- подготовка ----------------
 
 def reset_demo_db(path: Path = DEMO_DB, coins: int = START_COINS):
-    """Чистая демо-ферма: удаляем data/demo.db и кладём стартовые монеты + морковь."""
+    """Чистый демо-пруд: удаляем data/demo.db и кладём стартовые монеты + золотая рыбка."""
     from focusfarm.config import load_settings
     from focusfarm.game.engine import GameEngine
     from focusfarm.storage.db import Database
@@ -56,7 +56,7 @@ def reset_demo_db(path: Path = DEMO_DB, coins: int = START_COINS):
     db = Database(path)
     game = GameEngine(load_settings()["game"])
     game.coins = coins
-    game.unlocks.add("carrot")
+    game.unlocks.add("goldfish")
     db.save_farm(game.to_dict())
     db.conn.close()
 
@@ -155,7 +155,7 @@ class Autopilot:
         print(f"Демо ×{self.speed:g}: 1 настоящая секунда = {self.speed:g} игровых.", flush=True)
 
         # 1. Сброс — сделан до запуска сервера (или пропущен при --attach).
-        self.step("Чистая демо-ферма")
+        self.step("Чистый демо-пруд")
         if s["session"]:
             self.post("/api/session/end")
         self.post("/api/dev/phone", {"docked": False})
@@ -164,18 +164,18 @@ class Autopilot:
         self.on_step("start")
 
         # 2. Телефон в подставку → сессия.
-        self.step("Кладём телефон в подставку")
+        self.step("Подключаем телефон")
         self.post("/api/dev/category", {"category": "work"})
         self.post("/api/dev/phone", {"docked": True})
         s = self.wait_until(lambda st: st["session"] is not None, "старт сессии", 10)
         plot = self.active_plot(s)
-        self.say(f"Сессия началась, свет {s['device']['led']}. На грядке: {plot['crop_name'] if plot else '—'}")
-        if plot and plot["crop"] != "carrot":
-            self.say("(морковь не открыта — растёт то, что есть)")
+        self.say(f"Сессия началась, свет {s['device']['led']}. В пруду: {plot['crop_name'] if plot else '—'}")
+        if plot and plot["crop"] != "goldfish":
+            self.say("(золотая рыбка не открыта — растёт то, что есть)")
         self.on_step("session_started")
 
         # 3. Работа.
-        self.step("Работаем — растение растёт")
+        self.step("Работаем — рыбка растёт")
         time.sleep(15)
         plot = self.active_plot(self.state())
         self.say(f"{plot['crop_name']}: {round(plot['progress'] * 100)}% (стадия {plot['stage']})")
@@ -186,7 +186,7 @@ class Autopilot:
         self.post("/api/session/notebook", {"on": True})
         self.post("/api/dev/category", {"category": "neutral"})
         self.wait_until(lambda st: st["state"] == "NOTEBOOK", "режим тетради", 5)
-        self.say("Клавиатура не нужна — растение всё равно растёт")
+        self.say("Клавиатура не нужна — рыбка всё равно растёт")
         self.on_step("notebook")
         time.sleep(15)
         plot = self.active_plot(self.state())
@@ -201,51 +201,51 @@ class Autopilot:
         self.say("Жёлтый: «Кажется, отвлёкся…»")
         self.on_step("maybe")
         self.wait_until(lambda st: st["state"] == "DISTRACTED", "красный", self.game_s(th["distraction_confirm_s"]) + 5)
-        self.say("Красный: «Отвлёкся — огород ждёт», рост на паузе")
+        self.say("Красный: «Отвлёкся — вода мутнеет», рост на паузе")
         s = self.wait_until(lambda st: any(p["weeds"] for p in st["farm"]["plots"]) and st,
-                            "сорняк", self.game_s(60) + 5)
+                            "ил", self.game_s(60) + 5)
         weed = next(p for p in s["farm"]["plots"] if p["weeds"])
-        self.say(f"Вырос сорняк на грядке ({weed['x'] + 1}, {weed['y'] + 1})")
+        self.say(f"Появился ил на месте ({weed['x'] + 1}, {weed['y'] + 1})")
         self.on_step("distracted")
 
         # 6. Возврат и прополка.
-        self.step("Вернулись к работе и пропололи")
+        self.step("Вернулись к работе и очистили воду")
         self.post("/api/dev/category", {"category": "work"})
         s = self.wait_until(lambda st: st["state"] == "FOCUS" and st, "фокус", self.game_s(th["recover_s"]) + 5)
-        self.say("Снова «Работаешь 🌱»")
-        s = self.wait_until(lambda st: st["farm"]["can_weed"] and st, "право прополоть",
+        self.say("Снова «Работаешь 🐟»")
+        s = self.wait_until(lambda st: st["farm"]["can_weed"] and st, "право очистить воду",
                             self.game_s(s["farm"]["weed_unlock_left_s"]) + 5)
         self.post("/api/farm/weed", {"x": weed["x"], "y": weed["y"]})
-        self.say("Сорняк убран (5 минут фокуса уже набрано)")
+        self.say("Ил убран (5 минут фокуса уже набрано)")
         self.on_step("weeded")
 
         # 7. Телефон — льготный период.
-        self.step("Достали телефон на 10 секунд и вернули")
+        self.step("Отключили кабель на 10 секунд и вернули")
         out_game = min(10, th["phone_grace_s"] / 2)
         self.post("/api/dev/phone", {"docked": False})
         time.sleep(max(0.2, self.game_s(out_game)))
         self.post("/api/dev/phone", {"docked": True})
         state_now = self.state()["state_label"]
-        self.say(f"{out_game:g} игровых секунд вне подставки — «{state_now}», без последствий "
+        self.say(f"{out_game:g} игровых секунд без подключения — «{state_now}», без последствий "
                  f"(льготный период {th['phone_grace_s']} с)")
         self.on_step("phone_back")
 
         # 8. Урожай.
-        self.step("Ждём урожай")
+        self.step("Ждём, пока рыбка вырастет")
         plot = self.active_plot(self.state())
         wait = self.game_s(plot["left_s"]) + 10
-        self.say(f"До урожая ~{round(wait - 10)} настоящих секунд…")
+        self.say(f"До выпуска ~{round(wait - 10)} настоящих секунд…")
         s = self.wait_until(lambda st: (p := self.active_plot(st)) and p["ripe"] and st, "созревание", wait)
         plot = self.active_plot(s)
-        self.say(f"{plot['crop_name']} созрела! ★ × {plot['stars']}, стоимость {plot['value']}")
+        self.say(f"{plot["crop_name"]} выросла! ★ × {plot['stars']}, стоимость {plot['value']}")
         coins_before = s["farm"]["coins"]
         self.on_step("ripe")
         after = self.state()
         if (p := self.active_plot(after)) and p["ripe"]:
             result = self.post("/api/farm/harvest", {"x": plot["x"], "y": plot["y"]})
-            self.say(f"Собрали: +{result['coins']} монет ({coins_before} → {coins_before + result['coins']})")
-        else:   # урожай уже собрали кликом в интерфейсе (так делает screenshots.py)
-            self.say(f"Собрали в интерфейсе: {coins_before} → {after['farm']['coins']} монет")
+            self.say(f"Выпустили: +{result['coins']} монет ({coins_before} → {coins_before + result['coins']})")
+        else:   # рыбку уже выпустили кликом в интерфейсе (так делает screenshots.py)
+            self.say(f"Выпустили в интерфейсе: {coins_before} → {after['farm']['coins']} монет")
         self.on_step("harvested")
 
         # 9. Завершение и статистика.
@@ -262,7 +262,7 @@ class Autopilot:
 def main():
     from focusfarm import fix_console_encoding
     fix_console_encoding()
-    parser = argparse.ArgumentParser(description="Автопилот демо «Фокус-фермы»")
+    parser = argparse.ArgumentParser(description="Автопилот демо «Фокус-пруда»")
     parser.add_argument("--speed", type=float, default=30, help="ускорение демо (по умолчанию 30)")
     parser.add_argument("--port", type=int, default=8766, help="порт демо-сервера (по умолчанию 8766)")
     parser.add_argument("--pause", type=float, default=5, help="пауза между шагами, с (по умолчанию 5)")
@@ -278,7 +278,7 @@ def main():
             url = args.attach
             print(f"Подключаюсь к {url} (данные не сбрасываю)")
         else:
-            print("Готовлю чистую демо-ферму в data/demo.db …")
+            print("Готовлю чистый демо-пруд в data/demo.db …")
             reset_demo_db()
             proc, url = start_server(args.port, args.speed)
             print(f"Сервер запущен: {url}/")

@@ -27,19 +27,19 @@ UI_UPDATE_S = 1.2   # сервер присылает состояние раз 
 
 # Шаг автопилота → какие вкладки снять: (вкладка, имя файла, описание).
 SHOTS = {
-    "session_started": [("farm", "01_farm_start", "Сессия началась: морковь посажена, солнечно"),
-                        ("session", "02_session_focus", "Вкладка «Сессия»: кольцо-таймер, «Работаешь 🌱», подставка горит зелёным")],
-    "focus": [("farm", "03_farm_growing", "Морковь подросла, под грядкой полоска прогресса")],
+    "session_started": [("farm", "01_farm_start", "Сессия началась: золотая рыбка в пруду, вода чистая"),
+                        ("session", "02_session_focus", "Вкладка «Сессия»: кольцо-таймер, «Работаешь 🐟», подставка горит зелёным")],
+    "focus": [("farm", "03_farm_growing", "Рыбка подросла, под ней полоска прогресса")],
     "notebook": [("session", "04_session_notebook", "Режим «Пишу в тетради ✏️» — рост продолжается")],
-    "maybe": [("farm", "05_farm_maybe", "«Кажется, отвлёкся…»: набегает облако")],
-    "distracted": [("farm", "06_farm_distracted_weed", "«Отвлёкся»: пасмурно, растения поникли, вырос сорняк"),
-                   ("session", "07_session_distracted", "«Сессия» в состоянии «Отвлёкся — огород ждёт», подставка красная")],
-    "weeded": [("farm", "08_farm_weeded", "Вернулись к работе: снова солнце, сорняк прополот")],
-    "phone_back": [("session", "09_session_phone_back", "Телефон вернули в подставку в льготный период")],
-    "ripe": [("farm", "10_farm_ripe", "Морковь созрела: подпрыгивает, блестит, кнопка «Собрать»")],
-    "harvested": [("farm", "12_farm_after_harvest", "После сбора: монеты в шапке, грядка засажена заново")],
+    "maybe": [("farm", "05_farm_maybe", "«Кажется, отвлёкся…»: вода слегка мутнеет")],
+    "distracted": [("farm", "06_farm_distracted_weed", "«Отвлёкся»: вода мутная, появился ил"),
+                   ("session", "07_session_distracted", "«Сессия» в состоянии «Отвлёкся — вода мутнеет», подставка красная")],
+    "weeded": [("farm", "08_farm_weeded", "Вернулись к работе: вода снова чистая, ил убран")],
+    "phone_back": [("session", "09_session_phone_back", "Телефон вернули в льготный период")],
+    "ripe": [("farm", "10_farm_ripe", "Рыбка выросла: подпрыгивает, блестит, кнопка «Выпустить»")],
+    "harvested": [("farm", "12_farm_after_harvest", "После выпуска: монеты в шапке, на месте новая икринка")],
     "stats": [("stats", "13_stats", "«Статистика»: карточки, хронология сессии по состояниям"),
-              ("shop", "14_shop", "«Магазин»: закрытые растения с замочком и ценой"),
+              ("shop", "14_shop", "«Магазин»: закрытые рыбки с замочком и ценой"),
               ("settings", "15_settings", "«Настройки»: пороги понятными словами, правила окон")],
 }
 
@@ -83,7 +83,7 @@ class Shooter:
         time.sleep(0.6)
         file = f"11_farm_harvest_coins_{SIZES[0][0]}x{SIZES[0][1]}.png"
         big.screenshot(path=str(OUT / file))
-        self.index.append((file, "Сбор урожая: монеты летят к счётчику, всплывает «+15 ★★»"))
+        self.index.append((file, "Выпуск рыбки: монеты летят к счётчику, всплывает «+15 ★★»"))
         print("   📸 11_farm_harvest_coins", flush=True)
 
     def write_index(self):
@@ -103,7 +103,7 @@ def launch(p):
 def main():
     from focusfarm import fix_console_encoding
     fix_console_encoding()
-    parser = argparse.ArgumentParser(description="Скриншоты «Фокус-фермы»")
+    parser = argparse.ArgumentParser(description="Скриншоты «Фокус-пруда»")
     parser.add_argument("--speed", type=float, default=15)
     parser.add_argument("--port", type=int, default=8767)
     args = parser.parse_args()

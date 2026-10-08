@@ -1,4 +1,4 @@
-// Фокус-ферма — интерфейс. Чистый JavaScript (ES-модуль), без сборки.
+// Фокус-пруд — интерфейс. Чистый JavaScript (ES-модуль), без сборки.
 // Состояние приходит с сервера по WebSocket раз в секунду, а кнопки
 // вызывают REST API (см. focusfarm/api/server.py).
 
@@ -8,20 +8,20 @@ const $$ = (sel) => document.querySelectorAll(sel);
 // Состояние показываем тремя способами: цвет (класс s-XXX) + иконка + текст.
 const STATE_LABELS = {
   IDLE: "Сессия не идёт",
-  FOCUS: "Работаешь 🌱",
+  FOCUS: "Работаешь 🐟",
   NOTEBOOK: "Пишешь в тетради ✏️",
   MAYBE_DISTRACTED: "Кажется, отвлёкся…",
-  DISTRACTED: "Отвлёкся — огород ждёт",
-  PHONE_OUT: "Телефон вынут",
+  DISTRACTED: "Отвлёкся — вода мутнеет",
+  PHONE_OUT: "Телефон отключён",
   PAUSED: "Пауза",
 };
 // Короткие названия — для легенд и таблиц.
 const STATE_SHORT = {
   IDLE: "Нет сессии", FOCUS: "Работа", NOTEBOOK: "Тетрадь", MAYBE_DISTRACTED: "Кажется, отвлёкся",
-  DISTRACTED: "Отвлёкся", PHONE_OUT: "Телефон вынут", PAUSED: "Пауза",
+  DISTRACTED: "Отвлёкся", PHONE_OUT: "Телефон отключён", PAUSED: "Пауза",
 };
 const CATEGORY_LABELS = { work: "работа", neutral: "нейтрально", distraction: "отвлечение" };
-const SOUND_NAMES = { 1: "мягкий сигнал", 2: "сигнал «отвлёкся»", 3: "«урожай собран»", 4: "«сессия началась»" };
+const SOUND_NAMES = { 1: "мягкий сигнал", 2: "сигнал «отвлёкся»", 3: "«рыбка выпущена»", 4: "«сессия началась»" };
 
 // Иконки состояний — простые SVG (свои).
 const STROKE = 'stroke="#3B2A1E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"';
@@ -173,9 +173,9 @@ const eventHooks = [];   // вкладки могут реагировать н�
 function handleEvents(events) {
   for (const e of events) {
     if (e.type === "notice") toast(e.text);
-    if (e.type === "weed") toast("На грядке вырос сорняк 🌿");
-    if (e.type === "crop_ready") toast("Урожай созрел! Нажми на грядку, чтобы собрать 🎉");
-    if (e.type === "session_started") toast("Сессия началась. Удачи! 🌱");
+    if (e.type === "weed") toast("В воде появился ил 🫧");
+    if (e.type === "crop_ready") toast("Рыбка выросла! Нажми на неё, чтобы выпустить 🎉");
+    if (e.type === "session_started") toast("Сессия началась. Удачи! 🐟");
     if (e.type === "session_ended") toast(e.message);
     if (e.type === "sound") {
       playTone(SOUND_TONES[e.n]);
@@ -206,11 +206,13 @@ function setStateView(pill, iconEl, textEl, stateName) {
 
 let lastCoins = null;
 
+// Как сейчас определяется телефон: кабель (usb), подставка ESP32 (serial) или вручную (mock).
+const PHONE_SOURCE_TEXT = { usb: "по кабелю", serial: "на подставке", mock: "вручную" };
+
 function dockStatus(s) {
-  const d = s.device;
-  if (d.source === "serial" && d.connected) return { cls: "ok", text: "подключена" };
-  if (d.status) return { cls: "bad", text: "не подключена" };
-  return { cls: "virtual", text: "виртуальная" };
+  if (s.phone.docked) return { cls: "ok", text: "подключён · " + (PHONE_SOURCE_TEXT[s.phone.source] || "") };
+  if (s.device.status && s.device.source === "serial" && !s.device.connected) return { cls: "bad", text: "не подключён" };
+  return { cls: "virtual", text: "не подключён" };
 }
 
 function renderHeader(s) {
@@ -223,7 +225,7 @@ function renderHeader(s) {
   const dock = dockStatus(s);
   $("#dock-chip").className = "chip dock-chip " + dock.cls;
   $("#dock-chip-text").textContent = dock.text;
-  $("#dock-chip").title = s.device.status || `Подставка: ${dock.text}`;
+  $("#dock-chip").title = s.device.status || `Телефон: ${dock.text}`;
   const badge = $("#demo-badge");
   badge.hidden = s.mode !== "demo";
   badge.textContent = `ДЕМО ×${s.speed}`;
@@ -242,23 +244,24 @@ function renderBanner() {
   if (state && !state.activity.available) {
     messages.push("Монитор активности недоступен, работает только датчик телефона.");
   }
+  if (state && state.phone.usb && state.phone.usb.error) messages.push(state.phone.usb.error);
   if (state && state.device.error) messages.push("Подставка: " + state.device.error);
   const banner = $("#banner");
   banner.hidden = messages.length === 0;
   banner.textContent = messages.join(" • ");
 }
 
-// ================= ферма =================
+// ================= пруд =================
 
-// Погода мягко отражает состояние: солнце → облако → пасмурно.
+// «Погода» в пруду — прозрачность воды: чистая → слегка мутная → мутная.
 const WEATHER = {
   FOCUS: "sunny", NOTEBOOK: "sunny", IDLE: "sunny", PAUSED: "sunny",
   MAYBE_DISTRACTED: "cloudy", DISTRACTED: "gloomy", PHONE_OUT: "gloomy",
 };
 const WEATHER_TEXT = {
-  sunny: "☀️ Солнечно — растения растут",
-  cloudy: "⛅ Набежало облако…",
-  gloomy: "🌥 Пасмурно — огород ждёт тебя",
+  sunny: "💧 Вода чистая — рыбки растут",
+  cloudy: "🌫 Вода слегка мутнеет…",
+  gloomy: "🌊 Вода мутная — рыбки ждут тебя",
 };
 
 function plotSprite(p) {
@@ -266,14 +269,14 @@ function plotSprite(p) {
 }
 
 function plotHtml(p, s) {
-  let html = `<img class="bed" src="sprites/bed.svg" alt="">`;
-  if (p.crop) html += `<span class="plant"><img src="${plotSprite(p)}" alt=""></span>`;
-  if (p.weeds) html += `<img class="weed" src="sprites/weed.svg" alt="сорняк">`;
-  if (p.thirsty) html += `<img class="drop" src="sprites/drop.svg" alt="хочет пить">`;
+  let html = `<img class="bed" src="sprites/spot.svg" alt="">`;
+  if (p.crop) html += `<span class="plant${p.stage === "seed" ? " egg" : ""}"><img src="${plotSprite(p)}" alt=""></span>`;
+  if (p.weeds) html += `<img class="weed" src="sprites/silt.svg" alt="ил">`;
+  if (p.thirsty) html += `<img class="drop" src="sprites/bubble.svg" alt="ждёт тебя">`;
   if (p.crop && (p.active || p.ripe)) html += `<span class="stars">${"★".repeat(p.stars)}</span>`;
   if (p.ripe) {
     html += `<span class="sparkle k1">✦</span><span class="sparkle k2">✦</span><span class="sparkle k3">✦</span>`;
-    html += `<span class="harvest">Собрать +${p.value}</span>`;
+    html += `<span class="harvest">Выпустить +${p.value}</span>`;
   } else if (p.active) {
     html += `<span class="bar"><div style="width:${Math.round(p.progress * 100)}%"></div></span>`;
   }
@@ -285,19 +288,19 @@ function plotHtml(p, s) {
 // Короткая подсказка при наведении.
 function plotTip(p, s) {
   if (p.ripe) return "";
-  if (p.weeds) return s.farm.can_weed ? "Прополоть" : "Прополоть можно после 5 минут фокуса";
-  if (!p.crop) return s.session ? "" : "Посадить";
+  if (p.weeds) return s.farm.can_weed ? "Очистить воду" : "Очистить можно после 5 минут фокуса";
+  if (!p.crop) return s.session ? "" : "Поселить рыбку";
   if (!s.session) return "Продолжить растить";
   return "";
 }
 
 function plotTitle(p) {
-  if (!p.crop) return p.weeds ? "Пустая грядка с сорняком" : "Пустая грядка";
+  if (!p.crop) return p.weeds ? "Свободное место, вода мутная" : "Свободное место";
   const parts = [p.crop_name];
   if (p.ripe) parts.push(`готово! +${p.value} монет`);
   else parts.push(`${Math.round(p.progress * 100)}%, ещё ${minutes(p.left_s)} мин фокуса`);
-  if (p.weeds) parts.push("сорняк: −20% урожая соседям");
-  if (p.thirsty) parts.push("хочет пить — вернись к работе");
+  if (p.weeds) parts.push("ил: −20% монет рядом");
+  if (p.thirsty) parts.push("ждёт тебя — вернись к работе");
   return parts.join(" • ");
 }
 
@@ -349,22 +352,22 @@ function renderFarm(s) {
 
   // Декор.
   const decor = s.farm.decor;
-  $("#fence-row").hidden = !decor.includes("fence");
-  setHtml($("#decor-left"), decor.includes("scarecrow") ? `<img src="sprites/scarecrow.svg" alt="пугало">` : "");
-  setHtml($("#decor-right"), decor.includes("bench") ? `<img src="sprites/bench.svg" alt="скамейка">` : "");
+  $("#fence-row").hidden = !decor.includes("rocks");
+  setHtml($("#decor-left"), decor.includes("plants") ? `<img src="sprites/plants.svg" alt="водоросли">` : "");
+  setHtml($("#decor-right"), decor.includes("castle") ? `<img src="sprites/castle.svg" alt="замок">` : "");
 
   // Боковая панель.
   setStateView($("#farm-state"), $("#farm-state-icon"), $("#farm-state-text"), s.state);
-  $("#farm-weather").textContent = s.farm.raining ? "🌦 Дождик-бонус: рост +10%" : WEATHER_TEXT[weather];
+  $("#farm-weather").textContent = s.farm.raining ? "⛲ Родник: рост +10%" : WEATHER_TEXT[weather];
   $("#farm-start").hidden = !!s.session;
   const active = s.farm.plots.find((p) => p.active);
-  let hint = s.message || "Нажми на пустую грядку, чтобы посадить растение.";
+  let hint = s.message || "Нажми на свободное место, чтобы поселить рыбку.";
   if (s.session && active && !active.ripe) hint = `${active.crop_name}: ещё ${minutes(active.left_s)} мин фокуса`;
-  if (s.session && active && active.ripe) hint = `${active.crop_name} созрела — нажми на грядку!`;
+  if (s.session && active && active.ripe) hint = `${active.crop_name} выросла — нажми на неё, чтобы выпустить!`;
   $("#farm-hint").textContent = hint;
   $("#weed-status").textContent = s.farm.can_weed
-    ? "Можно полоть: нажми на сорняк."
-    : `Прополоть можно после 5 минут фокуса в сессии (ещё ${minutes(s.farm.weed_unlock_left_s)} мин).`;
+    ? "Можно чистить: нажми на ил."
+    : `Очистить воду можно после 5 минут фокуса в сессии (ещё ${minutes(s.farm.weed_unlock_left_s)} мин).`;
   const todayMin = minutes(s.farm.today_focus_s);
   $("#today-focus").textContent = todayMin;
   $("#today-goal").style.width = `${Math.min(100, (todayMin / 25) * 100)}%`;
@@ -414,16 +417,17 @@ $("#farm-grid").onclick = async (e) => {
   if (p.ripe) {
     const r = await api("POST", "/api/farm/harvest", { x, y });
     celebrateHarvest(btn, r);
-    if (r.weed_penalty) toast("Сорняк рядом забрал 20% урожая — в следующий раз прополи 🌿");
+    if (r.weed_penalty) toast("Ил рядом забрал 20% монет — в следующий раз очисти воду 🫧");
+    else toast("Рыбка выпущена в пруд 🐟");
     playTone("harvest");
   } else if (p.weeds) {
     if (!state.farm.can_weed) {
-      toast(`Прополоть можно после 5 минут фокуса — осталось ${minutes(state.farm.weed_unlock_left_s)} мин 🌱`);
+      toast(`Очистить воду можно после 5 минут фокуса — осталось ${minutes(state.farm.weed_unlock_left_s)} мин 🐟`);
       return;
     }
     await api("POST", "/api/farm/weed", { x, y });
     playTone("click");
-    toast("Сорняк убран 👍");
+    toast("Вода стала чище 👍");
   } else if (!state.session) {
     selectedPlot = `${x},${y}`;
     playTone("click");
@@ -443,7 +447,7 @@ function renderStartForm(s) {
   // Грядки, на которых можно начать: пустые или с недоросшим растением.
   const plots = s.farm.plots.filter((p) => !p.crop || !p.ripe);
   const plotOptions = [`<option value="">авто</option>`].concat(plots.map((p) => {
-    const text = p.crop ? `${p.crop_name} ${Math.round(p.progress * 100)}%` : "пустая";
+    const text = p.crop ? `${p.crop_name} ${Math.round(p.progress * 100)}%` : "свободно";
     return `<option value="${p.x},${p.y}">${p.y + 1} ряд, ${p.x + 1} место — ${text}</option>`;
   }));
   const prevPlot = $("#start-plot").value;
@@ -476,10 +480,10 @@ function renderCropLine(s) {
   if (p && p.crop) {
     const img = `<img src="${plotSprite(p)}" alt="">`;
     html = p.ripe
-      ? `${img}<span><b>${p.crop_name}</b> созрела — собери урожай на «Ферме»!</span>`
-      : `${img}<span>Растёт <b>${p.crop_name}</b>: ещё ${minutes(p.left_s)} мин фокуса до урожая</span>`;
+      ? `${img}<span><b>${p.crop_name}</b> выросла — выпусти её на вкладке «Пруд»!</span>`
+      : `${img}<span>Растёт <b>${p.crop_name}</b>: ещё ${minutes(p.left_s)} мин фокуса</span>`;
   } else if (!s.session) {
-    html = `<span class="muted">Положи телефон в подставку или нажми «Начать»</span>`;
+    html = `<span class="muted">Подключи телефон кабелем или поставь на подставку — таймер запустится сам</span>`;
   }
   setHtml($("#crop-line"), html);
 }
@@ -507,6 +511,9 @@ function renderSession(s) {
       : `<p class="muted">Пока пусто</p>`);
   } else {
     renderStartForm(s);
+    // Без телефона таймер не запускается (кроме тренировки без награды).
+    $("#start-btn").disabled = !s.phone.docked;
+    $("#phone-need").hidden = s.phone.docked;
     $("#timer").textContent = formatTime(Number($("#start-length").value || 25) * 60);
     $("#timer").classList.toggle("long", Number($("#start-length").value) >= 60);
     $("#timer-sub").textContent = s.message || "запланировано";
@@ -537,11 +544,14 @@ function renderStand(s) {
   $("#stand-led-glow").setAttribute("opacity", led === "OFF" ? "0" : ".9");
   $("#stand").classList.toggle("undocked", !s.phone.docked);
   $("#stand").classList.toggle("clickable", s.dev_tools);
-  $("#stand").title = s.dev_tools ? "Нажми, чтобы положить или взять телефон" : "Подставка";
-  $("#stand-status").textContent = s.phone.docked ? "📱 Телефон в подставке" : "Телефона нет в подставке";
+  $("#stand").title = s.dev_tools ? "Нажми, чтобы положить или взять телефон" : "Телефон";
+  $("#stand-status").textContent = s.phone.docked ? "📱 Телефон подключён" : "Телефон не подключён";
   const dock = dockStatus(s);
-  let hint = s.device.status || (dock.cls === "virtual" ? "Виртуальная подставка — настоящая не подключена" : "Подставка подключена");
-  if (s.dev_tools) hint += (hint ? ". " : "") + "Клик по подставке — взять/положить телефон";
+  const usb = s.phone.usb;
+  let hint = s.device.status ? s.device.status + ". " : "";
+  if (usb && usb.paired) hint = `Кабель: ${usb.name || "телефон привязан"}. ` + hint;
+  else hint = "Телефон по кабелю не привязан — Настройки → «Телефон по кабелю». " + hint;
+  if (s.dev_tools) hint += "Клик по рисунку — взять/положить телефон вручную.";
   $("#stand-hint").textContent = hint;
 }
 
@@ -561,15 +571,17 @@ $("#stand").onclick = async () => {
 $("#start-plot").onchange = () => renderStartForm(state);
 $("#start-length").oninput = () => { if (state && !state.session) renderSession(state); };
 
-$("#start-btn").onclick = async () => {
+function startBody(withoutPhone) {
   const plot = $("#start-plot").value;
-  const body = {
+  return {
     plot: plot ? plot.split(",").map(Number) : null,
     crop: $("#start-crop").disabled ? null : ($("#start-crop").value || null),
     length_min: Number($("#start-length").value) || null,
+    without_phone: withoutPhone,
   };
-  render(await api("POST", "/api/session/start", body));
-};
+}
+$("#start-btn").onclick = async () => render(await api("POST", "/api/session/start", startBody(false)));
+$("#start-nophone-btn").onclick = async () => render(await api("POST", "/api/session/start", startBody(true)));
 $("#pause-btn").onclick = async () => {
   render(await api("POST", state.session.paused ? "/api/session/resume" : "/api/session/pause"));
 };
@@ -634,7 +646,7 @@ function renderTimeline(tl) {
   $("#legend").innerHTML = STATE_ORDER.map((s) => `<span class="s-${s}">${STATE_SHORT[s]}</span>`).join("");
   if (!tl || tl.duration_s <= 0 || !tl.segments.length) {
     svg.innerHTML = "";
-    $("#tl-start").textContent = "Сессий ещё не было — положи телефон в подставку 🌱";
+    $("#tl-start").textContent = "Сессий ещё не было — подключи телефон 🐟";
     $("#tl-end").textContent = "";
     return;
   }
@@ -712,7 +724,7 @@ const SHOP_DESC = {
     const c = s.farm.crops.find((q) => `crop:${q.id}` === item.item);
     return c ? `${c.focus_min} мин фокуса → ${c.coins} монет` : "";
   },
-  expand: (item) => `Больше грядок — больше урожая`,
+  expand: (item) => `Больше мест — больше рыбок`,
   decor: () => "Для красоты, на игру не влияет",
 };
 
@@ -729,10 +741,10 @@ function renderShop(s) {
   setHtml($("#shop-grid"), s.farm.shop.map((item) => {
     let button;
     if (item.owned) button = `<span class="owned-tag">✓ ${item.kind === "crop" ? "Открыто" : "Куплено"}</span>`;
-    else if (item.available === false) button = `<button class="btn" disabled>Сначала огород поменьше</button>`;
+    else if (item.available === false) button = `<button class="btn" disabled>Сначала пруд поменьше</button>`;
     else if (coins < item.price) button = `<button class="btn" disabled>ещё ${price(item.price - coins)}</button>`;
     else button = `<button class="btn primary" data-buy="${item.item}">Купить за ${price(item.price)}</button>`;
-    const kind = { crop: "Растение", expand: "Огород", decor: "Декор" }[item.kind];
+    const kind = { crop: "Рыбка", expand: "Пруд", decor: "Декор" }[item.kind];
     const locked = item.kind === "crop" && !item.owned;
     return `<div class="card shop-item${locked ? " locked" : ""}">
       <span class="shop-kind">${kind}</span>
@@ -760,7 +772,7 @@ renderHooks.push((s) => { if ($("#tab-shop").classList.contains("active")) rende
 const SETTINGS_GROUPS = [
   ["📱 Телефон", [
     ["thresholds", "phone_grace_s", "Сколько секунд можно смотреть в телефон без последствий", "с"],
-    ["session", "auto_start_on_dock", "Начинать сессию, когда кладу телефон в подставку"],
+    ["session", "auto_start_on_dock", "Начинать сессию, когда подключаю телефон"],
     ["session", "auto_end_after_phone_out_min", "Через сколько минут без телефона завершать сессию", "мин"],
   ]],
   ["🎮 Отвлечения", [
@@ -818,13 +830,28 @@ async function loadSettings() {
     <label class="field"><span>Во сколько раз ускорять время в демо</span>
       <span class="input-unit">×<input type="number" id="set-speed" min="1" max="1000" value="${s.demo_speed}"></span></label>
   </div>
+  <div class="settings-group"><h3>📱 Телефон по кабелю</h3>
+    <p id="usb-status" class="muted"></p>
+    <div id="pair-box" class="pair-box"></div>
+    <label class="field"><span>Чем определять «телефон подключён»</span>
+      <select id="set-source">
+        <option value="auto">любой способ (кабель или подставка)</option>
+        <option value="usb">только USB-кабель</option>
+        <option value="serial">только подставка ESP32</option>
+        <option value="mock">только вручную (разработчик)</option>
+      </select></label>
+    <p class="muted small">💡 Чтобы телефоном нельзя было пользоваться, включи на нём режим «Фокусирование»
+      (iPhone) или «Цифровое благополучие → Режим фокусировки» (Android) и оставь только нужные приложения.</p>
+  </div>
   <div class="settings-group"><h3>🔌 Подставка</h3>
     <label class="field"><span>COM-порт</span>
       <span class="input-unit"><select id="set-port"></select><button class="btn small" id="ports-refresh" title="Обновить список">↻</button></span></label>
-    <p class="muted small">«Нет подставки» — работает виртуальная подставка на вкладке «Сессия».</p>
+    <p class="muted small">«Нет подставки» — телефон определяется только по кабелю.</p>
   </div>`;
   $("#settings-groups").innerHTML = html;
   $("#set-mode").value = s.mode;
+  $("#set-source").value = s.device.phone_source || "auto";
+  await loadUsb();
   $("#ports-refresh").onclick = (e) => { e.preventDefault(); loadPorts($("#set-port").value); };
   await loadPorts(s.device.serial_port);
   await loadRules();
@@ -838,12 +865,72 @@ $("#settings-save").onclick = async () => {
   body.sound = { enabled: $("#set-sound").checked };
   body.mode = $("#set-mode").value;
   body.demo_speed = Number($("#set-speed").value);
-  body.device = { serial_port: $("#set-port").value };
+  body.device = { serial_port: $("#set-port").value, phone_source: $("#set-source").value };
   await api("PUT", "/api/settings", body);
   toast("Настройки сохранены ✔");
   refresh();
 };
 tabLoaders.settings = loadSettings;
+
+// ---------- привязка телефона по USB ----------
+
+let pairStep = "idle";   // idle → unplug → plug → manual
+
+function renderPairBox(extra = "") {
+  const box = $("#pair-box");
+  if (!box) return;
+  const steps = {
+    idle: `<button class="btn" id="pair-start">🔗 Привязать телефон</button>`,
+    unplug: `<p><b>Шаг 1.</b> Отключи телефон от компьютера, потом нажми «Дальше».</p>
+      <button class="btn primary" id="pair-next">Дальше</button> <button class="btn" id="pair-cancel">Отмена</button>`,
+    plug: `<p><b>Шаг 2.</b> Подключи телефон кабелем (на телефоне выбери «Передача файлов», если спросит) и нажми «Найти».</p>
+      <button class="btn primary" id="pair-find">Найти телефон</button> <button class="btn" id="pair-cancel">Отмена</button>`,
+    manual: extra,
+  };
+  box.innerHTML = steps[pairStep];
+}
+
+async function loadUsb() {
+  const info = await api("GET", "/api/phone");
+  const usb = info.usb;
+  $("#usb-status").textContent = usb && usb.paired
+    ? `Привязан: ${usb.name || "телефон"} — сейчас ${usb.docked ? "подключён ✅" : "не подключён"}.`
+    : "Телефон не привязан. Привяжи его один раз — дальше таймер будет стартовать при подключении кабеля.";
+  pairStep = "idle";
+  renderPairBox();
+  if (usb && usb.paired) {
+    $("#pair-box").innerHTML += ` <button class="btn danger small" id="pair-remove">Отвязать</button>`;
+  }
+}
+
+async function manualPairList(message) {
+  const { devices } = await api("GET", "/api/phone/devices");
+  pairStep = "manual";
+  const rows = devices.map((d) => `<li><button class="btn small" data-pair="${d.id}" data-name="${d.name}">Это он</button> ${d.name} <span class="muted small">(${d.id})</span></li>`).join("");
+  renderPairBox(`<p>${message}</p><ul class="pair-list">${rows || "<li class='muted'>USB-устройств не найдено</li>"}</ul>
+    <button class="btn" id="pair-cancel">Отмена</button>`);
+}
+
+document.addEventListener("click", async (e) => {
+  const id = e.target.id;
+  if (id === "pair-start") { pairStep = "unplug"; renderPairBox(); }
+  else if (id === "pair-next") { await api("POST", "/api/phone/pair/begin"); pairStep = "plug"; renderPairBox(); }
+  else if (id === "pair-cancel") { pairStep = "idle"; renderPairBox(); }
+  else if (id === "pair-find") {
+    const r = await api("POST", "/api/phone/pair/finish");
+    if (r.paired) { toast("Телефон привязан ✔"); await loadUsb(); }
+    else if (r.candidates.length > 1) await manualPairList("Найдено несколько новых устройств — выбери телефон:");
+    else await manualPairList("Новое устройство не появилось. Возможно, кабель только для зарядки. Выбери телефон из списка или смени кабель:");
+  } else if (e.target.dataset && e.target.dataset.pair) {
+    await api("POST", "/api/phone/pair", { id: e.target.dataset.pair, name: e.target.dataset.name });
+    toast("Телефон привязан ✔");
+    await loadUsb();
+  } else if (id === "pair-remove") {
+    await api("DELETE", "/api/phone/pair");
+    toast("Телефон отвязан");
+    await loadUsb();
+  }
+});
 
 // ---------- редактор правил ----------
 

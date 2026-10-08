@@ -1,5 +1,5 @@
-"""Таблица растений. Числа берутся из settings.yaml (game.crops),
-а если там пусто — из таблицы по умолчанию ниже (раздел 9.1 ТЗ)."""
+"""Таблица рыбок. Числа берутся из settings.yaml (game.crops),
+а если там пусто — из таблицы по умолчанию ниже (раздел 9.1 ТЗ, растения заменены рыбками)."""
 from dataclasses import dataclass
 
 
@@ -17,11 +17,11 @@ class Crop:
 
 
 DEFAULT_CROPS = {
-    "radish":    {"name": "Редис",     "focus_min": 10, "coins": 5,  "price": 0},
-    "carrot":    {"name": "Морковь",   "focus_min": 25, "coins": 15, "price": 30},
-    "potato":    {"name": "Картофель", "focus_min": 40, "coins": 25, "price": 80},
-    "sunflower": {"name": "Подсолнух", "focus_min": 60, "coins": 45, "price": 150},
-    "pumpkin":   {"name": "Тыква",     "focus_min": 90, "coins": 80, "price": 300},
+    "guppy":    {"name": "Гуппи",     "focus_min": 10, "coins": 5,  "price": 0},
+    "goldfish":    {"name": "Золотая рыбка", "focus_min": 25, "coins": 15, "price": 30},
+    "koi":    {"name": "Карп кои", "focus_min": 40, "coins": 25, "price": 80},
+    "angelfish": {"name": "Скалярия", "focus_min": 60, "coins": 45, "price": 150},
+    "arowana":   {"name": "Аравана", "focus_min": 90, "coins": 80, "price": 300},
 }
 
 
@@ -33,7 +33,7 @@ def load_crops(game_cfg: dict | None = None) -> dict[str, Crop]:
     }
 
 
-# Стадии роста по доле прогресса (для картинок).
+# Стадии роста по доле прогресса (для картинок): икринка → малёк → подросток → взрослая → готова.
 STAGES = [(0.15, "seed"), (0.40, "sprout"), (0.70, "young"), (1.0, "adult")]
 
 
