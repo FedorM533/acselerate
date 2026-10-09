@@ -203,6 +203,28 @@ sprites["castle"] = svg(
     '<rect x="18" y="52" width="8" height="8" rx="2" fill="#3B5C7A"/><rect x="74" y="52" width="8" height="8" rx="2" fill="#3B5C7A"/>'
 )
 
+# ---------------- здания: домик, мостик, маяк (только красота) ----------------
+sprites["house"] = svg(
+    f'<rect x="18" y="44" width="64" height="48" rx="4" fill="#E8B87A" {O}/>'
+    f'<path d="M10 46 L50 14 L90 46 Z" fill="#D9604A" {O}/>'
+    f'<rect x="42" y="62" width="18" height="30" rx="9" fill="#3B5C7A" {O}/>'
+    f'<circle cx="28" cy="62" r="7" fill="#DDF3FF" {ow(2)}/><circle cx="72" cy="62" r="7" fill="#DDF3FF" {ow(2)}/>'
+    f'<rect x="64" y="22" width="9" height="16" fill="#B0695A" {O}/>'
+)
+sprites["bridge"] = svg(
+    f'<path d="M4 70 Q50 6 96 70" fill="none" stroke="{INK}" stroke-width="16" stroke-linecap="round"/>'
+    '<path d="M4 70 Q50 6 96 70" fill="none" stroke="#C98B57" stroke-width="11" stroke-linecap="round"/>'
+    + "".join(f'<path d="M{x} {y} v-12" stroke="{INK}" stroke-width="3" stroke-linecap="round"/>'
+              for x, y in ((22, 50), (36, 36), (50, 31), (64, 36), (78, 50))),
+    "0 0 100 80")
+sprites["lighthouse"] = svg(
+    f'<path d="M36 92 L42 28 H58 L64 92 Z" fill="#F4EFE6" {O}/>'
+    '<path d="M38 74 L62 74 L61 62 L39 62 Z M41 50 L59 50 L58 40 L42 40 Z" fill="#D9604A"/>'
+    f'<rect x="38" y="20" width="24" height="10" rx="3" fill="#3B5C7A" {O}/>'
+    f'<path d="M40 20 L50 6 L60 20 Z" fill="#D9604A" {O}/>'
+    '<circle cx="50" cy="25" r="4" fill="#FFE27A"/>'
+)
+
 # ---------------- логотип: рыбка в пузыре ----------------
 sprites["logo"] = svg(
     f'<circle cx="50" cy="50" r="42" fill="#DDF3FF" {ow(3)}/>'

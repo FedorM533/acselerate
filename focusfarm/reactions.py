@@ -42,7 +42,8 @@ class Reactions:
 
         bus.subscribe("state_changed", self._on_state_changed)
         bus.subscribe("session_started", lambda d: self.play(SOUND_START))
-        bus.subscribe("crop_ready", lambda d: self.play(SOUND_HARVEST))
+        # Звук «рыбка выпущена» — когда человек сам выпустил рыбку, а не посреди работы.
+        bus.subscribe("harvested", lambda d: self.play(SOUND_HARVEST))
 
     def set_sound_cfg(self, sound_cfg: dict):
         self.cfg.update(sound_cfg or {})

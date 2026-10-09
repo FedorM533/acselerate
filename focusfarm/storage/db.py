@@ -56,6 +56,30 @@ MIGRATIONS = [
     CREATE TABLE streak (day TEXT PRIMARY KEY, focus_s REAL NOT NULL);
     CREATE TABLE settings_overrides (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     """,
+    # 2 — коллекция рыбок, задания дня, ачивки; «тренировка без телефона» помечается в sessions
+    """
+    ALTER TABLE sessions ADD COLUMN practice INTEGER DEFAULT 0;
+    CREATE TABLE collection (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fish_id TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
+        stars INTEGER NOT NULL,
+        released_at REAL NOT NULL
+    );
+    CREATE TABLE quest_claims (
+        day TEXT NOT NULL,
+        quest_id TEXT NOT NULL,
+        coins INTEGER NOT NULL,
+        seen INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (day, quest_id)
+    );
+    CREATE TABLE achievements (
+        id TEXT PRIMARY KEY,
+        unlocked_at REAL NOT NULL,
+        coins INTEGER NOT NULL DEFAULT 0,
+        seen INTEGER NOT NULL DEFAULT 0
+    );
+    """,
 ]
 
 # Секунды каждого состояния → колонка в sessions.
@@ -124,11 +148,12 @@ class Database:
 
     # ---------- сессии и события ----------
 
-    def start_session(self, start: float, planned_min: float, crop_id: str | None) -> int:
+    def start_session(self, start: float, planned_min: float, crop_id: str | None,
+                      practice: bool = False) -> int:
         with self.lock, self.conn:
             cur = self.conn.execute(
-                "INSERT INTO sessions (start, planned_min, crop_id) VALUES (?, ?, ?)",
-                (start, planned_min, crop_id),
+                "INSERT INTO sessions (start, planned_min, crop_id, practice) VALUES (?, ?, ?, ?)",
+                (start, planned_min, crop_id, int(practice)),
             )
             return cur.lastrowid
 
@@ -188,6 +213,67 @@ class Database:
         with self.lock:
             row = self.conn.execute("SELECT * FROM sessions ORDER BY id DESC LIMIT 1").fetchone()
             return dict(row) if row else None
+
+    def all_sessions(self) -> list[dict]:
+        with self.lock:
+            return [dict(r) for r in self.conn.execute("SELECT * FROM sessions ORDER BY start")]
+
+    # ---------- коллекция рыбок ----------
+
+    def add_fish(self, fish_id: str, name: str, stars: int, released_at: float) -> int:
+        with self.lock, self.conn:
+            cur = self.conn.execute(
+                "INSERT INTO collection (fish_id, name, stars, released_at) VALUES (?, ?, ?, ?)",
+                (fish_id, name, stars, released_at))
+            return cur.lastrowid
+
+    def list_fish(self) -> list[dict]:
+        """Все выпущенные рыбки, новые первыми."""
+        with self.lock:
+            return [dict(r) for r in self.conn.execute("SELECT * FROM collection ORDER BY id DESC")]
+
+    def collection_summary(self) -> dict:
+        """{fish_id: {"count": сколько выпущено, "best_stars": лучшие звёзды}}."""
+        with self.lock:
+            rows = self.conn.execute(
+                "SELECT fish_id, COUNT(*) AS n, MAX(stars) AS best FROM collection GROUP BY fish_id")
+            return {r["fish_id"]: {"count": r["n"], "best_stars": r["best"]} for r in rows}
+
+    def count_fish_since(self, since: float) -> int:
+        with self.lock:
+            return self.conn.execute(
+                "SELECT COUNT(*) AS n FROM collection WHERE released_at >= ?", (since,)).fetchone()["n"]
+
+    # ---------- задания и ачивки ----------
+
+    def quest_claims(self, day: str) -> list[dict]:
+        with self.lock:
+            return [dict(r) for r in self.conn.execute("SELECT * FROM quest_claims WHERE day = ?", (day,))]
+
+    def add_quest_claim(self, day: str, quest_id: str, coins: int):
+        with self.lock, self.conn:
+            self.conn.execute("INSERT OR IGNORE INTO quest_claims (day, quest_id, coins) VALUES (?, ?, ?)",
+                              (day, quest_id, coins))
+
+    def achievements_list(self) -> list[dict]:
+        with self.lock:
+            return [dict(r) for r in self.conn.execute("SELECT * FROM achievements ORDER BY unlocked_at")]
+
+    def add_achievement(self, achievement_id: str, ts: float, coins: int):
+        with self.lock, self.conn:
+            self.conn.execute("INSERT OR IGNORE INTO achievements (id, unlocked_at, coins) VALUES (?, ?, ?)",
+                              (achievement_id, ts, coins))
+
+    def unseen_rewards(self) -> int:
+        with self.lock:
+            q = self.conn.execute("SELECT COUNT(*) AS n FROM quest_claims WHERE seen = 0").fetchone()["n"]
+            a = self.conn.execute("SELECT COUNT(*) AS n FROM achievements WHERE seen = 0").fetchone()["n"]
+            return q + a
+
+    def mark_rewards_seen(self):
+        with self.lock, self.conn:
+            self.conn.execute("UPDATE quest_claims SET seen = 1")
+            self.conn.execute("UPDATE achievements SET seen = 1")
 
     # ---------- настройки из интерфейса ----------
 

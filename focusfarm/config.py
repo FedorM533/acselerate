@@ -54,6 +54,17 @@ def validate_settings(s: dict) -> dict:
     speed = s.get("demo_speed", 1)
     if not isinstance(speed, (int, float)) or not 1 <= speed <= 1000:
         raise ConfigError("demo_speed должен быть числом от 1 до 1000")
+    for section in ("ui", "rewards"):
+        if not isinstance(s.get(section, {}), dict):
+            raise ConfigError(f"{section} должен быть набором настроек")
+    ui = s.get("ui", {})
+    if "pond_fish_max" in ui:
+        n = ui["pond_fish_max"]
+        if isinstance(n, bool) or not isinstance(n, int) or not 0 <= n <= 60:
+            raise ConfigError("ui.pond_fish_max должен быть целым числом от 0 до 60")
+    rewards = s.get("rewards", {})
+    if "enabled" in rewards and not isinstance(rewards["enabled"], bool):
+        raise ConfigError("rewards.enabled должен быть true или false")
     source = s.get("device", {}).get("phone_source", "auto")
     if source not in PHONE_SOURCES:
         raise ConfigError(f"device.phone_source должен быть одним из {PHONE_SOURCES}")

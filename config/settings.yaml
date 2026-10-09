@@ -27,6 +27,14 @@ session:
   auto_end_after_phone_out_min: 10
   break_min: 5
 
+# Награды (задания дня и ачивки) выдаются и показываются только вне фокуса:
+# между сессиями и на паузе. enabled: false — «тихий режим», без заданий и ачивок.
+rewards:
+  enabled: true
+
+ui:
+  pond_fish_max: 12            # сколько выпущенных рыбок плавает в пруду (0–60)
+
 sound:
   enabled: true
   distracted_repeat_s: 180     # звук «отвлёкся» не чаще раза в 3 минуты
@@ -52,6 +60,10 @@ game:
     plants: {name: "Водоросли", price: 20}
     rocks:     {name: "Камни", price: 40}
     castle:     {name: "Замок", price: 60}
+  buildings:
+    house:      {name: "Рыбий домик", price: 80}
+    bridge:     {name: "Мостик", price: 120}
+    lighthouse: {name: "Маяк", price: 200}
   weed_every_s: 60             # ил за каждые 60 с непрерывного отвлечения
   max_weeds: 3
   weed_unlock_focus_s: 300     # очистка воды доступна после 5 минут фокуса в сессии

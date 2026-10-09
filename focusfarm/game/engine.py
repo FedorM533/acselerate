@@ -24,6 +24,9 @@ DEFAULT_GAME = {
     "decor": {"plants": {"name": "Водоросли", "price": 20},
               "rocks": {"name": "Камни", "price": 40},
               "castle": {"name": "Замок", "price": 60}},
+    "buildings": {"house": {"name": "Рыбий домик", "price": 80},
+                  "bridge": {"name": "Мостик", "price": 120},
+                  "lighthouse": {"name": "Маяк", "price": 200}},
     "weed_every_s": 60,
     "max_weeds": 3,
     "weed_unlock_focus_s": 300,
@@ -282,7 +285,14 @@ class GameEngine:
         for item_id, d in self.cfg["decor"].items():
             items.append({"item": f"decor:{item_id}", "kind": "decor", "name": d["name"],
                           "price": d["price"], "owned": f"decor:{item_id}" in self.unlocks})
+        for item_id, b in self.cfg["buildings"].items():
+            items.append({"item": f"building:{item_id}", "kind": "building", "name": b["name"],
+                          "price": b["price"], "owned": f"building:{item_id}" in self.unlocks})
         return items
+
+    def buildings(self) -> list[str]:
+        """Какие здания уже стоят в пруду (только красота, на игру не влияют)."""
+        return sorted(u.split(":", 1)[1] for u in self.unlocks if u.startswith("building:"))
 
     def buy(self, item: str):
         found = next((i for i in self.shop_items() if i["item"] == item), None)

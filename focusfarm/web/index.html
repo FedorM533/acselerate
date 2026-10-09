@@ -27,6 +27,8 @@
   <nav class="tabs">
     <button data-tab="farm" class="active">🐟 Пруд</button>
     <button data-tab="session">⏱ Сессия</button>
+    <button data-tab="quests">🎯 Задания <span class="badge" id="quests-badge" hidden></span></button>
+    <button data-tab="collection">📖 Коллекция</button>
     <button data-tab="stats">📊 Статистика</button>
     <button data-tab="shop">🛒 Магазин</button>
     <button data-tab="settings">⚙️ Настройки</button>
@@ -48,6 +50,8 @@
           <div class="sand"></div>
           <div class="rocks-row" id="fence-row"></div>
           <div class="decor decor-left" id="decor-left"></div>
+          <div class="buildings" id="buildings" aria-hidden="true"></div>
+          <div class="swimmers" id="swimmers"></div>
           <div class="farm-grid" id="farm-grid"></div>
           <div class="decor decor-right" id="decor-right"></div>
           <div class="rain" id="rain"></div>
@@ -155,6 +159,21 @@
       </div>
     </section>
 
+    <!-- ЗАДАНИЯ -->
+    <section id="tab-quests" class="tab">
+      <p class="muted" id="quests-note"></p>
+      <div class="quests" id="quests-list"></div>
+      <h3 class="section-title">🏆 Ачивки</h3>
+      <div class="achievements" id="achievements-grid"></div>
+    </section>
+
+    <!-- КОЛЛЕКЦИЯ -->
+    <section id="tab-collection" class="tab">
+      <div class="species" id="species-grid"></div>
+      <h3 class="section-title">Все выпущенные рыбки</h3>
+      <ul class="fish-list" id="fish-list"></ul>
+    </section>
+
     <!-- СТАТИСТИКА -->
     <section id="tab-stats" class="tab">
       <div class="seg" id="stats-range">
@@ -246,6 +265,17 @@
     </label>
     </div>
   </details>
+
+  <dialog id="name-dialog" class="name-dialog">
+    <form method="dialog">
+      <h3>Как назовёшь <span id="name-fish">рыбку</span>?</h3>
+      <input id="name-input" type="text" maxlength="20" autocomplete="off" placeholder="Имя">
+      <div class="name-buttons">
+        <button class="btn primary big" value="ok">Выпустить</button>
+        <button class="btn" value="skip" formnovalidate>Без имени</button>
+      </div>
+    </form>
+  </dialog>
 
   <div id="toasts" class="toasts"></div>
 

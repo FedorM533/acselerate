@@ -80,6 +80,8 @@ class Shooter:
         """Собираем урожай кликом на большом экране и ловим летящие монеты."""
         big = self.pages[0]
         big.click("#farm-grid .plot.ripe")
+        big.fill("#name-input", "Золотинка")
+        big.click("#name-dialog button[value=ok]")
         time.sleep(0.6)
         file = f"11_farm_harvest_coins_{SIZES[0][0]}x{SIZES[0][1]}.png"
         big.screenshot(path=str(OUT / file))

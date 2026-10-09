@@ -42,3 +42,20 @@ def test_all_crop_stages_have_sprites_and_valid_svg():
 def test_font_is_local_with_license():
     assert (WEB / "fonts" / "Nunito.ttf").exists()
     assert "Open Font License" in (WEB / "fonts" / "OFL.txt").read_text(encoding="utf-8")
+
+
+def test_rewards_ui_pieces_exist(env):
+    page = env.client.get("/").text
+    for marker in ('id="tab-quests"', 'id="tab-collection"', 'id="name-dialog"', 'id="swimmers"', 'id="buildings"'):
+        assert marker in page, marker
+    for name in ("house", "bridge", "lighthouse"):
+        assert env.client.get(f"/sprites/{name}.svg").status_code == 200
+
+
+def test_ui_keeps_game_quiet_during_work():
+    """Защита на клиенте: награды и «рыбка выросла» не показываются в FOCUS и NOTEBOOK."""
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    assert 'QUIET_STATES = ["FOCUS", "NOTEBOOK"]' in js
+    assert 'quietToast("Рыбка выросла' in js
+    assert 'e.type === "reward") quietToast' in js
+    assert "canAnnounce()" in js   # объявляем только в IDLE/PAUSED, не во время «отвлёкся»

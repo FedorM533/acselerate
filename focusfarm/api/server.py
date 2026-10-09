@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
 # Какие разделы настроек можно менять из интерфейса.
-EDITABLE_SETTINGS = ("mode", "demo_speed", "thresholds", "session", "sound", "device")
+EDITABLE_SETTINGS = ("mode", "demo_speed", "thresholds", "session", "sound", "device", "ui", "rewards")
 
 
 # ---------- тела запросов ----------
@@ -45,6 +45,12 @@ class NotebookBody(BaseModel):
 class PlotBody(BaseModel):
     x: int
     y: int
+
+
+class HarvestBody(BaseModel):
+    x: int
+    y: int
+    name: str = ""
 
 
 class BuyBody(BaseModel):
@@ -172,8 +178,8 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
     # ---------- ферма и магазин ----------
 
     @app.post("/api/farm/harvest")
-    def farm_harvest(body: PlotBody):
-        return manager.harvest(body.x, body.y)
+    def farm_harvest(body: HarvestBody):
+        return manager.harvest(body.x, body.y, body.name)
 
     @app.post("/api/farm/weed")
     def farm_weed(body: PlotBody):
@@ -183,6 +189,26 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
     @app.post("/api/shop/buy")
     def shop_buy(body: BuyBody):
         manager.buy(body.item)
+        return manager.snapshot()
+
+    # ---------- коллекция, задания и ачивки ----------
+
+    @app.get("/api/collection")
+    def collection():
+        summary = manager.db.collection_summary()
+        species = [{"id": c.id, "name": c.name, "count": summary.get(c.id, {}).get("count", 0),
+                    "best_stars": summary.get(c.id, {}).get("best_stars", 0),
+                    "unlocked": c.id in manager.game.unlocks}
+                   for c in manager.game.crops.values()]
+        return {"fish": manager.db.list_fish(), "species": species}
+
+    @app.get("/api/rewards")
+    def rewards():
+        return manager.rewards.view()
+
+    @app.post("/api/rewards/seen")
+    def rewards_seen():
+        manager.rewards.mark_seen()
         return manager.snapshot()
 
     # ---------- статистика ----------

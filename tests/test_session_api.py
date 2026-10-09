@@ -47,8 +47,9 @@ def test_full_cycle_through_api(make_env):
     # 7. Дорастили — урожай.
     env.tick(300)
     plot = next(p for p in env.state()["farm"]["plots"] if p["active"])
-    assert plot["ripe"] and "SOUND 3" in device.log
+    assert plot["ripe"] and "SOUND 3" not in device.log   # во время работы подставка молчит
     result = env.post("/api/farm/harvest", {"x": plot["x"], "y": plot["y"]}).json()
+    assert "SOUND 3" in device.log                          # звук — когда рыбку выпустили
     assert result["coins"] == 5 and result["stars"] == 2   # 1 эпизод отвлечения → ★★
     assert env.state()["farm"]["coins"] == 5
 

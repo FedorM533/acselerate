@@ -25,6 +25,7 @@ from focusfarm.events import EventBus
 from focusfarm.game.engine import GameEngine, GameError, quality_for
 from focusfarm.reactions import Reactions
 from focusfarm.sensors.phone import MockPhoneSensor
+from focusfarm.session.reward_service import RewardsService, clean_name
 from focusfarm.session.state_machine import (
     FOCUS, IDLE, MAYBE_DISTRACTED, PAUSED, Inputs, StateMachine,
 )
@@ -44,6 +45,7 @@ STATE_LABELS = {
 
 FORCED_PROCESS = "(панель разработчика)"
 MAX_DT_S = 5  # если компьютер «уснул», не засчитываем пропущенное время разом
+REWARD_EVAL_EVERY_S = 5   # как часто проверяем награды (только вне фокуса)
 
 
 class SessionManager:
@@ -63,6 +65,9 @@ class SessionManager:
 
         self.game = GameEngine(settings.get("game"), rng)
         self.game.load_dict(db.load_farm())
+        self.rewards = RewardsService(db, self.game, self.clock, self.bus,
+                                      enabled=settings.get("rewards", {}).get("enabled", True))
+        self._last_reward_eval = 0.0
         self.reactions = Reactions(self.device, self.clock, self.bus, settings.get("sound"))
         db.close_unfinished_sessions()
 
@@ -95,6 +100,7 @@ class SessionManager:
             if self.sm:
                 self.sm.th.update(settings["thresholds"])
             self.reactions.set_sound_cfg(settings.get("sound"))
+            self.rewards.enabled = settings.get("rewards", {}).get("enabled", True)
             device = settings.get("device", {})
             if hasattr(self.phone, "set_port"):   # настоящая подставка: порт из настроек
                 self.phone.set_port(device.get("serial_port", ""))
@@ -163,7 +169,7 @@ class SessionManager:
                 crop_id = self.game.plot(*pos).crop_id if pos else None
             now = self.clock.now()
             self.session = {
-                "id": self.db.start_session(now, length, crop_id),
+                "id": self.db.start_session(now, length, crop_id, practice=without_phone),
                 "start": now,
                 "planned_s": length * 60,
                 "elapsed_s": 0.0,
@@ -190,6 +196,7 @@ class SessionManager:
                 raise GameError("Сессия не идёт")
             s = self.session
             self.db.update_session(s["id"], s["totals"], end=self.clock.now(), end_reason=reason)
+            self._last_reward_eval = 0.0   # награды за сессию проверим сразу, как только она закончится
             self._set_state(IDLE)
             self.game.end_session()
             self._save()
@@ -265,6 +272,7 @@ class SessionManager:
             if self.session is None:
                 if just_docked and self.settings["session"].get("auto_start_on_dock", True):
                     self.start_session()
+                self._maybe_evaluate_rewards()
                 return
 
             self._update_state()
@@ -277,6 +285,18 @@ class SessionManager:
                 s["elapsed_s"] += dt
             self._save()
             self._check_auto_end()
+            self._maybe_evaluate_rewards()
+
+    def _maybe_evaluate_rewards(self):
+        """Награды выдаём и объявляем ТОЛЬКО вне фокуса (между сессиями или на паузе)."""
+        if self.state not in (IDLE, PAUSED):
+            return
+        now = self.clock.now()
+        if now - self._last_reward_eval < REWARD_EVAL_EVERY_S:
+            return
+        self._last_reward_eval = now
+        if self.rewards.evaluate():
+            self._save()
 
     def _read_activity(self):
         sample = self.monitor.sample()
@@ -306,9 +326,11 @@ class SessionManager:
 
     # ---------- действия на ферме ----------
 
-    def harvest(self, x: int, y: int) -> dict:
+    def harvest(self, x: int, y: int, name: str = "") -> dict:
         with self.lock:
             result = self.game.harvest(x, y)
+            result["name"] = clean_name(name)
+            self.db.add_fish(result["crop"], result["name"], result["stars"], self.clock.now())
             self._save()
             self.bus.publish("harvested", result)
             return result
@@ -379,6 +401,7 @@ class SessionManager:
                           "usb": self.usb_view()},
                 "device": self._device_view(),
                 "farm": self._farm_view(),
+                "rewards": self.rewards.summary(),
                 "message": self.message,
             }
 
@@ -441,6 +464,7 @@ class SessionManager:
             "weed_unlock_left_s": max(0.0, g.cfg["weed_unlock_focus_s"] - focus_s),
             "plots": plots,
             "decor": sorted(u.split(":", 1)[1] for u in g.unlocks if u.startswith("decor:")),
+            "buildings": g.buildings(),
             "crops": [{"id": c.id, "name": c.name, "focus_min": c.focus_min, "coins": c.coins,
                        "price": c.price, "unlocked": c.id in g.unlocks} for c in g.crops.values()],
             "shop": g.shop_items(),

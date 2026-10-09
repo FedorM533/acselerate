@@ -174,7 +174,9 @@ function handleEvents(events) {
   for (const e of events) {
     if (e.type === "notice") toast(e.text);
     if (e.type === "weed") toast("В воде появился ил 🫧");
-    if (e.type === "crop_ready") toast("Рыбка выросла! Нажми на неё, чтобы выпустить 🎉");
+    // Игра не отвлекает: «рыбка выросла» ждёт, пока человек не в фокусе.
+    if (e.type === "crop_ready") quietToast("Рыбка выросла! Нажми на неё, чтобы выпустить 🎉");
+    if (e.type === "reward") quietToast(rewardText(e));
     if (e.type === "session_started") toast("Сессия началась. Удачи! 🐟");
     if (e.type === "session_ended") toast(e.message);
     if (e.type === "sound") {
@@ -192,6 +194,8 @@ function render(s) {
   renderFarm(s);
   renderSession(s);
   renderDevPanel(s);
+  renderBadges(s);
+  if (canAnnounce()) flushQuiet();
   for (const hook of renderHooks) hook(s);
 }
 const renderHooks = [];   // сюда вкладки добавляют свои обновления
@@ -355,6 +359,8 @@ function renderFarm(s) {
   $("#fence-row").hidden = !decor.includes("rocks");
   setHtml($("#decor-left"), decor.includes("plants") ? `<img src="sprites/plants.svg" alt="водоросли">` : "");
   setHtml($("#decor-right"), decor.includes("castle") ? `<img src="sprites/castle.svg" alt="замок">` : "");
+  renderBuildings(s);
+  renderSwimmers();
 
   // Боковая панель.
   setStateView($("#farm-state"), $("#farm-state-icon"), $("#farm-state-text"), s.state);
@@ -415,7 +421,9 @@ $("#farm-grid").onclick = async (e) => {
   const y = Number(btn.dataset.y);
   const p = state.farm.plots.find((q) => q.x === x && q.y === y);
   if (p.ripe) {
-    const r = await api("POST", "/api/farm/harvest", { x, y });
+    const name = await askFishName(p);
+    const r = await api("POST", "/api/farm/harvest", { x, y, name });
+    refreshCollection();
     celebrateHarvest(btn, r);
     if (r.weed_penalty) toast("Ил рядом забрал 20% монет — в следующий раз очисти воду 🫧");
     else toast("Рыбка выпущена в пруд 🐟");
@@ -726,11 +734,12 @@ const SHOP_DESC = {
   },
   expand: (item) => `Больше мест — больше рыбок`,
   decor: () => "Для красоты, на игру не влияет",
+  building: () => "Здание для пруда: красота, на игру не влияет",
 };
 
 function shopImage(item) {
   if (item.kind === "crop") return `sprites/${item.item.split(":")[1]}_ready.svg`;
-  if (item.kind === "decor") return `sprites/${item.item.split(":")[1]}.svg`;
+  if (item.kind === "decor" || item.kind === "building") return `sprites/${item.item.split(":")[1]}.svg`;
   return item.item === "expand_5" ? "sprites/grid5.svg" : "sprites/grid4.svg";
 }
 
@@ -744,7 +753,7 @@ function renderShop(s) {
     else if (item.available === false) button = `<button class="btn" disabled>Сначала пруд поменьше</button>`;
     else if (coins < item.price) button = `<button class="btn" disabled>ещё ${price(item.price - coins)}</button>`;
     else button = `<button class="btn primary" data-buy="${item.item}">Купить за ${price(item.price)}</button>`;
-    const kind = { crop: "Рыбка", expand: "Пруд", decor: "Декор" }[item.kind];
+    const kind = { crop: "Рыбка", expand: "Пруд", decor: "Декор", building: "Здание" }[item.kind];
     const locked = item.kind === "crop" && !item.owned;
     return `<div class="card shop-item${locked ? " locked" : ""}">
       <span class="shop-kind">${kind}</span>
@@ -790,6 +799,10 @@ const SETTINGS_GROUPS = [
     ["session", "default_length_min", "Длина сессии", "мин"],
     ["session", "break_min", "Перерыв после сессии", "мин"],
     ["session", "demo_length_min", "Длина сессии в демо-режиме", "мин"],
+  ]],
+  ["🎮 Игра", [
+    ["ui", "pond_fish_max", "Сколько выпущенных рыбок плавает в пруду (0 — никого)", "шт"],
+    ["rewards", "enabled", "Задания и ачивки (выключи для полной тишины)"],
   ]],
 ];
 
@@ -858,7 +871,7 @@ async function loadSettings() {
 }
 
 $("#settings-save").onclick = async () => {
-  const body = { thresholds: {}, session: {} };
+  const body = { thresholds: {}, session: {}, ui: {}, rewards: {} };
   $$("#settings-groups [data-group]").forEach((input) => {
     body[input.dataset.group][input.dataset.key] = input.type === "checkbox" ? input.checked : Number(input.value);
   });
@@ -867,6 +880,8 @@ $("#settings-save").onclick = async () => {
   body.demo_speed = Number($("#set-speed").value);
   body.device = { serial_port: $("#set-port").value, phone_source: $("#set-source").value };
   await api("PUT", "/api/settings", body);
+  pondMax = body.ui.pond_fish_max;
+  renderSwimmers();
   toast("Настройки сохранены ✔");
   refresh();
 };
@@ -1015,9 +1030,145 @@ $("#rules-save").onclick = async () => {
   toast("Правила сохранены ✔");
 };
 
+// ================= тишина: игра не отвлекает от работы =================
+
+const QUIET_STATES = ["FOCUS", "NOTEBOOK"];
+const quietQueue = [];
+
+function isQuiet() {
+  return !!state && QUIET_STATES.includes(state.state);
+}
+
+// Объявлять можно только вне сессии или на паузе (как и на сервере): даже в «отвлёкся»
+// человека лучше не дёргать игрой, а вернуть к работе.
+function canAnnounce() {
+  return !state || state.state === "IDLE" || state.state === "PAUSED";
+}
+
+// Показывает тост сразу, если человек не в фокусе, иначе откладывает.
+function quietToast(text) {
+  if (canAnnounce()) toast(text);
+  else quietQueue.push(text);
+}
+
+function flushQuiet() {
+  while (quietQueue.length) toast(quietQueue.shift());
+}
+
+function rewardText(e) {
+  const coins = e.coins ? ` +${e.coins} монет` : "";
+  if (e.kind === "quest") return `🎯 Задание выполнено: ${e.title}${coins}`;
+  const building = e.building ? " — новое здание в пруду!" : "";
+  return `🏆 Ачивка «${e.title}»${coins}${building}`;
+}
+
+function renderBadges(s) {
+  const badge = $("#quests-badge");
+  const n = s.rewards ? s.rewards.unseen : 0;
+  badge.hidden = n <= 0;
+  badge.textContent = n;
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// ================= коллекция и плавающие рыбки =================
+
+let collection = { fish: [], species: [] };
+let pondMax = 12;   // настройка ui.pond_fish_max
+
+async function refreshCollection() {
+  collection = await api("GET", "/api/collection");
+  renderSwimmers();
+  if ($("#tab-collection").classList.contains("active")) renderCollectionTab();
+}
+
+async function loadPondMax() {
+  const s = await api("GET", "/api/settings");
+  pondMax = s.ui ? s.ui.pond_fish_max : 12;
+  renderSwimmers();
+}
+
+function renderBuildings(s) {
+  setHtml($("#buildings"), s.farm.buildings.map((b) => `<img class="bld ${b}" src="sprites/${b}.svg" alt="">`).join(""));
+}
+
+// Лучшие по звёздам (затем новые), не больше pondMax. Рыбки в мутной воде просто тускнеют.
+function renderSwimmers() {
+  const shown = [...collection.fish]
+    .sort((a, b) => b.stars - a.stars || b.id - a.id)
+    .slice(0, Math.max(0, pondMax || 0));
+  const names = Object.fromEntries(collection.species.map((sp) => [sp.id, sp.name]));
+  setHtml($("#swimmers"), shown.map((f, k) => {
+    const h = (f.id * 2654435761) % 1000;
+    const top = 6 + (h % 38);
+    const dur = 16 + (h % 14);
+    const title = `${f.name || names[f.fish_id] || "Рыбка"} ${"★".repeat(f.stars)}`;
+    return `<div class="swimmer" style="top:${top}%;--dur:${dur}s;--delay:${-(h % 20)}s;--k:${k % 15}" title="${escapeHtml(title)}">` +
+      `<img src="sprites/${f.fish_id}_adult.svg" alt=""></div>`;
+  }).join(""));
+}
+
+const SUGGESTED_NAMES = ["Бублик", "Пузырик", "Нептун", "Златка", "Рыжик", "Плюх", "Чешуйка", "Кроха"];
+
+// Окошко «Как назовёшь рыбку?»: Enter — выпустить с именем, «Без имени» и Esc — без имени.
+function askFishName(p) {
+  const dlg = $("#name-dialog");
+  const input = $("#name-input");
+  $("#name-fish").textContent = p.crop_name.toLowerCase();
+  input.value = "";
+  input.placeholder = SUGGESTED_NAMES[Math.floor(Math.random() * SUGGESTED_NAMES.length)];
+  dlg.returnValue = "";
+  return new Promise((resolve) => {
+    dlg.onclose = () => resolve(dlg.returnValue === "ok" ? input.value.trim() : "");
+    dlg.showModal();
+    input.focus();
+  });
+}
+
+function renderCollectionTab() {
+  setHtml($("#species-grid"), collection.species.map((sp) => `
+    <div class="species-card${sp.count ? "" : " locked"}">
+      <img src="sprites/${sp.id}_ready.svg" alt="">
+      <h4>${sp.count ? sp.name : "???"}</h4>
+      <div class="muted">${sp.count ? `выпущено: ${sp.count} · лучшее: ${"★".repeat(sp.best_stars)}` : (sp.unlocked ? "ещё не выпускал" : "открой в магазине")}</div>
+    </div>`).join(""));
+  const names = Object.fromEntries(collection.species.map((sp) => [sp.id, sp.name]));
+  setHtml($("#fish-list"), collection.fish.length
+    ? collection.fish.map((f) => `<li><img src="sprites/${f.fish_id}_adult.svg" alt="">
+        <b>${f.name ? escapeHtml(f.name) : "Без имени"}</b> <span class="muted">${names[f.fish_id]}</span> <span>${"★".repeat(f.stars)}</span></li>`).join("")
+    : `<li class="muted">Пока никого. Выпусти первую рыбку — она поселится в пруду 🐟</li>`);
+}
+tabLoaders.collection = async () => { await refreshCollection(); renderCollectionTab(); };
+
+// ================= задания и ачивки =================
+
+async function loadQuestsTab() {
+  const r = await api("GET", "/api/rewards");
+  $("#quests-note").textContent = r.enabled
+    ? `Задания про фокус, без спешки и штрафов. Монет за задания — не больше ${r.coin_cap} в день. Награды приходят после сессии или на паузе.`
+    : "Тихий режим: задания и ачивки выключены (Настройки → Игра).";
+  setHtml($("#quests-list"), r.quests.map((q) => `
+    <div class="quest${q.done ? " done" : ""}">
+      <h4>${q.done ? "✅ " : ""}${q.title}</h4>
+      <div class="q-bar"><div style="width:${(q.progress / q.target) * 100}%"></div></div>
+      <div class="muted small">${q.progress} / ${q.target} · награда ${q.reward} монет${q.paid ? " (получено)" : ""}</div>
+    </div>`).join(""));
+  setHtml($("#achievements-grid"), r.achievements.map((a) => `
+    <div class="ach${a.unlocked ? "" : " locked"}">
+      <h4>${a.unlocked ? "🏆" : "🔒"} ${a.title}</h4>
+      <div class="muted small">${a.desc}</div>
+    </div>`).join(""));
+  if (r.unseen > 0 && !isQuiet()) render(await api("POST", "/api/rewards/seen"));
+}
+tabLoaders.quests = loadQuestsTab;
+
 // ================= запуск =================
 
 refresh().catch(() => {});
+refreshCollection().catch(() => {});
+loadPondMax().catch(() => {});
 connect();
 // Ссылка вида http://127.0.0.1:8765/#session сразу открывает нужную вкладку.
 if (location.hash) showTab(location.hash.slice(1));

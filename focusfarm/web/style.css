@@ -505,3 +505,45 @@ main { padding: 20px 24px; background: var(--card); min-height: calc(100vh - 150
 .pair-box p { margin: 0 0 8px; }
 .pair-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; }
 .start-form #start-nophone-btn { grid-column: 1 / -1; justify-self: start; }
+
+
+/* ---------- здания, плавающие рыбки, задания, коллекция ---------- */
+.buildings { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.bld { position: absolute; filter: drop-shadow(0 6px 0 rgba(0, 0, 0, .12)); }
+.bld.house { left: 14%; bottom: 13%; width: clamp(90px, 9vw, 140px); }
+.bld.lighthouse { right: 14%; bottom: 13%; width: clamp(70px, 7vw, 110px); }
+.bld.bridge { left: 10%; top: 5%; width: clamp(160px, 18vw, 260px); opacity: .95; }
+
+.swimmers { position: absolute; inset: 0; z-index: 5; overflow: hidden; pointer-events: none; }
+.swimmer { position: absolute; width: 56px; animation: cruise var(--dur) linear infinite; animation-delay: var(--delay); pointer-events: auto; }
+.swimmer img { width: 100%; display: block; animation: bobfish 3s ease-in-out infinite alternate; transition: filter 1.6s; }
+@keyframes cruise {
+  0% { left: -8%; transform: scaleX(1); } 49.9% { left: 104%; transform: scaleX(1); }
+  50% { left: 104%; transform: scaleX(-1); } 99.9% { left: -8%; transform: scaleX(-1); } 100% { left: -8%; transform: scaleX(1); }
+}
+@keyframes bobfish { to { transform: translateY(8px); } }
+.weather-cloudy .swimmer img { filter: saturate(.8); }
+.weather-gloomy .swimmer img { filter: saturate(.5) brightness(.95); }
+@media (prefers-reduced-motion: reduce) { .swimmer, .swimmer img { animation: none; } .swimmer { left: calc(var(--k) * 6% + 4%); } }
+
+.badge { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--st-distracted); color: #fff; font-size: 13px; font-weight: 900; text-align: center; }
+.section-title { margin: 22px 0 10px; }
+.quests, .achievements, .species { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.quest, .ach, .species-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; }
+.quest.done { outline: 3px solid var(--st-focus); }
+.quest .q-bar { height: 10px; background: var(--card-soft); border-radius: 6px; overflow: hidden; margin: 8px 0 4px; }
+.quest .q-bar div { height: 100%; background: var(--green); border-radius: 6px; }
+.ach.locked { opacity: .55; filter: grayscale(.7); }
+.ach h4, .quest h4, .species-card h4 { margin: 0 0 4px; }
+.species-card { text-align: center; }
+.species-card img { width: 96px; height: 96px; }
+.species-card.locked img { filter: brightness(0) opacity(.25); }
+.fish-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.fish-list li { background: var(--card); border-radius: var(--radius-sm); padding: 8px 14px; display: flex; gap: 10px; align-items: center; }
+.fish-list img { width: 40px; height: 40px; }
+
+.name-dialog { border: none; border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px 26px; max-width: 420px; }
+.name-dialog::backdrop { background: rgba(31, 53, 80, .45); }
+.name-dialog h3 { margin: 0 0 12px; }
+.name-dialog input { width: 100%; font: inherit; padding: 10px 14px; border: 2px solid var(--line); border-radius: var(--radius-sm); }
+.name-buttons { display: flex; gap: 10px; margin-top: 14px; }

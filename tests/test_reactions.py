@@ -39,11 +39,18 @@ def test_distracted_sound_not_more_than_every_3_min():
 def test_min_gap_between_any_sounds():
     clock, bus, device = setup()
     bus.publish("session_started", {})
-    bus.publish("crop_ready", {})
+    bus.publish("harvested", {})
     assert device.log.count("SOUND 3") == 0
     clock.advance(5)
-    bus.publish("crop_ready", {})
+    bus.publish("harvested", {})
     assert device.log.count("SOUND 3") == 1
+
+
+def test_crop_ready_is_silent_during_work():
+    """Игра не отвлекает: рыбка выросла посреди работы — подставка молчит."""
+    clock, bus, device = setup()
+    bus.publish("crop_ready", {})
+    assert device.log.count("SOUND 3") == 0
 
 
 def test_phone_out_sound_once_per_episode():
