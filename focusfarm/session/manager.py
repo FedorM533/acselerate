@@ -18,6 +18,7 @@ import threading
 from focusfarm.activity.classifier import CATEGORIES, Classifier, load_rules
 from focusfarm.activity.fallback import FallbackMonitor
 from focusfarm.activity.monitor import SafeMonitor
+from focusfarm.blocker.apps import NullBlocker
 from focusfarm.clock import Clock, RealClock
 from focusfarm.config import speed_of
 from focusfarm.device.output import MockDeviceOutput
@@ -46,13 +47,17 @@ STATE_LABELS = {
 FORCED_PROCESS = "(панель разработчика)"
 MAX_DT_S = 5  # если компьютер «уснул», не засчитываем пропущенное время разом
 REWARD_EVAL_EVERY_S = 5   # как часто проверяем награды (только вне фокуса)
+EXTENSION_TIMEOUT_S = 90  # сколько тишины от расширения браузера считаем «оно пропало»
 
 
 class SessionManager:
     def __init__(self, settings: dict, db: Database, clock: Clock | None = None,
                  bus: EventBus | None = None, monitor=None, classifier=None,
-                 phone=None, device=None, rng=None):
+                 phone=None, device=None, rng=None, blocker=None):
         self.clock = clock or RealClock()
+        # Без явного блокировщика ничего не закрываем (тесты, демо).
+        self.blocker = blocker or NullBlocker()
+        self.extension_seen = None   # когда расширение браузера последний раз спрашивало сайты
         self.bus = bus or EventBus()
         self.db = db
         self.monitor = monitor if isinstance(monitor, SafeMonitor) else SafeMonitor(monitor or FallbackMonitor())
@@ -265,6 +270,7 @@ class SessionManager:
             self.game_now += dt
 
             self._read_activity()
+            self._run_blocker()
             docked = self.phone.is_docked()
             just_docked = docked and not self.prev_docked
             self.prev_docked = docked
@@ -309,6 +315,58 @@ class SessionManager:
             category, idle, process = self.forced_category, 0.0, FORCED_PROCESS
         # Заголовок окна дальше не передаём и не сохраняем.
         self.activity = {"category": category, "process": process, "idle_s": idle}
+
+    def _blocklist(self) -> list[str]:
+        """Программы из правил с категорией «отвлечение» (заголовки вкладок — для расширения)."""
+        names = []
+        for rule in self.classifier.rules["rules"]:
+            if rule["category"] == "distraction":
+                names += rule.get("process", [])
+        return names
+
+    def site_blocklist(self) -> list[str]:
+        """Сайты из правил с категорией «отвлечение» — для расширения браузера."""
+        domains = []
+        for rule in self.classifier.rules["rules"]:
+            if rule["category"] == "distraction":
+                domains += rule.get("domains", [])
+        return list(dict.fromkeys(domains))
+
+    def pc_protection_active(self) -> bool:
+        """Защита компьютера (программы и сайты): только в сессии, не на паузе
+        и если в настройках защищаем компьютер."""
+        targets = self.settings.get("protection", {}).get("targets", "pc")
+        return self.session is not None and not self.paused and targets in ("pc", "both")
+
+    def sites_view(self) -> dict:
+        """Ответ для расширения. Заодно запоминаем, что оно на связи."""
+        with self.lock:
+            self.extension_seen = self.clock.now()
+            s = self.session
+            return {
+                "active": self.pc_protection_active(),
+                "hard": self.settings.get("protection", {}).get("strictness", "soft") == "hard",
+                "domains": self.site_blocklist(),
+                "remaining_s": max(0.0, s["planned_s"] - s["elapsed_s"]) if s else 0.0,
+            }
+
+    def extension_connected(self) -> bool:
+        """Расширение опрашивает сервер раз в полминуты; 90 с тишины — значит, его нет или выключили."""
+        return self.extension_seen is not None and self.clock.now() - self.extension_seen < EXTENSION_TIMEOUT_S
+
+    def _run_blocker(self):
+        """Блокировка программ: см. pc_protection_active()."""
+        protection = self.settings.get("protection", {})
+        active = self.pc_protection_active()
+        try:
+            events = self.blocker.update(self.clock.now(), active,
+                                         protection.get("strictness", "soft") == "hard",
+                                         self._blocklist())
+        except Exception:   # ошибка блокировщика не должна ронять сессию
+            log.exception("Ошибка блокировки приложений")
+            return
+        for event in events:
+            self.bus.publish(event["type"], event)
 
     def _check_auto_end(self):
         s = self.session
@@ -402,6 +460,9 @@ class SessionManager:
                 "device": self._device_view(),
                 "farm": self._farm_view(),
                 "rewards": self.rewards.summary(),
+                "protection": {**self.settings.get("protection", {}),
+                               **self.blocker.view(self.clock.now()),
+                               "extension_connected": self.extension_connected()},
                 "message": self.message,
             }
 

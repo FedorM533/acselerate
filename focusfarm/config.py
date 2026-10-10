@@ -9,6 +9,8 @@ CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 
 MODES = ("normal", "dev", "demo")
 PHONE_SOURCES = ("auto", "usb", "serial", "mock")   # как определяем «телефон подключён»
+STRICTNESS_LEVELS = ("soft", "hard")                # мягкая защита / жёсткая блокировка
+PROTECTION_TARGETS = ("pc", "phone", "both")        # где защищаем
 
 # Пороги, которые обязаны быть в settings.yaml, и их допустимые границы.
 THRESHOLD_KEYS = [
@@ -54,9 +56,14 @@ def validate_settings(s: dict) -> dict:
     speed = s.get("demo_speed", 1)
     if not isinstance(speed, (int, float)) or not 1 <= speed <= 1000:
         raise ConfigError("demo_speed должен быть числом от 1 до 1000")
-    for section in ("ui", "rewards"):
+    for section in ("ui", "rewards", "protection"):
         if not isinstance(s.get(section, {}), dict):
             raise ConfigError(f"{section} должен быть набором настроек")
+    protection = s.get("protection", {})
+    if protection.get("strictness", "soft") not in STRICTNESS_LEVELS:
+        raise ConfigError(f"protection.strictness должен быть одним из {STRICTNESS_LEVELS}")
+    if protection.get("targets", "pc") not in PROTECTION_TARGETS:
+        raise ConfigError(f"protection.targets должен быть одним из {PROTECTION_TARGETS}")
     ui = s.get("ui", {})
     if "pond_fish_max" in ui:
         n = ui["pond_fish_max"]

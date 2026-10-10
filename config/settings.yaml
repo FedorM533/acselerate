@@ -32,8 +32,14 @@ session:
 rewards:
   enabled: true
 
+# Защита от отвлечений. strictness: soft — только предупреждение, hard — блокировка.
+# targets: pc — только компьютер, phone — только телефон, both — оба.
+protection:
+  strictness: soft
+  targets: pc
+
 ui:
-  pond_fish_max: 12            # сколько выпущенных рыбок плавает в пруду (0–60)
+  pond_fish_max: 12           # сколько выпущенных рыбок плавает в пруду (0–60)
 
 sound:
   enabled: true

@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from focusfarm.activity.classifier import RULES_PATH, save_rules
 from focusfarm.activity.monitor import create_monitor
+from focusfarm.blocker.apps import AppBlocker
 from focusfarm.config import ConfigError, deep_merge, load_settings
 from focusfarm.device.dock import Dock
 from focusfarm.game.engine import GameError
@@ -26,7 +27,7 @@ log = logging.getLogger(__name__)
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
 # Какие разделы настроек можно менять из интерфейса.
-EDITABLE_SETTINGS = ("mode", "demo_speed", "thresholds", "session", "sound", "device", "ui", "rewards")
+EDITABLE_SETTINGS = ("mode", "demo_speed", "thresholds", "session", "sound", "device", "ui", "rewards", "protection")
 
 
 # ---------- тела запросов ----------
@@ -81,6 +82,7 @@ def build_manager(db_path=DEFAULT_PATH, cli_overrides: dict | None = None, **kwa
         # Одна подставка = и датчик, и свет/звук; без порта — виртуальная.
         dock = Dock(settings.get("device", {}).get("serial_port", ""))
         kwargs["phone"] = kwargs["device"] = dock
+    kwargs.setdefault("blocker", AppBlocker())
     manager = SessionManager(settings, db, **kwargs)
     manager.cli_overrides = cli_overrides or {}
     return manager
@@ -236,6 +238,11 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
         manager.db.set_overrides(overrides)
         manager.apply_settings(settings)
         return get_settings()
+
+    @app.get("/api/protection/sites")
+    def protection_sites():
+        """Для расширения браузера: что блокировать и надо ли это прямо сейчас."""
+        return manager.sites_view()
 
     @app.get("/api/rules")
     def get_rules():

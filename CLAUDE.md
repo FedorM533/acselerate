@@ -39,6 +39,12 @@ pywin32 (Windows), pyserial, pytest. Фронтенд — `focusfarm/web/`: чи
   (dev/demo). Источник выбирает `device.phone_source` (auto/usb/serial/mock).
 - Сессия стартует ТОЛЬКО при подключённом телефоне. Исключение — «тренировка без телефона»
   (`without_phone`): время идёт в статистику, рыбки не растут.
+- Защита от отвлечений (`protection.strictness` soft/hard, `protection.targets` pc/phone/both).
+  Программы: `blocker/apps.py` (`AppBlocker`; по умолчанию в менеджере `NullBlocker`, чтобы тесты не
+  закрывали настоящие процессы; настоящий ставит `build_manager`). Сайты: расширение `extension/`
+  опрашивает `GET /api/protection/sites`; правила `domains` в `rules.yaml`. Включена только в сессии,
+  не на паузе, при targets pc/both (`SessionManager.pc_protection_active`).
+- Проверка расширения в настоящем Chromium: `python scripts/check_extension.py`.
 - Внутренние имена остались от фермы: plot = место в пруду, crop = рыбка, weeds = ил, harvest = выпуск.
 - Тесты API — через `tests/conftest.py` (`Env`: FakeClock, база в памяти, `FakeMonitor`).
 - Толкования неоднозначных мест ТЗ — `docs/DECISIONS.md`. Спорное — спрашивать у команды.

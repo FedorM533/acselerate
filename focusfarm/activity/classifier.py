@@ -10,6 +10,14 @@ CATEGORIES = ("work", "neutral", "distraction")
 RULES_PATH = CONFIG_DIR / "rules.yaml"
 
 
+def normalize_domain(value) -> str:
+    """'https://www.YouTube.com/watch?v=1' → 'youtube.com'."""
+    text = str(value).strip().lower()
+    text = text.split("://", 1)[-1]
+    text = text.split("/", 1)[0].split("?", 1)[0].split(":", 1)[0].strip(".")
+    return text[4:] if text.startswith("www.") else text
+
+
 def validate_rules(data: dict) -> dict:
     """Проверяет структуру правил и приводит слова к нижнему регистру."""
     default = data.get("default", "neutral")
@@ -20,15 +28,17 @@ def validate_rules(data: dict) -> dict:
         if rule.get("category") not in CATEGORIES:
             raise ConfigError(f"Правило {i}: категория должна быть одной из {CATEGORIES}")
         item = {"category": rule["category"]}
-        for key in ("process", "title_contains"):
+        for key in ("process", "title_contains", "domains"):
             words = rule.get(key) or []
             if not isinstance(words, list):
                 raise ConfigError(f"Правило {i}: {key} должен быть списком")
+            if key == "domains":    # сайты для расширения браузера: только адрес, без https:// и пути
+                words = [normalize_domain(w) for w in words]
             words = [str(w).strip().lower() for w in words if str(w).strip()]
             if words:
-                item[key] = words
-        if "process" not in item and "title_contains" not in item:
-            raise ConfigError(f"Правило {i}: нужен список process или title_contains")
+                item[key] = list(dict.fromkeys(words))
+        if not any(key in item for key in ("process", "title_contains", "domains")):
+            raise ConfigError(f"Правило {i}: нужен список process, title_contains или domains")
         clean.append(item)
     return {"default": default, "rules": clean}
 

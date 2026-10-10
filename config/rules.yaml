@@ -10,3 +10,6 @@ rules:
     title_contains: [youtube, "вконтакте", vk.com, tiktok, twitch, "кинопоиск", "steam"]
   - category: distraction
     process: [steam.exe, telegram.exe, discord.exe]
+  # Сайты для расширения браузера (extension/): блокируются во время сессии.
+  - category: distraction
+    domains: [youtube.com, vk.com, tiktok.com, twitch.tv, kinopoisk.ru, store.steampowered.com]

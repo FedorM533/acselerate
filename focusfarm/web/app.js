@@ -179,6 +179,13 @@ function handleEvents(events) {
     if (e.type === "reward") quietToast(rewardText(e));
     if (e.type === "session_started") toast("Сессия началась. Удачи! 🐟");
     if (e.type === "session_ended") toast(e.message);
+    // Защита от отвлечений: это не игра, а часть самой учёбы, поэтому показываем сразу.
+    if (e.type === "block_warning") {
+      toast(e.hard ? `«${e.process}» отвлекает и закроется через ${e.seconds} с. Сохрани работу 💾`
+                   : `«${e.process}» отвлекает от учёбы 🐟`, true);
+    }
+    if (e.type === "app_closed") toast(`«${e.process}» закрыта — возвращаемся к учёбе 📚`);
+    if (e.type === "block_failed") toast(`Не получилось закрыть «${e.process}». Закрой её сам 🙏`, true);
     if (e.type === "sound") {
       playTone(SOUND_TONES[e.n]);
       showStandNote(e.n);
@@ -831,6 +838,22 @@ async function loadSettings() {
     fields.filter(([group, key]) => key in s[group])
       .map(([group, key, label, unit]) => fieldHtml(group, key, label, unit, s[group][key])).join("") +
     `</div>`).join("");
+  html = `<div class="settings-group"><h3>🛡 Защита от отвлечений</h3>
+    <label class="field"><span>Насколько строго</span>
+      <select id="set-strictness">
+        <option value="soft">мягко — предупреждение, ничего не закрываем</option>
+        <option value="hard">жёстко — блокируем сайты и приложения</option>
+      </select></label>
+    <label class="field"><span>Где защищать</span>
+      <select id="set-targets">
+        <option value="pc">только компьютер</option>
+        <option value="phone">только телефон</option>
+        <option value="both">компьютер и телефон</option>
+      </select></label>
+    <p class="muted small" id="ext-status"></p>
+    <p class="muted small">Программы закрывает сама «Фокус-пруд», сайты блокирует расширение для браузера
+      (папка <code>extension/</code>). Android-приложение пока в разработке.</p>
+  </div>` + html;
   html += `<div class="settings-group"><h3>🔊 Звук и режим</h3>
     <label class="field"><span>Звуки подставки</span>
       <span class="toggle"><input type="checkbox" id="set-sound" ${s.sound.enabled ? "checked" : ""}><span></span></span></label>
@@ -863,6 +886,12 @@ async function loadSettings() {
   </div>`;
   $("#settings-groups").innerHTML = html;
   $("#set-mode").value = s.mode;
+  $("#set-strictness").value = (s.protection || {}).strictness || "soft";
+  $("#set-targets").value = (s.protection || {}).targets || "pc";
+  const live = (await api("GET", "/api/state")).protection || {};
+  $("#ext-status").textContent = live.extension_connected
+    ? "🌐 Расширение браузера подключено ✔"
+    : "🌐 Расширение браузера не видно: сайты не блокируются (установка — extension/README.md)";
   $("#set-source").value = s.device.phone_source || "auto";
   await loadUsb();
   $("#ports-refresh").onclick = (e) => { e.preventDefault(); loadPorts($("#set-port").value); };
@@ -877,6 +906,7 @@ $("#settings-save").onclick = async () => {
   });
   body.sound = { enabled: $("#set-sound").checked };
   body.mode = $("#set-mode").value;
+  body.protection = { strictness: $("#set-strictness").value, targets: $("#set-targets").value };
   body.demo_speed = Number($("#set-speed").value);
   body.device = { serial_port: $("#set-port").value, phone_source: $("#set-source").value };
   await api("PUT", "/api/settings", body);
@@ -982,6 +1012,7 @@ function renderRules() {
       </div>
       ${chipList(i, "process", "Программы", "например, code.exe")}
       ${chipList(i, "title_contains", "Слова в заголовке окна", "например, stepik")}
+      ${chipList(i, "domains", "Сайты (для расширения браузера)", "например, youtube.com")}
     </div>`).join("");
 }
 
@@ -1024,7 +1055,8 @@ $("#rule-add").onclick = () => {
 };
 $("#rules-save").onclick = async () => {
   // Пустые правила сервер не примет — убираем их перед сохранением.
-  const clean = rules.rules.filter((r) => (r.process || []).length || (r.title_contains || []).length);
+  const clean = rules.rules.filter((r) => (r.process || []).length || (r.title_contains || []).length
+    || (r.domains || []).length);
   rules = await api("PUT", "/api/rules", { default: rules.default, rules: clean });
   renderRules();
   toast("Правила сохранены ✔");
