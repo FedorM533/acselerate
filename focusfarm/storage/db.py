@@ -80,6 +80,20 @@ MIGRATIONS = [
         seen INTEGER NOT NULL DEFAULT 0
     );
     """,
+    # 3: телефоны, сопряжённые по Wi-Fi. Токен в открытом виде не храним — только его хеш.
+    """
+    CREATE TABLE phone_devices (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_at REAL NOT NULL,
+        last_seen REAL
+    );
+    """,
+    # 4: секреты строгого режима (хеш пароля). Сам пароль не хранится.
+    """
+    CREATE TABLE secrets (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    """,
 ]
 
 # Секунды каждого состояния → колонка в sessions.
@@ -274,6 +288,47 @@ class Database:
         with self.lock, self.conn:
             self.conn.execute("UPDATE quest_claims SET seen = 1")
             self.conn.execute("UPDATE achievements SET seen = 1")
+
+    # ---------- телефоны по Wi-Fi ----------
+
+    def add_phone_device(self, device_id: str, name: str, token_hash: str, now: float):
+        with self.lock, self.conn:
+            self.conn.execute(
+                "INSERT INTO phone_devices (id, name, token_hash, created_at) VALUES (?, ?, ?, ?)",
+                (device_id, name, token_hash, now))
+
+    def find_phone_device(self, token_hash: str) -> dict | None:
+        with self.lock:
+            row = self.conn.execute("SELECT id, name FROM phone_devices WHERE token_hash = ?",
+                                    (token_hash,)).fetchone()
+            return dict(row) if row else None
+
+    def list_phone_devices(self) -> list[dict]:
+        with self.lock:
+            return [dict(r) for r in self.conn.execute(
+                "SELECT id, name, created_at, last_seen FROM phone_devices ORDER BY created_at")]
+
+    def touch_phone_device(self, device_id: str, now: float):
+        with self.lock, self.conn:
+            self.conn.execute("UPDATE phone_devices SET last_seen = ? WHERE id = ?", (now, device_id))
+
+    def delete_phone_device(self, device_id: str) -> bool:
+        with self.lock, self.conn:
+            return self.conn.execute("DELETE FROM phone_devices WHERE id = ?", (device_id,)).rowcount > 0
+
+    # ---------- секреты (хеш пароля строгого режима) ----------
+
+    def get_secret(self, key: str) -> str | None:
+        with self.lock:
+            row = self.conn.execute("SELECT value FROM secrets WHERE key = ?", (key,)).fetchone()
+            return row["value"] if row else None
+
+    def set_secret(self, key: str, value: str | None):
+        with self.lock, self.conn:
+            if value is None:
+                self.conn.execute("DELETE FROM secrets WHERE key = ?", (key,))
+            else:
+                self.conn.execute("INSERT OR REPLACE INTO secrets VALUES (?, ?)", (key, value))
 
     # ---------- настройки из интерфейса ----------
 

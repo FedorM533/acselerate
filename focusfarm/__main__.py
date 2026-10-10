@@ -11,6 +11,7 @@
 import argparse
 from pathlib import Path
 import logging
+import sys
 import threading
 import webbrowser
 
@@ -19,6 +20,7 @@ import uvicorn
 from focusfarm import fix_console_encoding
 from focusfarm.api.server import build_manager, create_app
 from focusfarm.storage.db import DEFAULT_PATH
+from focusfarm.strict import StrictGuard, pending_resume
 
 HOST = "127.0.0.1"  # только локально, наружу не слушаем
 
@@ -51,6 +53,15 @@ def main():
 
     port = args.port or manager.settings.get("server", {}).get("port", 8765)
     url = f"http://{HOST}:{port}/"
+    # Сторож перезапустит программу с теми же флагами, но без --fresh (иначе сотрёт пруд).
+    relaunch = [a for a in sys.argv[1:] if a not in ("--fresh", "--no-browser")]
+    lock = Path(args.db or DEFAULT_PATH).with_suffix(".strict")
+    manager.strict_guard = StrictGuard(lock, relaunch, port)
+    # Программу закрыли посреди строгой сессии: продолжаем её на оставшееся время (без рыбки).
+    left = pending_resume(lock, manager.clock.now())
+    if left and manager.settings.get("protection", {}).get("strictness") == "hard":
+        manager.start_session(length_min=left, without_phone=True)
+        manager.message = "Программу закрыли во время строгой сессии: защита возобновлена на оставшееся время."
     mode = manager.settings.get("mode")
     print(f"Фокус-пруд запускается: {url}  (режим: {mode}, скорость ×{manager.speed:g})")
     print("Остановить: Ctrl+C")

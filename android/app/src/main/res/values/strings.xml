@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Фокус-пруд Щит</string>
+    <string name="a11y_description">Замечает, какое приложение открыто, и во время учёбы закрывает его экраном «Идёт учёба». Содержимое экрана, тексты и пароли не читаются.</string>
+</resources>

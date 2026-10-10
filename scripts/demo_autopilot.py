@@ -264,7 +264,7 @@ def main():
     fix_console_encoding()
     parser = argparse.ArgumentParser(description="Автопилот демо «Фокус-пруда»")
     parser.add_argument("--speed", type=float, default=30, help="ускорение демо (по умолчанию 30)")
-    parser.add_argument("--port", type=int, default=8766, help="порт демо-сервера (по умолчанию 8766)")
+    parser.add_argument("--port", type=int, default=8790, help="порт демо-сервера (по умолчанию 8790; 8766 занят связью с телефоном)")
     parser.add_argument("--pause", type=float, default=5, help="пауза между шагами, с (по умолчанию 5)")
     parser.add_argument("--step", action="store_true", help="переходить к следующему шагу по Enter")
     parser.add_argument("--no-browser", action="store_true", help="не открывать браузер")

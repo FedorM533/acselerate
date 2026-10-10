@@ -12,3 +12,5 @@ pyserial>=3.5
 # Тесты (httpx нужен для TestClient из FastAPI)
 pytest>=8.0
 httpx>=0.27
+# QR-коды для сопряжения телефона
+segno>=1.6

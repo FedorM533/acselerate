@@ -184,6 +184,10 @@ function handleEvents(events) {
       toast(e.hard ? `«${e.process}» отвлекает и закроется через ${e.seconds} с. Сохрани работу 💾`
                    : `«${e.process}» отвлекает от учёбы 🐟`, true);
     }
+    if (e.type === "phone_report" && e.kind === "service_off" && state && state.session) {
+      toast("На телефоне выключили службу блокировки 📱", true);
+    }
+    if (e.type === "extension_lost") toast(e.message, true);
     if (e.type === "app_closed") toast(`«${e.process}» закрыта — возвращаемся к учёбе 📚`);
     if (e.type === "block_failed") toast(`Не получилось закрыть «${e.process}». Закрой её сам 🙏`, true);
     if (e.type === "sound") {
@@ -597,14 +601,33 @@ function startBody(withoutPhone) {
 }
 $("#start-btn").onclick = async () => render(await api("POST", "/api/session/start", startBody(false)));
 $("#start-nophone-btn").onclick = async () => render(await api("POST", "/api/session/start", startBody(true)));
+// Строгий режим: пока идёт жёсткая сессия, пауза, досрочный конец и ослабление защиты — только с паролем.
+function strictLocked() {
+  return !!(state && state.protection && state.protection.strict && state.protection.strict.locked);
+}
+function askStrictPassword(what) {
+  if (!strictLocked()) return undefined;
+  if (!state.protection.strict.password_set) {
+    toast("Строгий режим: до конца таймера выйти нельзя. Пароль задаётся в настройках.", true);
+    return null;
+  }
+  return prompt(`Строгий режим. Введите пароль, чтобы ${what}:`);
+}
+
 $("#pause-btn").onclick = async () => {
-  render(await api("POST", state.session.paused ? "/api/session/resume" : "/api/session/pause"));
+  if (state.session.paused) return render(await api("POST", "/api/session/resume"));
+  const password = askStrictPassword("поставить паузу");
+  if (password === null) return;
+  render(await api("POST", "/api/session/pause", password === undefined ? undefined : { password }));
 };
 $("#notebook-btn").onclick = async () => {
   render(await api("POST", "/api/session/notebook", { on: !state.session.notebook }));
 };
 $("#end-btn").onclick = async () => {
-  if (confirm("Завершить сессию?")) render(await api("POST", "/api/session/end"));
+  const password = askStrictPassword("завершить сессию досрочно");
+  if (password === null) return;
+  if (password === undefined && !confirm("Завершить сессию?")) return;
+  render(await api("POST", "/api/session/end", password === undefined ? undefined : { password }));
 };
 $("#presence-btn").onclick = async () => render(await api("POST", "/api/session/presence"));
 
@@ -832,6 +855,44 @@ async function loadPorts(selected) {
   $("#set-port").value = selected || "";
 }
 
+const lines = (text) => text.split("\n").map((w) => w.trim().toLowerCase()).filter(Boolean);
+
+function showAllowBox() {
+  const white = $("#set-listmode").value === "whitelist";
+  $("#allow-box").hidden = !white;
+  $("#allow-warn").textContent = white && !lines($("#allow-apps").value).length && !lines($("#allow-sites").value).length
+    ? "⚠ Белый список пуст — пока ничего не блокируется. Добавьте программы и сайты, которые нужны для учёбы."
+    : white ? "Всё, чего нет в списках, будет блокироваться во время учёбы. Программа и браузер тоже должны быть в списке."
+      : "";
+}
+
+async function loadWifi() {
+  const w = await api("GET", "/api/wifi/status");
+  $("#wifi-status").textContent = w.error ? `⚠ ${w.error}`
+    : w.running ? `🟢 Готово к подключению телефонов: ${w.address}`
+      : w.enabled ? "Запускаю…" : "Выключено";
+  $("#wifi-pair").disabled = !w.running;
+  $("#wifi-devices").innerHTML = w.devices.map((d) => `<div class="field">
+    <span>${d.online ? "🟢" : "⚪"} ${d.name}</span>
+    <button class="btn small danger" data-wifi-del="${d.id}">Удалить</button></div>`).join("")
+    || '<p class="muted small">Телефонов пока нет.</p>';
+  $$("[data-wifi-del]").forEach((b) => (b.onclick = async (e) => {
+    e.preventDefault();
+    await api("DELETE", `/api/wifi/devices/${b.dataset.wifiDel}`);
+    loadWifi();
+  }));
+}
+
+async function loadRunning() {
+  try {
+    const { apps } = await api("GET", "/api/protection/running");
+    $("#allow-running").innerHTML = apps.map((a) => `<option>${a}</option>`).join("")
+      || "<option value=''>нет запущенных программ с окнами</option>";
+  } catch (_) {
+    $("#allow-running").innerHTML = "<option value=''>список недоступен</option>";
+  }
+}
+
 async function loadSettings() {
   const s = await api("GET", "/api/settings");
   let html = SETTINGS_GROUPS.map(([title, fields]) => `<div class="settings-group"><h3>${title}</h3>` +
@@ -844,15 +905,52 @@ async function loadSettings() {
         <option value="soft">мягко — предупреждение, ничего не закрываем</option>
         <option value="hard">жёстко — блокируем сайты и приложения</option>
       </select></label>
+    <label class="field"><span>Секунд на сохранение до закрытия программы (жёстко)</span>
+      <input type="number" id="set-warns" min="3" max="120" step="1"></label>
     <label class="field"><span>Где защищать</span>
       <select id="set-targets">
         <option value="pc">только компьютер</option>
         <option value="phone">только телефон</option>
         <option value="both">компьютер и телефон</option>
       </select></label>
+    <label class="field"><span>Какие списки</span>
+      <select id="set-listmode">
+        <option value="blacklist">чёрный список — нельзя только отвлекающее</option>
+        <option value="whitelist">белый список — можно только то, что разрешено ниже</option>
+      </select></label>
+    <div id="allow-box" hidden>
+      <div class="muted small">Разрешённые программы (по одной в строке, например code.exe)</div>
+      <textarea id="allow-apps" rows="4" spellcheck="false"></textarea>
+      <div class="form-row"><select id="allow-running"></select>
+        <button class="btn small" id="allow-add-running">+ Добавить запущенную</button></div>
+      <div class="muted small">Разрешённые сайты (по одному в строке, например wikipedia.org)</div>
+      <textarea id="allow-sites" rows="4" spellcheck="false"></textarea>
+      <p class="muted small" id="allow-warn"></p>
+    </div>
     <p class="muted small" id="ext-status"></p>
     <p class="muted small">Программы закрывает сама «Фокус-пруд», сайты блокирует расширение для браузера
-      (папка <code>extension/</code>). Android-приложение пока в разработке.</p>
+      (папка <code>extension/</code>). На телефоне то же делает приложение «Фокус-пруд Щит» (папка <code>android/</code>).</p>
+  </div>
+  <div class="settings-group"><h3>🔒 Строгий режим</h3>
+    <p class="muted small">Если защита «жёсткая», то во время сессии нельзя поставить паузу, завершить её досрочно
+      или ослабить защиту. Выйти можно только по таймеру или с паролем. Если программу закроют, сторож запустит её снова,
+      а расширение браузера и телефон сообщат, если их отключат. Это защита от случайного «ну я на минутку»;
+      человека с правами администратора она не остановит.</p>
+    <p class="muted small" id="strict-status"></p>
+    <label class="field"><span>Старый пароль</span><input type="password" id="strict-old" autocomplete="off"></label>
+    <label class="field"><span>Новый пароль (от 4 символов)</span><input type="password" id="strict-new" autocomplete="off"></label>
+    <div class="form-row"><button class="btn small" id="strict-set">Сохранить пароль</button>
+      <button class="btn small" id="strict-clear">Убрать пароль</button></div>
+  </div>
+  <div class="settings-group"><h3>📱 Телефон по Wi-Fi</h3>
+    <label class="field"><span>Связь с телефоном</span>
+      <span class="toggle"><input type="checkbox" id="set-lan"><span></span></span></label>
+    <p class="muted small">Без интернета и чужих серверов: ПК и телефон должны быть в одной сети Wi-Fi.
+      Пока выключено, программа слушает только этот компьютер. После включения нажмите «Сохранить».</p>
+    <p class="muted small" id="wifi-status"></p>
+    <div class="form-row"><button class="btn small" id="wifi-pair">Подключить телефон</button></div>
+    <div id="wifi-qr"></div>
+    <div id="wifi-devices"></div>
   </div>` + html;
   html += `<div class="settings-group"><h3>🔊 Звук и режим</h3>
     <label class="field"><span>Звуки подставки</span>
@@ -887,7 +985,35 @@ async function loadSettings() {
   $("#settings-groups").innerHTML = html;
   $("#set-mode").value = s.mode;
   $("#set-strictness").value = (s.protection || {}).strictness || "soft";
+  $("#set-warns").value = (s.protection || {}).warn_s || 10;
   $("#set-targets").value = (s.protection || {}).targets || "pc";
+  $("#set-listmode").value = (s.protection || {}).list_mode || "blacklist";
+  $("#allow-apps").value = ((s.protection || {}).allow_apps || []).join("\n");
+  $("#allow-sites").value = ((s.protection || {}).allow_sites || []).join("\n");
+  $("#set-listmode").onchange = showAllowBox;
+  $("#allow-apps").oninput = $("#allow-sites").oninput = showAllowBox;
+  $("#allow-add-running").onclick = (e) => {
+    e.preventDefault();
+    const name = $("#allow-running").value;
+    const have = lines($("#allow-apps").value);
+    if (name && !have.includes(name)) $("#allow-apps").value = [...have, name].join("\n");
+    showAllowBox();
+  };
+  showAllowBox();
+  loadRunning();
+  $("#set-lan").checked = !!(s.network || {}).lan_enabled;
+  $("#wifi-pair").onclick = async (e) => {
+    e.preventDefault();
+    try {
+      const r = await api("POST", "/api/wifi/pair");
+      $("#wifi-qr").innerHTML = `<div class="qr">${r.qr_svg}</div>
+        <p class="muted small">Откройте приложение на телефоне и отсканируйте код. Он действует ${r.expires_in} секунд.</p>`;
+    } catch (err) {
+      $("#wifi-qr").innerHTML = `<p class="muted small">⚠ ${err.message || err}</p>`;
+    }
+  };
+  await loadWifi();
+  await loadStrict();
   const live = (await api("GET", "/api/state")).protection || {};
   $("#ext-status").textContent = live.extension_connected
     ? "🌐 Расширение браузера подключено ✔"
@@ -899,6 +1025,28 @@ async function loadSettings() {
   await loadRules();
 }
 
+async function loadStrict() {
+  const st = await api("GET", "/api/strict");
+  $("#strict-status").textContent = (st.password_set ? "Пароль задан." : "Пароль не задан: в жёсткой сессии выйти нельзя вообще.")
+    + (st.locked ? " Сейчас идёт строгая сессия: пароль менять нельзя." : "");
+  $("#strict-old").parentElement.hidden = !st.password_set;
+  $("#strict-clear").hidden = !st.password_set;
+}
+
+$("#settings-groups").addEventListener("click", async (e) => {
+  if (e.target.id === "strict-set") {
+    await api("PUT", "/api/strict/password", { new: $("#strict-new").value, old: $("#strict-old").value || null });
+    $("#strict-new").value = $("#strict-old").value = "";
+    toast("Пароль сохранён ✔");
+    await loadStrict();
+  } else if (e.target.id === "strict-clear") {
+    await api("DELETE", "/api/strict/password", { password: $("#strict-old").value || null });
+    $("#strict-old").value = "";
+    toast("Пароль убран");
+    await loadStrict();
+  }
+});
+
 $("#settings-save").onclick = async () => {
   const body = { thresholds: {}, session: {}, ui: {}, rewards: {} };
   $$("#settings-groups [data-group]").forEach((input) => {
@@ -906,9 +1054,17 @@ $("#settings-save").onclick = async () => {
   });
   body.sound = { enabled: $("#set-sound").checked };
   body.mode = $("#set-mode").value;
-  body.protection = { strictness: $("#set-strictness").value, targets: $("#set-targets").value };
+  body.network = { lan_enabled: $("#set-lan").checked };
+  body.protection = {
+    strictness: $("#set-strictness").value, warn_s: Number($("#set-warns").value) || 10, targets: $("#set-targets").value,
+    list_mode: $("#set-listmode").value,
+    allow_apps: lines($("#allow-apps").value), allow_sites: lines($("#allow-sites").value),
+  };
   body.demo_speed = Number($("#set-speed").value);
   body.device = { serial_port: $("#set-port").value, phone_source: $("#set-source").value };
+  const password = askStrictPassword("изменить защиту");
+  if (password === null) return;
+  if (password) body.password = password;
   await api("PUT", "/api/settings", body);
   pondMax = body.ui.pond_fish_max;
   renderSwimmers();

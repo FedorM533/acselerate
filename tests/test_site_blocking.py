@@ -79,8 +79,9 @@ def test_soft_mode_is_reported(tmp_path):
 
 def test_pause_turns_site_blocking_off(tmp_path):
     env = site_env(tmp_path)
+    env.manager.set_password("секрет")    # в жёстком режиме пауза только с паролем
     env.post("/api/session/start", {})
-    env.post("/api/session/pause")
+    env.post("/api/session/pause", {"password": "секрет"})
     assert sites(env)["active"] is False
     env.post("/api/session/resume")
     assert sites(env)["active"] is True
@@ -100,3 +101,26 @@ def test_extension_connection_status(tmp_path):
     assert env.state()["protection"]["extension_connected"] is True
     env.clock.advance(EXTENSION_TIMEOUT_S + 1)                 # и замолчало
     assert env.state()["protection"]["extension_connected"] is False
+
+
+# ---------- белый список сайтов ----------
+
+def test_sites_view_in_blacklist_mode_has_no_allow_effect(tmp_path):
+    state = sites(site_env(tmp_path))
+    assert state["mode"] == "blacklist" and state["allow"] == []
+
+
+def test_whitelist_sites_are_normalized_and_reported(tmp_path):
+    env = Env(tmp_path, overrides={"protection": {
+        "strictness": "hard", "list_mode": "whitelist",
+        "allow_sites": ["https://www.Wikipedia.org/wiki", "wikipedia.org", "moodle.org"]}})
+    env.client.post("/api/session/start", json={"length_min": 25})
+    state = sites(env)
+    assert state["mode"] == "whitelist" and state["allow"] == ["wikipedia.org", "moodle.org"]
+    assert state["active"] is True
+
+
+def test_empty_whitelist_does_not_activate_site_blocking(tmp_path):
+    env = Env(tmp_path, overrides={"protection": {"strictness": "hard", "list_mode": "whitelist"}})
+    env.client.post("/api/session/start", json={"length_min": 25})
+    assert sites(env)["active"] is False

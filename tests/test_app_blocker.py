@@ -2,7 +2,7 @@
 Настоящие процессы не трогаем: вместо psutil — FakeProcesses."""
 import pytest
 
-from focusfarm.blocker.apps import AppBlocker, NullBlocker
+from focusfarm.blocker.apps import CLOSE_GRACE_S, SOFT_REPEAT_S, AppBlocker, NullBlocker
 from tests.conftest import Env
 
 BLOCK = ["steam.exe", "telegram.exe"]
@@ -14,12 +14,16 @@ class FakeProcesses:
         self.own = set(own)
         self.terminated = []
         self.fail = set()
+        self.windows = None      # pid → имя программ с окнами; None — все запущенные
 
     def running(self):
         return list(self.procs.items())
 
     def protected_pids(self):
         return self.own
+
+    def window_apps(self):
+        return list(self.windows.items()) if self.windows is not None else list(self.procs.items())
 
     def terminate(self, pid):
         if pid in self.fail:
@@ -47,12 +51,21 @@ def test_hard_mode_warns_then_closes_after_deadline():
     assert types(events) == ["app_closed"] and procs.terminated == [100]
 
 
-def test_soft_mode_only_warns_once_and_never_closes():
+def test_soft_mode_warns_again_and_again_but_never_closes():
     blocker, procs = make({100: "steam.exe"})
     assert types(blocker.update(0, True, False, BLOCK)) == ["block_warning"]
-    for t in range(2, 120, 2):
-        assert blocker.update(t, True, False, BLOCK) == []
+    for t in range(2, SOFT_REPEAT_S, 2):
+        assert blocker.update(t, True, False, BLOCK) == []         # между напоминаниями тихо
+    for k in (1, 2, 3):                                            # человек убрал, а программа открыта: снова
+        assert types(blocker.update(k * SOFT_REPEAT_S, True, False, BLOCK)) == ["block_warning"]
     assert procs.terminated == []
+
+
+def test_soft_warning_stops_when_app_is_closed():
+    blocker, procs = make({100: "steam.exe"})
+    blocker.update(0, True, False, BLOCK)
+    procs.procs.clear()
+    assert blocker.update(SOFT_REPEAT_S, True, False, BLOCK) == []
 
 
 def test_app_closed_by_user_before_deadline_is_not_killed():
@@ -111,6 +124,56 @@ def test_view_shows_seconds_left():
 
 # ---------- через менеджер сессии ----------
 
+class PoliteProcesses(FakeProcesses):
+    """Умеет вежливую просьбу закрыться: программа слушается или упрямится."""
+
+    def __init__(self, *a, obey=True, **kw):
+        super().__init__(*a, **kw)
+        self.asked = []
+        self.obey = obey
+
+    def request_close(self, pid):
+        self.asked.append(pid)
+        if self.obey:
+            self.procs.pop(pid, None)
+        return True
+
+
+def test_polite_close_comes_first_and_spares_obedient_app():
+    procs = PoliteProcesses({100: "steam.exe"})
+    blocker = AppBlocker(procs, warn_s=10)
+    blocker.update(0, True, True, BLOCK)
+    blocker.update(10, True, True, BLOCK)                       # срок вышел: просим вежливо
+    assert procs.asked == [100] and procs.terminated == []
+    events = blocker.update(12, True, True, BLOCK)              # программа закрылась сама
+    assert [e["type"] for e in events] == ["app_closed"] and procs.terminated == []
+
+
+def test_stubborn_app_is_terminated_after_grace():
+    procs = PoliteProcesses({100: "steam.exe"}, obey=False)
+    blocker = AppBlocker(procs, warn_s=10)
+    blocker.update(0, True, True, BLOCK)
+    blocker.update(10, True, True, BLOCK)
+    blocker.update(14, True, True, BLOCK)
+    assert procs.terminated == []                               # ещё ждём
+    events = blocker.update(10 + CLOSE_GRACE_S + 1, True, True, BLOCK)
+    assert procs.terminated == [100] and [e["type"] for e in events] == ["app_closed"]
+
+
+def test_warn_seconds_come_from_settings(tmp_path):
+    env = Env(tmp_path, overrides={"protection": {"strictness": "hard", "warn_s": 25}})
+    env.manager.blocker = AppBlocker(FakeProcesses(), warn_s=10)
+    env.post("/api/session/start", {})
+    env.tick(2)
+    assert env.manager.blocker.warn_s == 25
+
+
+@pytest.mark.parametrize("bad", [0, 2, 121, "10", True, 1.5])
+def test_warn_s_is_validated(tmp_path, bad):
+    env = Env(tmp_path)
+    assert env.client.put("/api/settings", json={"protection": {"warn_s": bad}}).status_code == 400
+
+
 def blocker_env(tmp_path, strictness="hard", targets="pc", running=None):
     env = Env(tmp_path, overrides={"protection": {"strictness": strictness, "targets": targets}})
     env.procs = FakeProcesses(running or {200: "steam.exe"})
@@ -140,8 +203,9 @@ def test_no_session_means_no_blocking(tmp_path):
 
 def test_pause_stops_blocking(tmp_path):
     env = blocker_env(tmp_path)
+    env.manager.set_password("секрет")    # в жёстком режиме пауза только с паролем
     env.post("/api/session/start", {})
-    env.post("/api/session/pause")
+    env.post("/api/session/pause", {"password": "секрет"})
     env.tick(30)
     assert env.procs.terminated == []
 
@@ -185,3 +249,45 @@ def test_blocker_error_does_not_break_the_session(tmp_path):
     env.post("/api/session/start", {})
     env.tick(5)
     assert env.state()["state"] != "IDLE"
+
+
+# ---------- белый список ----------
+
+ALLOW = ["code.exe", "chrome.exe"]
+
+
+def test_whitelist_closes_only_windowed_apps_not_in_list():
+    blocker, procs = make({100: "code.exe", 101: "game.exe", 102: "svc.exe"})
+    procs.windows = {100: "code.exe", 101: "game.exe"}      # у svc.exe нет окна
+    events = blocker.update(0, True, True, [], ALLOW)
+    assert [e["process"] for e in events] == ["game.exe"]
+    blocker.update(10, True, True, [], ALLOW)
+    assert procs.terminated == [101]
+
+
+def test_whitelist_never_touches_protected_or_own_processes():
+    blocker, procs = make({1: "myapp.exe", 200: "explorer.exe", 201: "taskmgr.exe"}, own=(1,))
+    assert blocker.update(0, True, True, [], ALLOW) == []
+    blocker.update(20, True, True, [], ALLOW)
+    assert procs.terminated == []
+
+
+def test_empty_whitelist_blocks_nothing():
+    blocker, procs = make({100: "game.exe"})
+    assert blocker.update(0, True, True, [], []) == []
+    blocker.update(30, True, True, [], [])
+    assert procs.terminated == []
+
+
+def test_whitelist_soft_mode_warns_repeatedly_without_closing():
+    blocker, procs = make({100: "game.exe"})
+    assert types(blocker.update(0, True, False, [], ALLOW)) == ["block_warning"]
+    assert types(blocker.update(SOFT_REPEAT_S, True, False, [], ALLOW)) == ["block_warning"]
+    assert procs.terminated == []
+
+
+def test_whitelist_is_case_insensitive_and_inactive_session_blocks_nothing():
+    blocker, procs = make({100: "code.exe"})
+    assert blocker.update(0, True, True, [], ["CODE.EXE"]) == []
+    blocker, procs = make({101: "game.exe"})
+    assert blocker.update(0, False, True, [], ALLOW) == []

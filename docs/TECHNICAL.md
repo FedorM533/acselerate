@@ -70,6 +70,23 @@ py -3 -m venv .venv
 
 Проверка кабеля и телефона: `python scripts/usb_spike.py`.
 
+## Защита от отвлечений
+
+- **Списки.** `protection.list_mode`: `blacklist` (правила `distraction` из `rules.yaml`) или `whitelist`
+  (`allow_apps`, `allow_sites`). `AppBlocker.update(now, active, hard, blocklist, allowlist=None)`: `allowlist=None`
+  значит чёрный список. В белом закрываются только программы с видимым окном вне папки Windows; пустой белый
+  список ничего не блокирует; `PROTECTED` не закрывается никогда.
+- **Закрытие.** Жёстко: предупреждение, через `protection.warn_s` с окнам процесса посылается `WM_CLOSE`
+  (`PsutilProcesses.request_close`), через `CLOSE_GRACE_S` (8 с) процесс завершается (`terminate`).
+- **Сайты.** Расширение `extension/` опрашивает `GET /api/protection/sites`; порт находит само (8765, 8767–8785).
+- **Телефон по Wi-Fi.** `focusfarm/phone/`: `hub.py` (сопряжение, токены, отчёты), `lan.py` (отдельное приложение
+  FastAPI на порту `network.port`, только частные клиенты, `LanServer`), `qr.py`. Протокол: `docs/PHONE_PROTOCOL.md`.
+  Android-приложение: `android/` (сборка `android/build_debug.ps1`; из-за кириллицы в пути собирается в `C:\fs-build`).
+- **Строгий режим.** `focusfarm/strict.py` (хеш пароля PBKDF2, `StrictGuard` пишет файл-флаг `<база>.strict` со сроком
+  и следит за сторожем), `focusfarm/watchdog.py` (перезапускает программу, пока флаг действует),
+  `SessionManager.require_unlock/strict_locked`, эндпоинты `/api/strict*`. После перезапуска `__main__` возобновляет
+  сессию на оставшееся время (`pending_resume`). Хеш пароля лежит в таблице `secrets` (миграция 4).
+
 ## Игра: задания, ачивки, здания, коллекция
 
 - **Задания дня** (вкладка «Задания»): три задания про фокус, например «20 минут фокуса» или «Выпусти одну рыбку». Монет за задания — не больше 30 в день.
@@ -110,7 +127,8 @@ py -3 -m venv .venv
   нажаты, — только время с последнего ввода (`GetLastInputInfo`).
 - Заголовки окон **не сохраняются**: в базу `data/focusfarm.db` пишем только
   состояние, категорию и имя программы (это проверяет тест).
-- Сервер слушает только `127.0.0.1` — с других компьютеров его не видно.
+- Интерфейс слушает только `127.0.0.1`. Исключение: связь с телефоном (выключена по умолчанию) — отдельный порт на
+  частном адресе, только частные клиенты и токен (в базе его хеш). Пароль строгого режима тоже хранится хешем.
 
 ## Структура
 
@@ -127,9 +145,14 @@ focusfarm/
   reactions.py   состояние → свет и звук (с ограничением частоты)
   storage/db.py  SQLite и миграции
   api/server.py  REST + WebSocket
+  blocker/       блокировка программ (чёрный/белый список, WM_CLOSE)
+  phone/         связь с Android по Wi-Fi: hub, lan, qr
+  strict.py, watchdog.py  строгий режим: пароль, флаг, сторож
   web/           интерфейс: index.html, app.js, style.css, sprites/, fonts/ (Nunito, OFL)
 scripts/         автопилот демо и скриншоты
 firmware/        прошивка ESP32 и протокол
+android/         приложение для Android (Kotlin, Gradle)
+extension/       расширение Chrome/Edge
 docs/DEMO.md     сценарий демо
 tests/           pytest
 ```

@@ -15,7 +15,7 @@
 import logging
 import threading
 
-from focusfarm.activity.classifier import CATEGORIES, Classifier, load_rules
+from focusfarm.activity.classifier import CATEGORIES, Classifier, load_rules, normalize_domain
 from focusfarm.activity.fallback import FallbackMonitor
 from focusfarm.activity.monitor import SafeMonitor
 from focusfarm.blocker.apps import NullBlocker
@@ -24,9 +24,13 @@ from focusfarm.config import speed_of
 from focusfarm.device.output import MockDeviceOutput
 from focusfarm.events import EventBus
 from focusfarm.game.engine import GameEngine, GameError, quality_for
+from focusfarm.phone.hub import PhoneHub
 from focusfarm.reactions import Reactions
 from focusfarm.sensors.phone import MockPhoneSensor
 from focusfarm.session.reward_service import RewardsService, clean_name
+from focusfarm.strict import (
+    GRACE_S, LOCKOUT_S, MAX_FAILS, MIN_PASSWORD_LEN, hash_password, verify_password,
+)
 from focusfarm.session.state_machine import (
     FOCUS, IDLE, MAYBE_DISTRACTED, PAUSED, Inputs, StateMachine,
 )
@@ -58,8 +62,13 @@ class SessionManager:
         # Без явного блокировщика ничего не закрываем (тесты, демо).
         self.blocker = blocker or NullBlocker()
         self.extension_seen = None   # когда расширение браузера последний раз спрашивало сайты
+        self.strict_guard = None     # StrictGuard (флаг для сторожа); ставит __main__, в тестах его нет
+        self._pw_fails = 0           # неверные пароли подряд
+        self._pw_blocked_until = 0.0
+        self._ext_alerted = False
         self.bus = bus or EventBus()
         self.db = db
+        self.phones = PhoneHub(db, self.clock, self.bus)   # телефоны по Wi-Fi
         self.monitor = monitor if isinstance(monitor, SafeMonitor) else SafeMonitor(monitor or FallbackMonitor())
         self.classifier = classifier or Classifier(load_rules())
         # Без датчика телефон «не подключён»: сессия стартует только по сигналу
@@ -271,6 +280,7 @@ class SessionManager:
 
             self._read_activity()
             self._run_blocker()
+            self._watch_strict()
             docked = self.phone.is_docked()
             just_docked = docked and not self.prev_docked
             self.prev_docked = docked
@@ -332,6 +342,122 @@ class SessionManager:
                 domains += rule.get("domains", [])
         return list(dict.fromkeys(domains))
 
+    def whitelist_mode(self) -> bool:
+        return self.settings.get("protection", {}).get("list_mode", "blacklist") == "whitelist"
+
+    def app_allowlist(self) -> list[str]:
+        """Белый список программ: имена процессов в нижнем регистре."""
+        words = self.settings.get("protection", {}).get("allow_apps", [])
+        return list(dict.fromkeys(w.strip().lower() for w in words if w.strip()))
+
+    def site_allowlist(self) -> list[str]:
+        """Белый список сайтов: только домены, без https:// и пути."""
+        words = self.settings.get("protection", {}).get("allow_sites", [])
+        return list(dict.fromkeys(d for d in map(normalize_domain, words) if d))
+
+    def phone_protection_active(self) -> bool:
+        """Защита телефона: в сессии, не на паузе и если защищаем телефон."""
+        targets = self.settings.get("protection", {}).get("targets", "pc")
+        return self.session is not None and not self.paused and targets in ("phone", "both")
+
+    def phone_state(self) -> dict:
+        """Что сообщаем телефону по Wi-Fi (см. docs/PHONE_PROTOCOL.md)."""
+        with self.lock:
+            s = self.session
+            protection = self.settings.get("protection", {})
+            return {
+                "active": self.phone_protection_active(),
+                "hard": protection.get("strictness", "soft") == "hard",
+                "list_mode": protection.get("list_mode", "blacklist"),
+                "remaining_s": round(max(0.0, s["planned_s"] - s["elapsed_s"])) if s else 0,
+                "session_id": s["id"] if s else None,
+            }
+
+    # ---------- строгий режим ----------
+
+    def strict_locked(self) -> bool:
+        """Идёт сессия с жёсткой защитой: досрочно выйти можно только с паролем."""
+        return self.session is not None and self.settings.get("protection", {}).get("strictness") == "hard"
+
+    def password_set(self) -> bool:
+        return self.db.get_secret("strict_password") is not None
+
+    def forbid_in_strict(self, what: str):
+        """Правки, которыми можно обойти защиту (правила, привязки, телефоны), закрыты до конца
+        строгой сессии. Выйти из неё можно с паролем: после этого правки снова доступны."""
+        if self.strict_locked():
+            raise GameError(f"Строгий режим: {what} нельзя менять во время сессии. "
+                            "Дождитесь конца или завершите сессию с паролем.")
+
+    def require_unlock(self, password: str | None):
+        """Проверка перед паузой, досрочным концом или сменой защиты в строгой сессии."""
+        with self.lock:      # проверка и счётчик ошибок одним куском: параллельный перебор не обходит лимит
+            self._require_unlock(password)
+
+    def _require_unlock(self, password: str | None):
+        if not self.strict_locked():
+            return
+        stored = self.db.get_secret("strict_password")
+        if stored is None:
+            raise GameError("Строгий режим: до конца таймера выйти нельзя. "
+                            "Задай пароль в настройках, чтобы иметь запасной выход.")
+        now = self.clock.now()
+        if now < self._pw_blocked_until:
+            raise GameError(f"Слишком много неверных паролей. Подожди {round(self._pw_blocked_until - now)} с.")
+        if not password or not verify_password(password, stored):
+            self._pw_fails += 1
+            if self._pw_fails >= MAX_FAILS:
+                self._pw_fails = 0
+                self._pw_blocked_until = now + LOCKOUT_S
+            raise GameError("Строгий режим: нужен верный пароль")
+        self._pw_fails = 0
+
+    def set_password(self, new: str, old: str | None = None):
+        new_hash = hash_password(new) if len(new or "") >= MIN_PASSWORD_LEN else None   # считаем вне блокировки
+        with self.lock:
+            if self.strict_locked():
+                raise GameError("Во время строгой сессии пароль менять нельзя")
+            stored = self.db.get_secret("strict_password")
+            if stored is not None and not (old and verify_password(old, stored)):
+                raise GameError("Старый пароль неверный")
+            if new_hash is None:
+                raise GameError(f"Пароль не короче {MIN_PASSWORD_LEN} символов")
+            self.db.set_secret("strict_password", new_hash)
+
+    def clear_password(self, old: str | None):
+        with self.lock:
+            if self.strict_locked():
+                raise GameError("Во время строгой сессии пароль убирать нельзя")
+            stored = self.db.get_secret("strict_password")
+            if stored is not None and not (old and verify_password(old, stored)):
+                raise GameError("Пароль неверный")
+            self.db.set_secret("strict_password", None)
+
+    def extension_lost(self) -> bool:
+        """В строгой сессии расширение, которое раньше отвечало, замолчало (его отключили)."""
+        targets = self.settings.get("protection", {}).get("targets", "pc")
+        return (self.strict_locked() and targets in ("pc", "both") and self.extension_seen is not None
+                and not self.extension_connected())
+
+    def strict_view(self) -> dict:
+        return {"locked": self.strict_locked(), "password_set": self.password_set(),
+                "extension_lost": self.extension_lost()}
+
+    def _watch_strict(self):
+        """Каждый тик: флаг для сторожа и сообщение, если отключили расширение."""
+        locked = self.strict_locked()
+        if self.strict_guard:
+            try:
+                s = self.session
+                left = max(0.0, s["planned_s"] - s["elapsed_s"]) / max(self.speed, 1.0) if s else 0.0
+                self.strict_guard.update(locked, self.clock.now() + left + GRACE_S)
+            except Exception:
+                log.exception("Не удалось обновить флаг сторожа")
+        lost = self.extension_lost()
+        if lost and not self._ext_alerted:
+            self.bus.publish("extension_lost", {"message": "Расширение браузера отключено: сайты не блокируются."})
+        self._ext_alerted = lost
+
     def pc_protection_active(self) -> bool:
         """Защита компьютера (программы и сайты): только в сессии, не на паузе
         и если в настройках защищаем компьютер."""
@@ -343,10 +469,15 @@ class SessionManager:
         with self.lock:
             self.extension_seen = self.clock.now()
             s = self.session
+            whitelist = self.whitelist_mode()
+            allow = self.site_allowlist()
             return {
-                "active": self.pc_protection_active(),
+                # Пустой белый список ничего не блокирует (см. AppBlocker.update).
+                "active": self.pc_protection_active() and not (whitelist and not allow),
                 "hard": self.settings.get("protection", {}).get("strictness", "soft") == "hard",
+                "mode": "whitelist" if whitelist else "blacklist",
                 "domains": self.site_blocklist(),
+                "allow": allow,
                 "remaining_s": max(0.0, s["planned_s"] - s["elapsed_s"]) if s else 0.0,
             }
 
@@ -358,10 +489,13 @@ class SessionManager:
         """Блокировка программ: см. pc_protection_active()."""
         protection = self.settings.get("protection", {})
         active = self.pc_protection_active()
+        if hasattr(self.blocker, "warn_s"):
+            self.blocker.warn_s = protection.get("warn_s", self.blocker.warn_s)
         try:
             events = self.blocker.update(self.clock.now(), active,
                                          protection.get("strictness", "soft") == "hard",
-                                         self._blocklist())
+                                         self._blocklist(),
+                                         self.app_allowlist() if self.whitelist_mode() else None)
         except Exception:   # ошибка блокировщика не должна ронять сессию
             log.exception("Ошибка блокировки приложений")
             return
@@ -412,6 +546,8 @@ class SessionManager:
         try:
             with self.lock:
                 if name == "PAUSE":
+                    if self.strict_locked() and not self.paused:
+                        raise GameError("Строгий режим: паузу можно только с паролем в приложении")
                     if not self.session:
                         self.start_session()
                     elif self.paused:
@@ -462,7 +598,9 @@ class SessionManager:
                 "rewards": self.rewards.summary(),
                 "protection": {**self.settings.get("protection", {}),
                                **self.blocker.view(self.clock.now()),
-                               "extension_connected": self.extension_connected()},
+                               "extension_connected": self.extension_connected(),
+                               "phones_online": self.phones.online_count(),
+                               "strict": self.strict_view()},
                 "message": self.message,
             }
 

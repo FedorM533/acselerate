@@ -11,6 +11,7 @@ MODES = ("normal", "dev", "demo")
 PHONE_SOURCES = ("auto", "usb", "serial", "mock")   # как определяем «телефон подключён»
 STRICTNESS_LEVELS = ("soft", "hard")                # мягкая защита / жёсткая блокировка
 PROTECTION_TARGETS = ("pc", "phone", "both")        # где защищаем
+LIST_MODES = ("blacklist", "whitelist")             # чёрный список / белый список
 
 # Пороги, которые обязаны быть в settings.yaml, и их допустимые границы.
 THRESHOLD_KEYS = [
@@ -56,6 +57,16 @@ def validate_settings(s: dict) -> dict:
     speed = s.get("demo_speed", 1)
     if not isinstance(speed, (int, float)) or not 1 <= speed <= 1000:
         raise ConfigError("demo_speed должен быть числом от 1 до 1000")
+    network = s.get("network", {})
+    if not isinstance(network, dict):
+        raise ConfigError("network должен быть набором настроек")
+    if not isinstance(network.get("lan_enabled", False), bool):
+        raise ConfigError("network.lan_enabled должен быть true или false")
+    lan_port = network.get("port", 8766)
+    if isinstance(lan_port, bool) or not isinstance(lan_port, int) or not 1024 <= lan_port <= 65535:
+        raise ConfigError("network.port должен быть целым числом от 1024 до 65535")
+    if lan_port == s.get("server", {}).get("port", 8765):
+        raise ConfigError("network.port не должен совпадать с портом интерфейса (server.port)")
     for section in ("ui", "rewards", "protection"):
         if not isinstance(s.get(section, {}), dict):
             raise ConfigError(f"{section} должен быть набором настроек")
@@ -64,6 +75,16 @@ def validate_settings(s: dict) -> dict:
         raise ConfigError(f"protection.strictness должен быть одним из {STRICTNESS_LEVELS}")
     if protection.get("targets", "pc") not in PROTECTION_TARGETS:
         raise ConfigError(f"protection.targets должен быть одним из {PROTECTION_TARGETS}")
+    if protection.get("list_mode", "blacklist") not in LIST_MODES:
+        raise ConfigError(f"protection.list_mode должен быть одним из {LIST_MODES}")
+    for key in ("allow_apps", "allow_sites"):
+        words = protection.get(key, [])
+        if not isinstance(words, list) or not all(isinstance(w, str) for w in words):
+            raise ConfigError(f"protection.{key} должен быть списком строк")
+    if "warn_s" in protection:
+        w = protection["warn_s"]
+        if isinstance(w, bool) or not isinstance(w, int) or not 3 <= w <= 120:
+            raise ConfigError("protection.warn_s должен быть целым числом секунд от 3 до 120")
     ui = s.get("ui", {})
     if "pond_fish_max" in ui:
         n = ui["pond_fish_max"]

@@ -14,7 +14,7 @@ pywin32 (Windows), pyserial, pytest. Фронтенд — `focusfarm/web/`: чи
 - Установка: `py -3 -m venv .venv` → `.venv\Scripts\python -m pip install -r requirements.txt`
 - Запуск: `run.bat` (или `.venv\Scripts\python -m focusfarm`), флаги `--no-browser`, `--demo 30`, `--dev`, `--port`, `--db`, `--fresh`
 - Демо для защиты: `run_demo.bat` (×30, чистый пруд в `data/demo.db`), сценарий — `docs/DEMO.md`
-- Тесты: `.venv\Scripts\python -m pytest -q`
+- Тесты: `.venv\Scripts\python -m pytest -q`; Android: `powershell -File android/build_debug.ps1` (тесты + APK)
 - Монитор активности в консоли: `python -m focusfarm.activity`
 - Проверка подставки: `python -m focusfarm.tools.serial_console --list`
 - Проверка USB-телефона (нужен телефон под рукой): `python scripts/usb_spike.py`
@@ -25,7 +25,10 @@ pywin32 (Windows), pyserial, pytest. Фронтенд — `focusfarm/web/`: чи
    только в памяти для классификации, в БД пишем лишь категорию и имя процесса.
 2. Мягкость: рыбки не умирают, реакции нарастают постепенно.
 3. Никакого ML — прозрачные правила с порогами из `config/settings.yaml`.
-4. Всё локально: сервер слушает только `127.0.0.1`, без облака и внешних API.
+4. Всё локально: без облака и внешних API. Интерфейс слушает только `127.0.0.1`. Единственное
+   исключение — связь с телефоном по Wi-Fi (`focusfarm/phone/`, `docs/PHONE_PROTOCOL.md`): она
+   выключена по умолчанию, использует ОТДЕЛЬНЫЙ порт на частном адресе, пускает только клиентов
+   из частных сетей и только по токену. Остальное API в сеть не выставлять.
 5. Простота: минимум зависимостей, код понятен первокурснику, комментарии на русском.
 6. Тестируемость: время только через `Clock` (`FakeClock` в тестах).
 7. Ошибки оборудования/монитора не роняют программу — лог + сообщение в интерфейсе.
@@ -44,6 +47,11 @@ pywin32 (Windows), pyserial, pytest. Фронтенд — `focusfarm/web/`: чи
   закрывали настоящие процессы; настоящий ставит `build_manager`). Сайты: расширение `extension/`
   опрашивает `GET /api/protection/sites`; правила `domains` в `rules.yaml`. Включена только в сессии,
   не на паузе, при targets pc/both (`SessionManager.pc_protection_active`).
+- Белый/чёрный список: `protection.list_mode`, `allow_apps`, `allow_sites`; `AppBlocker.update(..., allowlist=None)` — чёрный.
+- Телефон по Wi-Fi: `focusfarm/phone/` (`PhoneHub`, `LanServer` на `network.port`), протокол `docs/PHONE_PROTOCOL.md`;
+  приложение `android/` (сборка `android/build_debug.ps1`, Android Gradle Plugin не принимает кириллицу в пути).
+- Строгий режим (`protection.strictness: hard`): пауза, досрочный конец и смена защиты только с паролем
+  (`SessionManager.require_unlock`); `focusfarm/strict.py` + `watchdog.py` перезапускают программу. От администратора не защищает.
 - Проверка расширения в настоящем Chromium: `python scripts/check_extension.py`.
 - Внутренние имена остались от фермы: plot = место в пруду, crop = рыбка, weeds = ил, harvest = выпуск.
 - Тесты API — через `tests/conftest.py` (`Env`: FakeClock, база в памяти, `FakeMonitor`).

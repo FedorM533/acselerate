@@ -19,6 +19,8 @@ from focusfarm.blocker.apps import AppBlocker
 from focusfarm.config import ConfigError, deep_merge, load_settings
 from focusfarm.device.dock import Dock
 from focusfarm.game.engine import GameError
+from focusfarm.phone.lan import LanServer, NoLan
+from focusfarm.phone.qr import qr_svg
 from focusfarm.session.manager import SessionManager
 from focusfarm.session.stats import compute_stats
 from focusfarm.storage.db import DEFAULT_PATH, Database
@@ -27,7 +29,8 @@ log = logging.getLogger(__name__)
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
 # Какие разделы настроек можно менять из интерфейса.
-EDITABLE_SETTINGS = ("mode", "demo_speed", "thresholds", "session", "sound", "device", "ui", "rewards", "protection")
+EDITABLE_SETTINGS = ("mode", "demo_speed", "thresholds", "session", "sound", "device", "ui", "rewards",
+                     "protection", "network")
 
 
 # ---------- тела запросов ----------
@@ -39,8 +42,21 @@ class StartBody(BaseModel):
     without_phone: bool = False
 
 
+# Что можно менять в строгой сессии без пароля: внешний вид и звук.
+SAFE_IN_STRICT = {"ui", "sound", "rewards"}
+
+
 class NotebookBody(BaseModel):
     on: bool
+
+
+class PasswordBody(BaseModel):
+    password: str | None = None
+
+
+class NewPasswordBody(BaseModel):
+    new: str
+    old: str | None = None
 
 
 class PlotBody(BaseModel):
@@ -89,8 +105,10 @@ def build_manager(db_path=DEFAULT_PATH, cli_overrides: dict | None = None, **kwa
 
 
 def create_app(manager: SessionManager | None = None, run_loop: bool = True,
-               rules_path: Path = RULES_PATH) -> FastAPI:
+               rules_path: Path = RULES_PATH, lan=None) -> FastAPI:
     manager = manager or build_manager()
+    # Сервер для телефона по Wi-Fi: настоящий только в рабочем запуске (в тестах — заглушка).
+    lan = lan if lan is not None else (LanServer(manager) if run_loop else NoLan())
     clients: set[WebSocket] = set()
 
     async def broadcast():
@@ -105,9 +123,13 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
                 clients.discard(ws)
 
     async def tick_loop():
+        n = 0
         while True:
+            n += 1
             try:
                 manager.tick()
+                if n % 30 == 0:
+                    lan.sync(manager.settings)    # поднимет связь, если порт освободился или сменился адрес ПК
             except Exception:
                 log.exception("Ошибка в тике — продолжаем работу")
             await broadcast()
@@ -116,7 +138,9 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
     @contextlib.asynccontextmanager
     async def lifespan(app):
         task = asyncio.create_task(tick_loop()) if run_loop else None
+        lan.sync(manager.settings)
         yield
+        lan.stop()
         if task:
             task.cancel()
         closer = getattr(manager, "close", None)
@@ -153,7 +177,8 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
         return manager.start_session(body.plot, body.crop, body.length_min, body.without_phone)
 
     @app.post("/api/session/pause")
-    def session_pause():
+    def session_pause(body: PasswordBody | None = None):
+        manager.require_unlock(body.password if body else None)
         manager.pause()
         return manager.snapshot()
 
@@ -173,7 +198,8 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
         return manager.snapshot()
 
     @app.post("/api/session/end")
-    def session_end():
+    def session_end(body: PasswordBody | None = None):
+        manager.require_unlock(body.password if body else None)
         manager.end_session("manual")
         return manager.snapshot()
 
@@ -229,20 +255,82 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
 
     @app.put("/api/settings")
     def put_settings(body: dict):
+        password = body.pop("password", None)
         unknown = set(body) - set(EDITABLE_SETTINGS)
         if unknown:
             raise HTTPException(400, f"Эти настройки нельзя менять: {', '.join(sorted(unknown))}")
+        if set(body) - SAFE_IN_STRICT:        # в строгой сессии защиту, режим и скорость без пароля не менять
+            manager.require_unlock(password)
         overrides = deep_merge(manager.db.get_overrides(), body)
         # Проверяем до сохранения: при ошибке ConfigError → 400, база не меняется.
         settings = load_settings(overrides=deep_merge(overrides, getattr(manager, "cli_overrides", {})))
         manager.db.set_overrides(overrides)
         manager.apply_settings(settings)
+        lan.sync(settings)       # включили или выключили связь с телефоном
         return get_settings()
+
+    @app.get("/api/strict")
+    def strict_status():
+        return manager.strict_view()
+
+    @app.put("/api/strict/password")
+    def strict_set_password(body: NewPasswordBody):
+        manager.set_password(body.new, body.old)
+        return manager.strict_view()
+
+    @app.delete("/api/strict/password")
+    def strict_clear_password(body: PasswordBody | None = None):
+        manager.clear_password(body.password if body else None)
+        return manager.strict_view()
 
     @app.get("/api/protection/sites")
     def protection_sites():
         """Для расширения браузера: что блокировать и надо ли это прямо сейчас."""
         return manager.sites_view()
+
+    # ---------- телефон по Wi-Fi ----------
+
+    @app.get("/api/wifi/status")
+    def wifi_status():
+        address = lan.address()
+        return {
+            "enabled": bool(manager.settings.get("network", {}).get("lan_enabled")),
+            "running": address is not None,
+            "address": f"{address[0]}:{address[1]}" if address else None,
+            "error": lan.error,
+            "pairing_open": manager.phones.pairing_open(),
+            "devices": manager.phones.devices(),
+        }
+
+    @app.post("/api/wifi/pair")
+    def wifi_pair():
+        """Новый QR-код для сопряжения. Нужна включённая связь по Wi-Fi."""
+        address = lan.address()
+        if address is None:
+            raise HTTPException(409, lan.error or "Сначала включите связь с телефоном по Wi-Fi в настройках.")
+        secret, ttl = manager.phones.open_pairing()
+        host, port = address
+        payload = f"focusfarm://pair?h={host}&p={port}&s={secret}"
+        return {"payload": payload, "host": host, "port": port, "expires_in": ttl,
+                "qr_svg": qr_svg(payload)}
+
+    @app.delete("/api/wifi/pair")
+    def wifi_pair_cancel():
+        manager.phones.close_pairing()
+        return {"ok": True}
+
+    @app.delete("/api/wifi/devices/{device_id}")
+    def wifi_remove_device(device_id: str):
+        manager.forbid_in_strict("список телефонов")
+        if not manager.phones.revoke(device_id):
+            raise HTTPException(404, "Такого телефона нет")
+        return {"ok": True}
+
+    @app.get("/api/protection/running")
+    def protection_running():
+        """Программы с окнами сейчас — подсказка для составления белого списка."""
+        names = sorted({name for _, name in manager.blocker.window_apps()})
+        return {"apps": names}
 
     @app.get("/api/rules")
     def get_rules():
@@ -250,6 +338,7 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
 
     @app.put("/api/rules")
     def put_rules(body: dict):
+        manager.forbid_in_strict("правила отвлечений")
         manager.classifier.set_rules(body)          # сначала проверка
         return save_rules(manager.classifier.rules, rules_path)
 
@@ -263,6 +352,7 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
 
     def save_usb_pairing(device_id: str, name: str):
         """Запоминает телефон в настройках (в базе), как и остальные настройки из интерфейса."""
+        manager.forbid_in_strict("привязку телефона")
         patch = {"device": {"usb_phone": {"id": device_id, "name": name}}}
         overrides = deep_merge(manager.db.get_overrides(), patch)
         settings = load_settings(overrides=deep_merge(overrides, getattr(manager, "cli_overrides", {})))

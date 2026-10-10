@@ -547,3 +547,6 @@ main { padding: 20px 24px; background: var(--card); min-height: calc(100vh - 150
 .name-dialog h3 { margin: 0 0 12px; }
 .name-dialog input { width: 100%; font: inherit; padding: 10px 14px; border: 2px solid var(--line); border-radius: var(--radius-sm); }
 .name-buttons { display: flex; gap: 10px; margin-top: 14px; }
+
+.qr { background: #fff; padding: 8px; border-radius: 12px; display: inline-block; }
+.qr svg { display: block; width: 220px; height: 220px; }
