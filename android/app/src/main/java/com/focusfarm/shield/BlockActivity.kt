@@ -17,6 +17,10 @@ class BlockActivity : Activity() {
     private lateinit var timeView: TextView
     private var pkg = ""
     private var hard = false
+    private var count = 1
+    private var openAfterMs = 0L           // до этого момента «всё равно открыть» нажать нельзя
+    private lateinit var openButton: android.widget.Button
+    private lateinit var attemptView: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,15 +44,19 @@ class BlockActivity : Activity() {
         root.addView(button("Вернуться к учёбе") { goHome() }.apply { setPadding(dp(24), dp(12), dp(24), dp(12)) },
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                 .apply { topMargin = dp(24) })
-        if (!hard) {         // мягкий режим: можно открыть «всё равно», но не навсегда
-            root.addView(button("Всё равно открыть на 5 минут") {
-                Snooze.set(pkg)
-                packageManager.getLaunchIntentForPackage(pkg)?.let { startActivity(it) }
-                finish()
-            }.apply { alpha = 0.8f },
+        attemptView = text("", 15f, color = Color.WHITE).apply { gravity = Gravity.CENTER; setPadding(0, dp(16), 0, 0) }
+        openButton = button("") {
+            Snooze.set(pkg)
+            packageManager.getLaunchIntentForPackage(pkg)?.let { startActivity(it) }
+            finish()
+        }.apply { alpha = 0.8f }
+        if (!hard) {         // мягкий режим: можно открыть «всё равно», но не сразу и не навсегда
+            root.addView(attemptView)
+            root.addView(openButton,
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                     .apply { topMargin = dp(12) })
         }
+        updateOpenButton()
         root.padForSystemBars()
         setContentView(root)
     }
@@ -62,6 +70,19 @@ class BlockActivity : Activity() {
     private fun readIntent(intent: Intent) {
         pkg = intent.getStringExtra(EXTRA_PKG).orEmpty()
         hard = intent.getBooleanExtra(EXTRA_HARD, false)
+        count = intent.getIntExtra(EXTRA_COUNT, 1)
+        openAfterMs = android.os.SystemClock.elapsedRealtime() + Escalation.delaySeconds(count) * 1000L
+        updateOpenButton()
+    }
+
+    /** Кнопка «всё равно открыть» оживает, когда прошла пауза на чтение сообщения. */
+    private fun updateOpenButton() {
+        if (hard || !::openButton.isInitialized) return
+        val leftS = ((openAfterMs - android.os.SystemClock.elapsedRealtime() + 999) / 1000).toInt()
+        attemptView.text = if (count > 1) "Это уже заход №$count подряд. Каждый следующий ждать дольше."
+            else "Подумай: оно того стоит?"
+        openButton.isEnabled = leftS <= 0
+        openButton.text = if (leftS > 0) "Подожди ещё $leftS с…" else "Всё равно открыть на 5 минут"
     }
 
     private fun appLabel(): String = runCatching {
@@ -80,6 +101,7 @@ class BlockActivity : Activity() {
                     return
                 }
                 timeView.text = "Осталось ${formatTime(state.remainingMs(now))}"
+                updateOpenButton()
                 handler.postDelayed(this, 1000)
             }
         })
@@ -102,6 +124,7 @@ class BlockActivity : Activity() {
     companion object {
         const val EXTRA_PKG = "pkg"
         const val EXTRA_HARD = "hard"
+        const val EXTRA_COUNT = "count"
 
         @Volatile var visible = false
     }

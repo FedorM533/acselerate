@@ -22,7 +22,12 @@ def compute_stats(db: Database, now: float, range_: str = "day") -> dict:
     events = db.events_since(since)
 
     # Время по состояниям (сумма по сессиям).
-    by_state = {state: sum(s[col] or 0 for s in sessions) for state, col in STATE_COLUMNS.items()}
+    # Перерывы Pomodoro считаем отдельно: в «время по состояниям» и в фокус они не входят.
+    by_state = {state: sum(s[col] or 0 for s in sessions)
+                for state, col in STATE_COLUMNS.items() if state != "BREAK"}
+    breaks = sum(1 for i, e in enumerate(events)
+                 if e["state"] == "BREAK" and (i == 0 or events[i - 1]["state"] != "BREAK"
+                                               or events[i - 1]["session_id"] != e["session_id"]))
 
     # Эпизоды отвлечения: переход из «нормального» состояния в DISTRACTED/PHONE_OUT.
     episodes = Counter()
@@ -44,6 +49,7 @@ def compute_stats(db: Database, now: float, range_: str = "day") -> dict:
         "sessions": len(sessions),
         "by_state_s": by_state,
         "focus_s": by_state["FOCUS"] + by_state["NOTEBOOK"],
+        "rest": {"seconds": sum(s["break_s"] or 0 for s in sessions), "count": breaks},
         "distractions": sum(episodes.values()),
         "distraction_reasons": {"window": episodes["window"], "phone": episodes["phone"]},
         "top_processes": [{"name": n, "count": c} for n, c in top_processes.most_common(5)],

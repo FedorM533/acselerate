@@ -55,7 +55,7 @@ class PhoneHub:
 
     def open_pairing(self) -> tuple[str, float]:
         """Новый одноразовый секрет. Прежний, если был, перестаёт действовать."""
-        secret = secrets.token_urlsafe(12)
+        secret = f"{secrets.randbelow(10 ** 6):06d}"     # 6 цифр: их можно ввести на телефоне; 5 попыток на код
         self._secret_hash = hash_token(secret)
         self._secret_until = self.clock.now() + PAIR_TTL_S
         self._fails = 0

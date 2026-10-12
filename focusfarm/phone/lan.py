@@ -12,6 +12,7 @@
 """
 import asyncio
 import ipaddress
+import json
 import logging
 import socket
 import threading
@@ -32,6 +33,8 @@ IDLE_TIMEOUT_S = 45       # телефон шлёт heartbeat раз в 15 с; �
 HEARTBEAT_S = 15          # как часто повторяем состояние, даже если оно не менялось
 SEND_POLL_S = 1.0         # как часто проверяем, не изменилось ли состояние (в тестах уменьшают)
 MAX_MESSAGE_BYTES = 65536
+DISCOVERY_PORT = 48766    # UDP: телефон спрашивает «где компьютер?», ПК отвечает, только пока открыто сопряжение
+DISCOVERY_QUERY = b"FOCUSFARM_DISCOVER"
 
 
 def is_private_client(host: str | None) -> bool:
@@ -164,6 +167,52 @@ async def _close(ws, code):
         pass
 
 
+class Discovery:
+    """Отвечает телефону в той же сети, где искать ПК. Молчит, пока сопряжение не открыто."""
+
+    def __init__(self, manager, host: str, port: int, allow_client=is_private_client):
+        self.manager, self.host, self.port, self.allow_client = manager, host, port, allow_client
+        self._sock = None
+        self._thread = None
+
+    def start(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(("", DISCOVERY_PORT))
+        except OSError:
+            sock.close()
+            raise
+        sock.settimeout(0.5)
+        self._sock = sock
+        self._thread = threading.Thread(target=self._loop, args=(sock,), name="phone-discovery", daemon=True)
+        self._thread.start()
+
+    def _loop(self, sock):
+        reply = json.dumps({"v": PROTOCOL_VERSION, "name": socket.gethostname()[:40],
+                            "host": self.host, "port": self.port}).encode()
+        while self._sock is sock:
+            try:
+                data, addr = sock.recvfrom(256)
+            except socket.timeout:
+                continue
+            except OSError:
+                return
+            if data.strip() == DISCOVERY_QUERY and self.allow_client(addr[0]) and self.manager.phones.pairing_open():
+                try:
+                    sock.sendto(reply, addr)
+                except OSError:
+                    pass
+
+    def stop(self):
+        sock, self._sock = self._sock, None
+        if self._thread is not None:
+            self._thread.join(timeout=2)
+        if sock is not None:
+            sock.close()
+        self._thread = None
+
+
 class NoLan:
     """Заглушка, когда сетевой сервер не нужен (тесты, выключено)."""
     error = ""
@@ -171,6 +220,7 @@ class NoLan:
     def sync(self, settings): ...
     def stop(self): ...
     def address(self): return None
+    def wait_started(self, timeout=0): return None
 
 
 class LanServer:
@@ -183,6 +233,7 @@ class LanServer:
         self._thread = None
         self._host = None
         self._port = None
+        self._discovery = None
 
     def sync(self, settings: dict):
         net = settings.get("network", {})
@@ -204,6 +255,13 @@ class LanServer:
         server = self._server
         return (self._host, self._port) if server is not None and server.started else None
 
+    def wait_started(self, timeout: float = 5.0) -> tuple[str, int] | None:
+        """Ждёт, пока сервер для телефона поднимется (старт идёт в отдельном потоке)."""
+        end = time.monotonic() + timeout
+        while time.monotonic() < end and not (self.address() or self.error):
+            time.sleep(0.1)
+        return self.address()
+
     def _start(self, port: int):
         host = local_ip()
         if host is None:
@@ -224,11 +282,19 @@ class LanServer:
         self._server, self._host, self._port = server, host, port
         self._thread = threading.Thread(target=run, name="phone-lan", daemon=True)
         self._thread.start()
+        try:
+            self._discovery = Discovery(self.manager, host, port)
+            self._discovery.start()
+        except OSError:
+            self._discovery = None
+            log.warning("Автопоиск ПК телефоном не запущен (UDP %s занят): остаётся ввод адреса", DISCOVERY_PORT)
         log.info("Связь с телефоном: %s:%s", host, port)
 
     def stop(self):
-        server, thread = self._server, self._thread
-        self._server = self._thread = self._host = self._port = None
+        server, thread, discovery = self._server, self._thread, self._discovery
+        self._server = self._thread = self._host = self._port = self._discovery = None
+        if discovery is not None:
+            discovery.stop()
         if server is not None:
             server.should_exit = True
         if thread is not None:

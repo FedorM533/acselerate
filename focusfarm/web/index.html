@@ -103,12 +103,14 @@
             <label>Рыбка <select id="start-crop"></select></label>
             <label>Минут <input id="start-length" type="number" min="1" max="240" value="25"></label>
             <button id="start-btn" class="btn primary big">▶ Начать</button>
+            <p class="muted small" id="pomo-hint"></p>
             <p class="phone-need" id="phone-need" hidden>📱 Подключи телефон кабелем или поставь на подставку — таймер запустится сам.</p>
             <button id="start-nophone-btn" class="btn small" title="Время пойдёт в статистику, но рыбки не растут">Начать без телефона (рыбки не растут)</button>
           </div>
 
           <div id="session-controls" class="controls" hidden>
             <button id="pause-btn" class="btn big"><span class="ico">⏸</span> <span class="lbl">Пауза</span></button>
+            <button id="skip-break-btn" class="btn big" hidden><span class="ico">▶</span> <span class="lbl">Закончить перерыв</span></button>
             <button id="notebook-btn" class="btn big"><span class="ico">✏️</span> <span class="lbl">Пишу в тетради</span></button>
             <button id="end-btn" class="btn big danger"><span class="ico">⏹</span> <span class="lbl">Завершить</span></button>
           </div>
@@ -144,6 +146,33 @@
             </div>
             <div class="stand-status" id="stand-status">—</div>
             <div class="muted small" id="stand-hint"></div>
+          </div>
+          <div class="card setup-card" id="setup-card">
+            <h3>Защита от отвлечений</h3>
+            <div class="setup-row">
+              <div><b>📱 Телефон</b><div class="muted small" id="setup-phone">—</div></div>
+              <button class="btn small" id="setup-phone-btn">Подключить телефон</button>
+            </div>
+            <div id="setup-phone-box" hidden>
+              <div class="pair-code" id="setup-code">------</div>
+              <p class="muted small">На телефоне откройте Carpo → «Найти компьютер» и введите этот код.
+                Код действует 2 минуты. Если Windows спросит про брандмауэр, разрешите доступ в частных сетях.</p>
+              <details><summary class="muted small">Не находит? Отсканируйте QR</summary><div id="setup-qr"></div></details>
+            </div>
+            <div class="setup-row">
+              <div><b>🌐 Сайты в браузере</b><div class="muted small" id="setup-ext">—</div></div>
+              <button class="btn small" id="setup-ext-btn">Установить расширение</button>
+            </div>
+            <div id="setup-ext-box" hidden>
+              <label class="field"><span>Браузер</span><select id="setup-browser"></select></label>
+              <button class="btn small primary" id="setup-ext-go">Открыть и подготовить</button>
+              <ol class="muted small" id="setup-ext-steps" hidden>
+                <li>В открывшемся окне включите переключатель «Режим разработчика» (справа вверху).</li>
+                <li>Нажмите «Загрузить распакованное».</li>
+                <li>В окне выбора папки вставьте путь (Ctrl+V, он уже в буфере) и нажмите «Выбор папки».</li>
+              </ol>
+              <p class="muted small" id="setup-ext-path"></p>
+            </div>
           </div>
           <div class="card">
             <h3>Активное окно</h3>
@@ -184,6 +213,7 @@
         <div class="card stat"><div class="stat-ico">🐟</div><div class="stat-num" id="st-focus">0</div><div class="stat-label" id="st-focus-label">минут фокуса сегодня</div></div>
         <div class="card stat"><div class="stat-ico">☁️</div><div class="stat-num" id="st-distr">0</div><div class="stat-label">отвлечений</div><div class="stat-sub" id="st-reasons"></div></div>
         <div class="card stat"><div class="stat-ico">🔥</div><div class="stat-num" id="st-streak">0</div><div class="stat-label">дней подряд с 25+ мин</div></div>
+        <div class="card stat"><div class="stat-ico">☕</div><div class="stat-num" id="st-rest">0</div><div class="stat-label">минут отдыха</div><div class="stat-sub" id="st-rest-sub"></div></div>
         <div class="card stat"><div class="stat-ico">⏱</div><div class="stat-num" id="st-sessions">0</div><div class="stat-label">сессий</div></div>
       </div>
       <div class="card">

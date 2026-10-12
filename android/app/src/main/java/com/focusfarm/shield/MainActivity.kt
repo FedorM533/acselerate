@@ -32,6 +32,8 @@ class MainActivity : Activity() {
     private lateinit var linkView: TextView
     private lateinit var shieldView: TextView
     private lateinit var pairView: TextView
+    private lateinit var findButton: android.widget.Button
+    private lateinit var hintView: TextView
     private lateinit var scanButton: android.widget.Button
     private lateinit var pasteButton: android.widget.Button
     private lateinit var unpairButton: android.widget.Button
@@ -74,7 +76,7 @@ class MainActivity : Activity() {
 
     private fun buildUi() {
         val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        column.addView(text("🐟 Фокус-пруд Щит", 24f, bold = true).apply { setPadding(dp(16), dp(20), dp(16), dp(4)) })
+        column.addView(text("🐟 Carpo", 24f, bold = true).apply { setPadding(dp(16), dp(20), dp(16), dp(4)) })
 
         serviceView = text("", 16f)
         serviceButton = button("Включить службу блокировки") { openAccessibility() }
@@ -83,10 +85,12 @@ class MainActivity : Activity() {
         column.addView(card(text("Состояние", 14f, color = MUTED), serviceView, serviceButton, linkView, shieldView))
 
         pairView = text("", 15f)
+        findButton = button("Найти компьютер") { findPc() }
         scanButton = button("Сканировать QR с компьютера") { scanQr() }
         pasteButton = button("Вставить ссылку вручную") { askLink() }
         unpairButton = button("Отключить от компьютера") { unpair() }
-        column.addView(card(text("Компьютер", 14f, color = MUTED), pairView, scanButton, pasteButton, unpairButton))
+        hintView = text("На компьютере в Carpo нажмите «Подключить телефон», потом здесь «Найти компьютер» и введите код.", 13f, color = MUTED)
+        column.addView(card(text("Компьютер", 14f, color = MUTED), pairView, findButton, hintView, scanButton, pasteButton, unpairButton))
 
         val group = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
         val black = RadioButton(this).apply { text = "Чёрный список: нельзя только выбранное"; id = 1 }
@@ -147,12 +151,16 @@ class MainActivity : Activity() {
         shieldView.text = if (state.active(now)) {
             val who = if (state.remoteActive(now)) "по команде компьютера" else "на телефоне"
             "🔒 Идёт учёба $who, осталось ${formatTime(state.remainingMs(now))}"
+        } else if (prefs.breakUntil > now) {
+            "☕ Перерыв, ещё ${formatTime(prefs.breakUntil - now)}. Блокировка включится сама"
         } else "Сейчас учёбы нет"
 
         pairView.text = if (prefs.paired) "Подключён: ${prefs.host}:${prefs.port}" else "Не подключён"
         val paired = prefs.paired
         scanButton.visibility = if (paired) android.view.View.GONE else android.view.View.VISIBLE
         pasteButton.visibility = scanButton.visibility
+        findButton.visibility = scanButton.visibility
+        hintView.visibility = scanButton.visibility
         unpairButton.visibility = if (paired) android.view.View.VISIBLE else android.view.View.GONE
 
         val white = prefs.listMode == ShieldState.MODE_WHITELIST
@@ -174,7 +182,7 @@ class MainActivity : Activity() {
     private fun openAccessibility() {
         Toast.makeText(
             this,
-            "Найдите «Фокус-пруд Щит» и включите. Если пункт серый: Настройки → Приложения → Фокус-пруд Щит → ⋮ → «Разрешить ограниченные настройки».",
+            "Найдите «Carpo» и включите. Если пункт серый: Настройки → Приложения → Carpo → ⋮ → «Разрешить ограниченные настройки».",
             Toast.LENGTH_LONG,
         ).show()
         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
@@ -187,6 +195,57 @@ class MainActivity : Activity() {
             .addOnFailureListener {
                 Toast.makeText(this, "Сканер недоступен. Вставьте ссылку вручную.", Toast.LENGTH_LONG).show()
             }
+    }
+
+    /** Самый простой путь: телефон сам находит ПК в сети, человек вводит 6 цифр с экрана компьютера. */
+    private fun findPc() {
+        if (refuseWhileLocked()) return
+        Toast.makeText(this, "Ищу компьютер в сети…", Toast.LENGTH_SHORT).show()
+        findButton.isEnabled = false
+        Thread {
+            val pcs = PairingClient.discover()
+            runOnUiThread {
+                findButton.isEnabled = true
+                when {
+                    pcs.isEmpty() -> android.app.AlertDialog.Builder(this)
+                        .setTitle("Компьютер не найден")
+                        .setMessage("1. Откройте Carpo на компьютере и нажмите «Подключить телефон».\n" +
+                            "2. Телефон и компьютер должны быть в одной сети Wi-Fi.\n" +
+                            "3. Если Windows спросит про брандмауэр, разрешите доступ в частных сетях.\n\n" +
+                            "Можно также отсканировать QR с экрана компьютера.")
+                        .setPositiveButton("Повторить") { _, _ -> findPc() }
+                        .setNeutralButton("Сканировать QR") { _, _ -> scanQr() }
+                        .setNegativeButton("Отмена", null)
+                        .show()
+                    pcs.size == 1 -> askCode(pcs[0])
+                    else -> android.app.AlertDialog.Builder(this)
+                        .setTitle("Какой компьютер?")
+                        .setItems(pcs.map { "${it.name} (${it.host})" }.toTypedArray()) { _, i -> askCode(pcs[i]) }
+                        .show()
+                }
+            }
+        }.start()
+    }
+
+    private fun askCode(pc: FoundPc) {
+        val input = EditText(this).apply {
+            hint = "Код из 6 цифр"
+            inputType = InputType.TYPE_CLASS_NUMBER
+            filters = arrayOf(android.text.InputFilter.LengthFilter(6))
+            textSize = 24f
+            gravity = android.view.Gravity.CENTER
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Компьютер «${pc.name}»")
+            .setMessage("Введите код, который показан на компьютере в окне Carpo.")
+            .setView(input)
+            .setPositiveButton("Подключить") { _, _ ->
+                val code = input.text.toString().trim()
+                if (code.length == 6) handlePairingText("focusfarm://pair?h=${pc.host}&p=${pc.port}&s=$code")
+                else Toast.makeText(this, "Нужно 6 цифр", Toast.LENGTH_LONG).show()
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     private fun askLink() {

@@ -99,6 +99,18 @@ def validate_settings(s: dict) -> dict:
     length = s.get("session", {}).get("default_length_min", 25)
     if not isinstance(length, (int, float)) or length <= 0:
         raise ConfigError("session.default_length_min должен быть больше нуля")
+    pomodoro = s.get("pomodoro", {})
+    if not isinstance(pomodoro, dict):
+        raise ConfigError("pomodoro должен быть набором настроек")
+    if not isinstance(pomodoro.get("enabled", True), bool):
+        raise ConfigError("pomodoro.enabled должен быть true или false")
+    for key, low, high in (("min_session_min", 10, 600), ("work_min", 5, 120), ("short_break_min", 1, 60),
+                           ("cycles", 1, 12), ("long_break_min", 5, 120)):
+        value = pomodoro.get(key)
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not low <= value <= high:
+            raise ConfigError(f"pomodoro.{key} должен быть числом от {low} до {high}")
     for crop_id, crop in s.get("game", {}).get("crops", {}).items():
         for key in ("focus_min", "coins", "price"):
             if not isinstance(crop.get(key), (int, float)) or crop[key] < 0:

@@ -18,6 +18,7 @@ LED_FOR_STATE = {
     DISTRACTED: "RED",
     PHONE_OUT: "BLINK_RED",
     PAUSED: "BLUE",
+    "BREAK": "BLUE",     # перерыв Pomodoro (состояния нет в машине состояний, им управляет менеджер)
 }
 
 SOUND_SOFT, SOUND_DISTRACTED, SOUND_HARVEST, SOUND_START = 1, 2, 3, 4

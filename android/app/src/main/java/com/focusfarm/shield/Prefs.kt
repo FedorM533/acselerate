@@ -40,6 +40,19 @@ class Prefs(context: Context) {
         get() = sp.getStringSet("allowed", emptySet())?.toSet() ?: emptySet()
         set(v) = sp.edit().putStringSet("allowed", HashSet(v)).apply()
 
+    // ---- мягкий режим: сколько раз подряд заходили в запрещённое (см. Escalation) ----
+    var escCount: Int
+        get() = sp.getInt("escCount", 0)
+        set(v) = sp.edit().putInt("escCount", v).apply()
+    var escLast: Long
+        get() = sp.getLong("escLast", 0)
+        set(v) = sp.edit().putLong("escLast", v).apply()
+
+    /** До какого момента идёт перерыв Pomodoro (сообщил компьютер); 0 — перерыва нет. */
+    var breakUntil: Long
+        get() = sp.getLong("breakUntil", 0)
+        set(v) = sp.edit().putLong("breakUntil", v).apply()
+
     // ---- учёба ----
     var remoteUntil: Long
         get() = sp.getLong("remoteUntil", 0)

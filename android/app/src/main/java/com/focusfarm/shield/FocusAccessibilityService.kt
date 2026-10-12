@@ -39,11 +39,15 @@ class FocusAccessibilityService : AccessibilityService() {
         lastPkg = pkg
         lastAt = now
         Events.add(this, "blocked", pkg)
+        val count = Escalation.nextCount(prefs.escCount, prefs.escLast, now)
+        prefs.escCount = count
+        prefs.escLast = now
         startActivity(
             Intent(this, BlockActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 .putExtra(BlockActivity.EXTRA_PKG, pkg)
                 .putExtra(BlockActivity.EXTRA_HARD, state.hard(now))
+                .putExtra(BlockActivity.EXTRA_COUNT, count)
         )
     }
 
@@ -70,7 +74,7 @@ class FocusAccessibilityService : AccessibilityService() {
             Notification.Builder(this, ALERT_CHANNEL)
                 .setSmallIcon(R.drawable.ic_fish)
                 .setContentTitle("Блокировка выключена во время учёбы")
-                .setContentText("Нажмите, чтобы снова включить службу «Фокус-пруд Щит».")
+                .setContentText("Нажмите, чтобы снова включить службу «Carpo».")
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .build()

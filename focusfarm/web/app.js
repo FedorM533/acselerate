@@ -14,11 +14,12 @@ const STATE_LABELS = {
   DISTRACTED: "Отвлёкся — вода мутнеет",
   PHONE_OUT: "Телефон отключён",
   PAUSED: "Пауза",
+  BREAK: "Перерыв ☕",
 };
 // Короткие названия — для легенд и таблиц.
 const STATE_SHORT = {
   IDLE: "Нет сессии", FOCUS: "Работа", NOTEBOOK: "Тетрадь", MAYBE_DISTRACTED: "Кажется, отвлёкся",
-  DISTRACTED: "Отвлёкся", PHONE_OUT: "Телефон отключён", PAUSED: "Пауза",
+  DISTRACTED: "Отвлёкся", PHONE_OUT: "Телефон отключён", PAUSED: "Пауза", BREAK: "Перерыв",
 };
 const CATEGORY_LABELS = { work: "работа", neutral: "нейтрально", distraction: "отвлечение" };
 const SOUND_NAMES = { 1: "мягкий сигнал", 2: "сигнал «отвлёкся»", 3: "«рыбка выпущена»", 4: "«сессия началась»" };
@@ -32,6 +33,7 @@ const STATE_ICONS = {
   DISTRACTED: `<svg viewBox="0 0 32 32"><path d="M6 20a5 5 0 0 1 1-10 7 7 0 0 1 13 1 4.5 4.5 0 0 1 2 9z" fill="#D9DEE3" ${STROKE}/><path d="M10 24l-1 4M16 24l-1 4M22 24l-1 4" ${STROKE} stroke="#5B8DEF"/></svg>`,
   PHONE_OUT: `<svg viewBox="0 0 32 32"><rect x="10" y="4" width="12" height="22" rx="3" fill="#fff" ${STROKE}/><path d="M4 29h24" ${STROKE}/><path d="M24 8l5-4" ${STROKE}/></svg>`,
   PAUSED: `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="#DCE7FD" ${STROKE}/><path d="M13 11v10M19 11v10" ${STROKE}/></svg>`,
+  BREAK: `<svg viewBox="0 0 32 32"><path d="M6 12h17v7a6 6 0 0 1-6 6h-5a6 6 0 0 1-6-6z" fill="#F6D9E4" ${STROKE}/><path d="M23 14h2a3 3 0 0 1 0 6h-2" fill="none" ${STROKE}/><path d="M11 4c-1 2 1 3 0 5M16 4c-1 2 1 3 0 5" fill="none" ${STROKE}/></svg>`,
   IDLE: `<svg viewBox="0 0 32 32"><path d="M22 5a11 11 0 1 0 5 16A9 9 0 0 1 22 5z" fill="#F6EAC2" ${STROKE}/></svg>`,
 };
 
@@ -179,6 +181,7 @@ function handleEvents(events) {
     if (e.type === "reward") quietToast(rewardText(e));
     if (e.type === "session_started") toast("Сессия началась. Удачи! 🐟");
     if (e.type === "session_ended") toast(e.message);
+    if (e.type === "break_started" || e.type === "break_ended") toast(e.message);
     // Защита от отвлечений: это не игра, а часть самой учёбы, поэтому показываем сразу.
     if (e.type === "block_warning") {
       toast(e.hard ? `«${e.process}» отвлекает и закроется через ${e.seconds} с. Сохрани работу 💾`
@@ -517,10 +520,22 @@ function renderSession(s) {
   $("#presence").hidden = !(session && session.ask_presence);
 
   if (session) {
-    $("#timer").textContent = formatTime(session.remaining_s);
-    $("#timer").classList.toggle("long", session.remaining_s >= 3600);
-    $("#timer-sub").textContent = `осталось из ${minutes(session.planned_s)} мин`;
-    renderRing(1 - session.elapsed_s / session.planned_s, s.state);
+    const pomo = session.pomodoro;
+    const onBreak = !!pomo && pomo.phase === "break";
+    if (onBreak) {
+      $("#timer").textContent = formatTime(pomo.phase_left_s);
+      $("#timer").classList.remove("long");
+      $("#timer-sub").textContent = (pomo.break_long ? "длинный перерыв" : "перерыв") + " · блокировка выключена";
+      renderRing(pomo.phase_left_s / pomo.phase_total_s, s.state);
+    } else {
+      $("#timer").textContent = formatTime(session.remaining_s);
+      $("#timer").classList.toggle("long", session.remaining_s >= 3600);
+      $("#timer-sub").textContent = `осталось из ${minutes(session.planned_s)} мин` +
+        (pomo ? ` · перерыв через ${minutes(Math.min(pomo.phase_left_s, session.remaining_s))} мин` : "");
+      renderRing(1 - session.elapsed_s / session.planned_s, s.state);
+    }
+    $("#skip-break-btn").hidden = !onBreak;
+    $("#pause-btn").hidden = $("#notebook-btn").hidden = onBreak;
     $("#pause-btn .ico").textContent = session.paused ? "▶" : "⏸";
     $("#pause-btn .lbl").textContent = session.paused ? "Продолжить" : "Пауза";
     $("#notebook-btn").classList.toggle("active", session.notebook);
@@ -530,6 +545,10 @@ function renderSession(s) {
       : `<p class="muted">Пока пусто</p>`);
   } else {
     renderStartForm(s);
+    const pc = s.pomodoro || {};
+    $("#pomo-hint").textContent = pc.enabled === false ? "" :
+      `Сессии от ${pc.min_session_min} мин идут по Pomodoro: ${pc.work_min} мин работы, ${pc.short_break_min} мин отдыха, ` +
+      `после ${pc.cycles} кругов перерыв ${pc.long_break_min} мин. Во время отдыха блокировка выключена.`;
     // Без телефона таймер не запускается (кроме тренировки без награды).
     $("#start-btn").disabled = !s.phone.docked;
     $("#phone-need").hidden = s.phone.docked;
@@ -620,6 +639,7 @@ $("#pause-btn").onclick = async () => {
   if (password === null) return;
   render(await api("POST", "/api/session/pause", password === undefined ? undefined : { password }));
 };
+$("#skip-break-btn").onclick = async () => render(await api("POST", "/api/session/break/skip"));
 $("#notebook-btn").onclick = async () => {
   render(await api("POST", "/api/session/notebook", { on: !state.session.notebook }));
 };
@@ -661,6 +681,7 @@ function clock(ts) {
 let statsRange = "day";
 let timelineData = null;
 const STATE_ORDER = ["FOCUS", "NOTEBOOK", "MAYBE_DISTRACTED", "DISTRACTED", "PHONE_OUT", "PAUSED"];
+const TIMELINE_ORDER = [...STATE_ORDER, "BREAK"];     // отдых: на хронологии виден, в «времени по состояниям» нет
 
 async function loadStats() {
   const st = await api("GET", `/api/stats?range=${statsRange}`);
@@ -670,6 +691,8 @@ async function loadStats() {
   $("#st-distr").textContent = st.distractions;
   $("#st-reasons").textContent = `окно: ${st.distraction_reasons.window} · телефон: ${st.distraction_reasons.phone}`;
   $("#st-streak").textContent = state ? state.farm.streak : 0;
+  $("#st-rest").textContent = minutes(st.rest.seconds);
+  $("#st-rest-sub").textContent = st.rest.count ? `перерывов: ${st.rest.count}` : "перерывов не было";
   renderTimeline(st.timeline);
   renderStateBars(st.by_state_s);
   renderTop(st.top_processes);
@@ -681,7 +704,7 @@ async function loadStats() {
 function renderTimeline(tl) {
   timelineData = tl;
   const svg = $("#timeline");
-  $("#legend").innerHTML = STATE_ORDER.map((s) => `<span class="s-${s}">${STATE_SHORT[s]}</span>`).join("");
+  $("#legend").innerHTML = TIMELINE_ORDER.map((s) => `<span class="s-${s}">${STATE_SHORT[s]}</span>`).join("");
   if (!tl || tl.duration_s <= 0 || !tl.segments.length) {
     svg.innerHTML = "";
     $("#tl-start").textContent = "Сессий ещё не было — подключи телефон 🐟";
@@ -829,6 +852,14 @@ const SETTINGS_GROUPS = [
     ["session", "default_length_min", "Длина сессии", "мин"],
     ["session", "break_min", "Перерыв после сессии", "мин"],
     ["session", "demo_length_min", "Длина сессии в демо-режиме", "мин"],
+  ]],
+  ["🍅 Pomodoro (длинные сессии)", [
+    ["pomodoro", "enabled", "Перерывы в длинных сессиях"],
+    ["pomodoro", "min_session_min", "С какой длины сессии включать перерывы", "мин"],
+    ["pomodoro", "work_min", "Работа между перерывами", "мин"],
+    ["pomodoro", "short_break_min", "Короткий перерыв", "мин"],
+    ["pomodoro", "cycles", "После скольких рабочих отрезков перерыв длинный", "шт"],
+    ["pomodoro", "long_break_min", "Длинный перерыв (20–30)", "мин"],
   ]],
   ["🎮 Игра", [
     ["ui", "pond_fish_max", "Сколько выпущенных рыбок плавает в пруду (0 — никого)", "шт"],
@@ -1362,3 +1393,53 @@ connect();
 if (location.hash) showTab(location.hash.slice(1));
 
 export { api, toast, formatTime, minutes, showTab, tabLoaders, renderHooks, eventHooks, setHtml, STATE_LABELS, STATE_SHORT, CATEGORY_LABELS };
+
+// ================= карточка «Защита от отвлечений»: подключение без настроек =================
+
+let codeTimer = null;
+
+async function refreshSetup() {
+  try {
+    const wifi = await api("GET", "/api/wifi/status");
+    const online = wifi.devices.filter((d) => d.online).length;
+    $("#setup-phone").textContent = online ? `🟢 Подключён: ${wifi.devices.filter((d) => d.online).map((d) => d.name).join(", ")}`
+      : wifi.devices.length ? "⚪ Телефон сопряжён, но сейчас не на связи" : "Не подключён";
+    $("#setup-phone-btn").textContent = wifi.devices.length ? "Подключить ещё" : "Подключить телефон";
+    if (online && !$("#setup-phone-box").hidden) $("#setup-phone-box").hidden = true;   // подключились: код больше не нужен
+    const ext = await api("GET", "/api/extension/browsers");
+    $("#setup-ext").textContent = ext.connected ? "🟢 Расширение работает" : "Расширение не установлено: сайты не блокируются";
+    $("#setup-ext-btn").hidden = ext.connected;
+  } catch (_) { /* карточка не должна мешать остальному интерфейсу */ }
+}
+
+$("#setup-phone-btn").onclick = async () => {
+  try {
+    const r = await api("POST", "/api/wifi/pair");
+    $("#setup-code").textContent = r.code;
+    $("#setup-qr").innerHTML = `<div class="qr">${r.qr_svg}</div>`;
+    $("#setup-phone-box").hidden = false;
+    clearTimeout(codeTimer);
+    codeTimer = setTimeout(() => { $("#setup-phone-box").hidden = true; }, r.expires_in * 1000);
+    refreshSetup();
+  } catch (_) { /* текст ошибки уже показан */ }
+};
+
+$("#setup-ext-btn").onclick = async () => {
+  const box = $("#setup-ext-box");
+  box.hidden = !box.hidden;
+  const { browsers } = await api("GET", "/api/extension/browsers");
+  $("#setup-browser").innerHTML = browsers.map((b) => `<option value="${b.key}">${b.name}</option>`).join("")
+    || "<option value=''>браузер не найден</option>";
+};
+
+$("#setup-ext-go").onclick = async () => {
+  const browser = $("#setup-browser").value;
+  if (!browser) return toast("Не нашёл Chrome, Edge или Яндекс Браузер", true);
+  const r = await api("POST", "/api/extension/install", { browser });
+  $("#setup-ext-steps").hidden = false;
+  $("#setup-ext-path").textContent = (r.copied ? "Путь уже в буфере обмена: " : "Путь к папке: ") + r.folder
+    + (r.opened ? "" : ` (откройте страницу расширений в ${r.browser} сами)`);
+};
+
+refreshSetup();
+setInterval(refreshSetup, 4000);

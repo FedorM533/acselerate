@@ -24,13 +24,14 @@ from focusfarm.phone.qr import qr_svg
 from focusfarm.session.manager import SessionManager
 from focusfarm.session.stats import compute_stats
 from focusfarm.storage.db import DEFAULT_PATH, Database
+from focusfarm.tools import ext_install
 
 log = logging.getLogger(__name__)
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
 # Какие разделы настроек можно менять из интерфейса.
 EDITABLE_SETTINGS = ("mode", "demo_speed", "thresholds", "session", "sound", "device", "ui", "rewards",
-                     "protection", "network")
+                     "protection", "network", "pomodoro")
 
 
 # ---------- тела запросов ----------
@@ -178,6 +179,8 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
 
     @app.post("/api/session/pause")
     def session_pause(body: PasswordBody | None = None):
+        if manager.on_break():      # отдыхать пароль не нужен: паузу ставить незачем
+            raise HTTPException(400, "Сейчас перерыв: пауза не нужна, отдыхай ☕")
         manager.require_unlock(body.password if body else None)
         manager.pause()
         return manager.snapshot()
@@ -186,6 +189,10 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
     def session_resume():
         manager.resume()
         return manager.snapshot()
+
+    @app.post("/api/session/break/skip")
+    def session_break_skip():
+        return manager.skip_break()
 
     @app.post("/api/session/notebook")
     def session_notebook(body: NotebookBody):
@@ -288,6 +295,24 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
         """Для расширения браузера: что блокировать и надо ли это прямо сейчас."""
         return manager.sites_view()
 
+    # ---------- установка расширения ----------
+
+    @app.get("/api/extension/browsers")
+    def extension_browsers():
+        return {"browsers": [{"key": key, "name": ext_install.BROWSERS[key][0]}
+                             for key in ext_install.installed_browsers()],
+                "connected": manager.extension_connected()}
+
+    @app.post("/api/extension/install")
+    def extension_install(body: dict):
+        browser = body.get("browser")
+        if browser not in ext_install.BROWSERS:
+            raise HTTPException(400, "Неизвестный браузер")
+        try:
+            return ext_install.install(browser)
+        except OSError as exc:
+            raise HTTPException(500, f"Не удалось подготовить расширение: {exc}")
+
     # ---------- телефон по Wi-Fi ----------
 
     @app.get("/api/wifi/status")
@@ -305,13 +330,20 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
     @app.post("/api/wifi/pair")
     def wifi_pair():
         """Новый QR-код для сопряжения. Нужна включённая связь по Wi-Fi."""
-        address = lan.address()
+        if not manager.settings.get("network", {}).get("lan_enabled"):
+            # Обычному человеку незачем искать переключатель в настройках: кнопка включает связь сама.
+            overrides = deep_merge(manager.db.get_overrides(), {"network": {"lan_enabled": True}})
+            settings = load_settings(overrides=deep_merge(overrides, getattr(manager, "cli_overrides", {})))
+            manager.db.set_overrides(overrides)
+            manager.apply_settings(settings)
+            lan.sync(settings)
+        address = lan.address() or lan.wait_started()
         if address is None:
-            raise HTTPException(409, lan.error or "Сначала включите связь с телефоном по Wi-Fi в настройках.")
+            raise HTTPException(409, lan.error or "Не удалось запустить связь с телефоном. Проверьте, что ПК в домашней сети Wi-Fi.")
         secret, ttl = manager.phones.open_pairing()
         host, port = address
         payload = f"focusfarm://pair?h={host}&p={port}&s={secret}"
-        return {"payload": payload, "host": host, "port": port, "expires_in": ttl,
+        return {"payload": payload, "host": host, "port": port, "expires_in": ttl, "code": secret,
                 "qr_svg": qr_svg(payload)}
 
     @app.delete("/api/wifi/pair")

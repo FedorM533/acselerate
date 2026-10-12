@@ -17,6 +17,8 @@
     h1 { font-size: 24px; margin: 8px 0; }
     p { margin: 8px 0; color: var(--muted); }
     b { color: var(--text); }
+    button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--muted); margin-left: 8px; }
+    button[hidden] { display: none; }
     button { margin-top: 16px; padding: 12px 24px; font: inherit; border: 0; border-radius: 12px;
              background: var(--accent); color: #fff; cursor: pointer; }
   </style>
@@ -25,10 +27,13 @@
   <main>
     <div class="fish">🐟</div>
     <h1>Сейчас время учёбы</h1>
-    <p><b id="site">Этот сайт</b> закрыт, пока идёт сессия.</p>
+    <p><b id="site">Этот сайт</b> <span id="verdict">закрыт, пока идёт сессия.</span></p>
     <p id="left"></p>
+    <p id="attempt" hidden></p>
     <button id="close">Закрыть вкладку</button>
+    <button id="open" class="ghost" hidden>Всё равно открыть на 5 минут</button>
   </main>
+  <script src="escalation.js"></script>
   <script src="blocked.js"></script>
 </body>
 </html>

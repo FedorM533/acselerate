@@ -131,13 +131,18 @@ class LinkService : Service() {
                 backoffS = 2
                 flushEvents()
             }
-            "state" -> prefs.applyRemote(
-                active = msg.optBoolean("active"),
-                hard = msg.optBoolean("hard"),
-                mode = msg.optString("list_mode", ShieldState.MODE_BLACKLIST),
-                remainingS = msg.optLong("remaining_s"),
-                now = System.currentTimeMillis(),
-            )
+            "state" -> {
+                val now = System.currentTimeMillis()
+                prefs.applyRemote(
+                    active = msg.optBoolean("active"),
+                    hard = msg.optBoolean("hard"),
+                    mode = msg.optString("list_mode", ShieldState.MODE_BLACKLIST),
+                    remainingS = msg.optLong("remaining_s"),
+                    now = now,
+                )
+                val breakLeft = msg.optLong("break_left_s")      // перерыв Pomodoro: блокировки нет, показываем отдых
+                prefs.breakUntil = if (breakLeft > 0) now + breakLeft * 1000 else 0
+            }
             "report_ok" -> {
                 Events.drop(this, sentEvents)
                 sentEvents = 0
@@ -165,7 +170,7 @@ class LinkService : Service() {
         val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else Notification.Builder(this)
         return builder
             .setSmallIcon(R.drawable.ic_fish)
-            .setContentTitle("Фокус-пруд Щит")
+            .setContentTitle("Carpo")
             .setContentText("Связь с компьютером")
             .setOngoing(true)
             .build()

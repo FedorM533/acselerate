@@ -6,7 +6,7 @@ extension/ в Chromium и проверяет блокировку. Не трог
     pip install -r requirements-dev.txt && python -m playwright install chromium
     python scripts/check_extension.py
 """
-import json, subprocess, sys, tempfile, time, urllib.request
+import http.server, json, subprocess, sys, tempfile, threading, time, urllib.request
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
@@ -20,6 +20,17 @@ def call(method, path, body=None):
     with urllib.request.urlopen(req, timeout=5) as r:
         return json.loads(r.read() or b"{}")
 
+# Настоящие сайты (YouTube и т. п.) не трогаем: Google может заподозрить автоматизацию. Запретный из правил
+# сайт SITE браузер получает с локального сервера: --host-resolver-rules направляет его имя на 127.0.0.1.
+SITE = "twitch.tv"
+class Quiet(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.end_headers()
+        self.wfile.write("<title>тестовая страница</title>ok".encode())
+    def log_message(self, *args): pass
+fake = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Quiet)
+threading.Thread(target=fake.serve_forever, daemon=True).start()
+FAKE = f"http://{SITE}:{fake.server_address[1]}"
 server = subprocess.Popen([str(ROOT / ".venv/Scripts/python.exe"), "-m", "focusfarm", "--dev",
     "--no-browser", "--db", str(tmp / "t.db"), "--fresh"], cwd=ROOT,
     stdout=open(tmp / "server.log", "w"), stderr=subprocess.STDOUT)
@@ -31,11 +42,13 @@ try:
     for _ in range(40):
         try: call("GET", "/api/state"); break
         except Exception: time.sleep(0.5)
+    call("PUT", "/api/strict/password", {"new": "pw12345"})
     call("PUT", "/api/settings", {"protection": {"strictness": "hard", "targets": "pc"}})
 
     with sync_playwright() as p:
         ctx = p.chromium.launch_persistent_context(str(tmp / "profile"), headless=False,
-            args=[f"--disable-extensions-except={EXT}", f"--load-extension={EXT}"])
+            args=[f"--disable-extensions-except={EXT}", f"--load-extension={EXT}",
+                  f"--host-resolver-rules=MAP {SITE} 127.0.0.1, MAP *.{SITE} 127.0.0.1"])
         sw = ctx.service_workers[0] if ctx.service_workers else ctx.wait_for_event("serviceworker", timeout=10000)
 
         def tab_urls():     # адреса всех вкладок — прямо из браузера
@@ -52,19 +65,24 @@ try:
             return pg
 
         # A. нет сессии — не блокируем
-        a = open_tab("http://youtube.com/"); time.sleep(2)
-        check("A нет сессии: youtube.com не заблокирован", not any("blocked.html" in u for u in tab_urls()), str(tab_urls()))
+        a = open_tab(FAKE + "/"); time.sleep(2)
+        check("A нет сессии: запретный сайт не заблокирован", not any("blocked.html" in u for u in tab_urls()), str(tab_urls()))
         a.close()
 
         # B. жёсткая сессия — блокируем
         call("POST", "/api/session/start", {"without_phone": True})
-        b = open_tab("http://youtube.com/")
-        check("B сессия: youtube.com заблокирован", wait_blocked("youtube.com"))
-        b2 = open_tab("http://www.youtube.com/watch?v=1")
-        check("B поддомен www.youtube.com заблокирован", wait_blocked("www.youtube.com"))
+        b = open_tab(FAKE + "/")
+        check("B сессия: запретный сайт заблокирован", wait_blocked(SITE))
+        b2 = open_tab(FAKE.replace("//", "//www.") + "/watch?v=1")
+        sub_ok = False
+        for _ in range(30):
+            sub_ok = any("blocked.html" in u and "site=" in u and f"site=www.{SITE}" in u for u in tab_urls())
+            if sub_ok: break
+            time.sleep(0.5)
+        check("B поддомен поддомен www заблокирован", sub_ok, str(tab_urls()))
         blocked_page = next((pg for pg in ctx.pages if "blocked.html" in pg.url), None)
         if blocked_page:
-            check("B на странице видно название сайта", "youtube.com" in blocked_page.inner_text("#site"))
+            check("B на странице видно название сайта", SITE in blocked_page.inner_text("#site"))
             check("B на странице видно время до конца", "мин" in blocked_page.inner_text("#left"), blocked_page.inner_text("#left"))
         for pg in list(ctx.pages)[1:]:
             try: pg.close()
@@ -77,23 +95,32 @@ try:
         check("D сервер видит расширение", call("GET", "/api/state")["protection"]["extension_connected"] is True)
 
         # E. пауза — не блокируем
-        call("POST", "/api/session/pause")
-        e = open_tab("http://youtube.com/"); time.sleep(2)
-        check("E пауза: youtube.com не заблокирован", not any("blocked.html" in u for u in tab_urls()), str(tab_urls()))
+        call("POST", "/api/session/pause", {"password": "pw12345"})
+        e = open_tab(FAKE + "/"); time.sleep(2)
+        check("E пауза: запретный сайт не заблокирован", not any("blocked.html" in u for u in tab_urls()), str(tab_urls()))
 
         # F. вкладка уже открыта; пауза снята → будильник (раз в 30 с) закрывает её
         call("POST", "/api/session/resume")
         t0 = time.time()
-        ok = wait_blocked("youtube.com", secs=50)
+        ok = wait_blocked(SITE, secs=50)
         check("F открытая вкладка блокируется будильником", ok, f"через {time.time()-t0:.0f} с")
 
         # G. мягкий режим — страницу не закрываем
         for pg in list(ctx.pages)[1:]:
             try: pg.close()
             except Exception: pass
+        call("POST", "/api/session/end", {"password": "pw12345"})
         call("PUT", "/api/settings", {"protection": {"strictness": "soft"}})
-        g = open_tab("http://youtube.com/"); time.sleep(3)
-        check("G мягкий режим: страница не заменена", not any("blocked.html" in u for u in tab_urls()), str(tab_urls()))
+        call("POST", "/api/session/start", {"without_phone": True})
+        g = open_tab(FAKE + "/"); time.sleep(3)
+        check("G мягкий режим: страница с кнопкой «всё равно открыть»", wait_blocked(SITE) and any("soft=1" in u for u in tab_urls()), str(tab_urls()))
+        soft = next((pg for pg in ctx.pages if "soft=1" in pg.url), None)
+        if soft:
+            check("H в мягком режиме кнопка «всё равно открыть» сначала неактивна", soft.is_disabled("#open"))
+            time.sleep(5.5)
+            check("H через 5 секунд кнопка оживает", not soft.is_disabled("#open"), soft.inner_text("#open"))
+        else:
+            check("H страница мягкого режима найдена", False)
         ctx.close()
 finally:
     server.terminate()

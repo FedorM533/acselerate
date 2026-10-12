@@ -4,6 +4,9 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.widget.EditText
 import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.CheckBox
@@ -17,6 +20,7 @@ class AppPickerActivity : Activity() {
 
     private lateinit var prefs: Prefs
     private lateinit var mode: String
+    private var allApps: List<App> = emptyList()
     private var apps: List<App> = emptyList()
     private val chosen = HashSet<String>()
 
@@ -27,7 +31,8 @@ class AppPickerActivity : Activity() {
         val white = mode == ShieldState.MODE_WHITELIST
         chosen += if (white) prefs.allowed else prefs.blocked
 
-        apps = installedApps()
+        allApps = installedApps()
+        apps = allApps
         val list = ListView(this).apply { divider = null }
         val header = text(
             if (white) "Белый список: отметьте то, что можно во время учёбы. Остальное будет закрываться."
@@ -35,10 +40,28 @@ class AppPickerActivity : Activity() {
             15f, color = MUTED,
         ).apply { setPadding(dp(16), dp(16), dp(16), dp(8)) }
         list.addHeaderView(header, null, false)
-        list.adapter = Adapter()
+        val adapter = Adapter()
+        list.adapter = adapter
+        val search = EditText(this).apply {
+            hint = "Поиск приложения"
+            setSingleLine()
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            addTextChangedListener(object : TextWatcher {
+                override fun afterTextChanged(s: Editable?) {
+                    val q = s?.toString().orEmpty().trim().lowercase()
+                    apps = if (q.isEmpty()) allApps
+                    else allApps.filter { it.label.lowercase().contains(q) || it.pkg.lowercase().contains(q) }
+                    adapter.notifyDataSetChanged()
+                }
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            })
+        }
         setContentView(LinearLayout(this).apply {
             padForSystemBars()
             orientation = LinearLayout.VERTICAL
+            addView(search, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                .apply { setMargins(dp(8), dp(4), dp(8), 0) })
             addView(list, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         })
         title = if (white) "Разрешённые приложения" else "Запрещённые приложения"

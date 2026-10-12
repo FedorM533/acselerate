@@ -34,6 +34,7 @@
   --st-distracted: #E86A5B;
   --st-phone: #C45C86;
   --st-paused: #5B8DEF;
+  --st-break: #E58FB0;
   --st-idle: #A89684;
 
   /* текст (контраст к фону ≥ 4.5:1) */
@@ -72,6 +73,7 @@ code { font-size: 15px; background: var(--card-soft); padding: 1px 5px; border-r
 .s-DISTRACTED { --c: var(--st-distracted); }
 .s-PHONE_OUT { --c: var(--st-phone); }
 .s-PAUSED { --c: var(--st-paused); }
+.s-BREAK { --c: var(--st-break); }
 .s-IDLE { --c: var(--st-idle); }
 
 /* ---------- кнопки и поля ---------- */
@@ -550,3 +552,9 @@ main { padding: 20px 24px; background: var(--card); min-height: calc(100vh - 150
 
 .qr { background: #fff; padding: 8px; border-radius: 12px; display: inline-block; }
 .qr svg { display: block; width: 220px; height: 220px; }
+
+/* Карточка «Защита от отвлечений» на главном экране: подключение телефона и расширения */
+.setup-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 10px 0; text-align: left; }
+.pair-code { font-size: 40px; font-weight: 800; letter-spacing: 8px; text-align: center; margin: 8px 0; font-variant-numeric: tabular-nums; }
+.setup-card ol { padding-left: 20px; margin: 8px 0; text-align: left; }
+.setup-card details { text-align: center; }

@@ -46,7 +46,9 @@ STATE_LABELS = {
     "DISTRACTED": "Отвлёкся",
     "PHONE_OUT": "Телефон вынут",
     "PAUSED": "Пауза",
+    "BREAK": "Перерыв",
 }
+BREAK = "BREAK"          # перерыв Pomodoro: блокировка выключена, рыбки не растут
 
 FORCED_PROCESS = "(панель разработчика)"
 MAX_DT_S = 5  # если компьютер «уснул», не засчитываем пропущенное время разом
@@ -190,6 +192,12 @@ class SessionManager:
                 "totals": {},
                 "plot": pos,
                 "no_phone": without_phone,
+                "pomo": self._pomodoro_plan(length),
+                "phase": "work",         # work | break
+                "phase_s": 0.0,          # секунд в текущем отрезке (работа или перерыв)
+                "cycle": 0,              # сколько рабочих отрезков закончилось перерывом
+                "break_len_s": 0.0,
+                "break_long": False,
             }
             self.sm = StateMachine(self.settings["thresholds"], start_state=FOCUS)
             self.paused = self.notebook = False
@@ -201,6 +209,85 @@ class SessionManager:
                 self.message = None
             self.bus.publish("session_started", {"plot": pos, "crop": crop_id, "length_min": length})
             self._set_state(FOCUS)
+            self._save()
+            return self.snapshot()
+
+    # ---------- Pomodoro ----------
+
+    def _pomodoro_plan(self, length_min: float) -> dict | None:
+        """Перерывы нужны только длинным сессиям. Длины считаем в «игровых» секундах, как и саму сессию."""
+        cfg = self.settings.get("pomodoro", {})
+        if not cfg.get("enabled", True) or length_min < cfg.get("min_session_min", 50):
+            return None
+        return {"work_s": cfg.get("work_min", 25) * 60, "short_s": cfg.get("short_break_min", 5) * 60,
+                "long_s": cfg.get("long_break_min", 25) * 60, "cycles": int(cfg.get("cycles", 4))}
+
+    def on_break(self) -> bool:
+        return bool(self.session) and self.session.get("phase") == "break"
+
+    def _wall_left_s(self) -> float:
+        """Сколько секунд осталось до конца сессии вместе с будущими перерывами (для сторожа)."""
+        s = self.session
+        left = max(0.0, s["planned_s"] - s["elapsed_s"])
+        pomo = s.get("pomo")
+        if not pomo:
+            return left
+        on_break = s["phase"] == "break"
+        extra = max(0.0, s["break_len_s"] - s["phase_s"]) if on_break else 0.0
+        until_break = pomo["work_s"] - (0.0 if on_break else s["phase_s"])
+        cycle, work = s["cycle"], left
+        while work - until_break >= 60:        # так же решает _maybe_start_break
+            work -= until_break
+            cycle += 1
+            extra += pomo["long_s"] if cycle % pomo["cycles"] == 0 else pomo["short_s"]
+            until_break = pomo["work_s"]
+        return left + extra
+
+    def _maybe_start_break(self):
+        """Отработали рабочий отрезок — начинаем перерыв (если до конца сессии ещё есть что работать)."""
+        s = self.session
+        pomo = s.get("pomo")
+        if not pomo or s["phase"] != "work" or s["phase_s"] < pomo["work_s"]:
+            return
+        if s["planned_s"] - s["elapsed_s"] < 60:
+            return
+        s["cycle"] += 1
+        long = s["cycle"] % pomo["cycles"] == 0
+        s["phase"], s["phase_s"], s["break_long"] = "break", 0.0, long
+        s["break_len_s"] = pomo["long_s"] if long else pomo["short_s"]
+        self.paused = self.notebook = False
+        self.message = None
+        self._set_state(BREAK)
+        minutes = round(s["break_len_s"] / 60)
+        self.bus.publish("break_started", {
+            "long": long, "minutes": minutes, "cycle": s["cycle"],
+            "message": (f"Длинный перерыв {minutes} мин: отдохни как следует ☕" if long
+                        else f"Перерыв {minutes} мин ☕ Блокировка выключена, потом включится сама."),
+        })
+
+    def _tick_break(self, dt: float):
+        s = self.session
+        s["totals"][BREAK] = s["totals"].get(BREAK, 0.0) + dt
+        s["phase_s"] += dt
+        self._save()
+        if s["phase_s"] >= s["break_len_s"]:
+            self._end_break(early=False)
+
+    def _end_break(self, early: bool):
+        s = self.session
+        s["phase"], s["phase_s"] = "work", 0.0
+        self.sm = StateMachine(self.settings["thresholds"], start_state=FOCUS)    # после отдыха начинаем «с чистого листа»
+        self.paused = self.notebook = False
+        self._set_state(FOCUS)
+        self.bus.publish("break_ended", {
+            "early": early, "message": "Перерыв закончился: блокировка снова включена. Продолжаем 🐟"})
+
+    def skip_break(self):
+        """Закончить перерыв раньше. Это возврат к работе, а не ослабление защиты: пароль не нужен."""
+        with self.lock:
+            if not self.on_break():
+                raise GameError("Сейчас не перерыв")
+            self._end_break(early=True)
             self._save()
             return self.snapshot()
 
@@ -233,6 +320,8 @@ class SessionManager:
     def pause(self):
         with self.lock:
             self._require_session()
+            if self.on_break():
+                raise GameError("Сейчас перерыв: пауза не нужна, отдыхай ☕")
             self.paused = True
             self._update_state()
 
@@ -245,6 +334,8 @@ class SessionManager:
     def set_notebook(self, on: bool):
         with self.lock:
             self._require_session()
+            if self.on_break():
+                raise GameError("Сейчас перерыв")
             self.notebook = bool(on)
             self._update_state()
 
@@ -256,6 +347,8 @@ class SessionManager:
 
     def _update_state(self):
         """Пересчитать состояние сразу (по кнопке), не дожидаясь тика."""
+        if self.on_break():
+            return
         inp = Inputs(self._phone_ok(), self.activity["idle_s"], self.activity["category"],
                      self.notebook, self.paused)
         new_state = self.sm.update(inp, self.game_now)
@@ -291,6 +384,11 @@ class SessionManager:
                 self._maybe_evaluate_rewards()
                 return
 
+            if self.on_break():           # отдыхаем: ни рост, ни отвлечения, ни телефон не проверяем
+                self._tick_break(dt)
+                self._maybe_evaluate_rewards()
+                return
+
             self._update_state()
             for event in self.game.tick(self.state, dt, self.clock.today()):
                 self.bus.publish(event["type"], event)
@@ -299,13 +397,16 @@ class SessionManager:
             s["totals"][self.state] = s["totals"].get(self.state, 0.0) + dt
             if self.state != PAUSED:
                 s["elapsed_s"] += dt
+                s["phase_s"] += dt
             self._save()
             self._check_auto_end()
+            if self.session:
+                self._maybe_start_break()
             self._maybe_evaluate_rewards()
 
     def _maybe_evaluate_rewards(self):
         """Награды выдаём и объявляем ТОЛЬКО вне фокуса (между сессиями или на паузе)."""
-        if self.state not in (IDLE, PAUSED):
+        if self.state not in (IDLE, PAUSED, BREAK):
             return
         now = self.clock.now()
         if now - self._last_reward_eval < REWARD_EVAL_EVERY_S:
@@ -358,7 +459,8 @@ class SessionManager:
     def phone_protection_active(self) -> bool:
         """Защита телефона: в сессии, не на паузе и если защищаем телефон."""
         targets = self.settings.get("protection", {}).get("targets", "pc")
-        return self.session is not None and not self.paused and targets in ("phone", "both")
+        return (self.session is not None and not self.paused and not self.on_break()
+                and targets in ("phone", "both"))
 
     def phone_state(self) -> dict:
         """Что сообщаем телефону по Wi-Fi (см. docs/PHONE_PROTOCOL.md)."""
@@ -371,6 +473,8 @@ class SessionManager:
                 "list_mode": protection.get("list_mode", "blacklist"),
                 "remaining_s": round(max(0.0, s["planned_s"] - s["elapsed_s"])) if s else 0,
                 "session_id": s["id"] if s else None,
+                # Перерыв Pomodoro: телефон не блокирует, но показывает, сколько отдыхать.
+                "break_left_s": round(max(0.0, s["break_len_s"] - s["phase_s"])) if self.on_break() else 0,
             }
 
     # ---------- строгий режим ----------
@@ -449,7 +553,7 @@ class SessionManager:
         if self.strict_guard:
             try:
                 s = self.session
-                left = max(0.0, s["planned_s"] - s["elapsed_s"]) / max(self.speed, 1.0) if s else 0.0
+                left = self._wall_left_s() / max(self.speed, 1.0) if s else 0.0
                 self.strict_guard.update(locked, self.clock.now() + left + GRACE_S)
             except Exception:
                 log.exception("Не удалось обновить флаг сторожа")
@@ -462,24 +566,38 @@ class SessionManager:
         """Защита компьютера (программы и сайты): только в сессии, не на паузе
         и если в настройках защищаем компьютер."""
         targets = self.settings.get("protection", {}).get("targets", "pc")
-        return self.session is not None and not self.paused and targets in ("pc", "both")
+        return (self.session is not None and not self.paused and not self.on_break()
+                and targets in ("pc", "both"))
 
     def sites_view(self) -> dict:
-        """Ответ для расширения. Заодно запоминаем, что оно на связи."""
-        with self.lock:
-            self.extension_seen = self.clock.now()
-            s = self.session
-            whitelist = self.whitelist_mode()
-            allow = self.site_allowlist()
-            return {
-                # Пустой белый список ничего не блокирует (см. AppBlocker.update).
-                "active": self.pc_protection_active() and not (whitelist and not allow),
-                "hard": self.settings.get("protection", {}).get("strictness", "soft") == "hard",
-                "mode": "whitelist" if whitelist else "blacklist",
-                "domains": self.site_blocklist(),
-                "allow": allow,
-                "remaining_s": max(0.0, s["planned_s"] - s["elapsed_s"]) if s else 0.0,
-            }
+        """Ответ для расширения. Заодно запоминаем, что оно на связи.
+
+        Тик держит замок, пока опрашивает окна и процессы, и может занять секунду. Расширению ждать
+        нельзя (оно решит «программы нет»), поэтому при занятом замке отдаём последний ответ."""
+        self.extension_seen = self.clock.now()
+        cache = getattr(self, "_sites_cache", None)
+        if not self.lock.acquire(timeout=0.5 if cache else -1):
+            return cache
+        try:
+            view = self._build_sites_view()
+        finally:
+            self.lock.release()
+        self._sites_cache = view
+        return view
+
+    def _build_sites_view(self) -> dict:
+        s = self.session
+        whitelist = self.whitelist_mode()
+        allow = self.site_allowlist()
+        return {
+            # Пустой белый список ничего не блокирует (см. AppBlocker.update).
+            "active": self.pc_protection_active() and not (whitelist and not allow),
+            "hard": self.settings.get("protection", {}).get("strictness", "soft") == "hard",
+            "mode": "whitelist" if whitelist else "blacklist",
+            "domains": self.site_blocklist(),
+            "allow": allow,
+            "remaining_s": max(0.0, s["planned_s"] - s["elapsed_s"]) if s else 0.0,
+        }
 
     def extension_connected(self) -> bool:
         """Расширение опрашивает сервер раз в полминуты; 90 с тишины — значит, его нет или выключили."""
@@ -602,6 +720,7 @@ class SessionManager:
                                "phones_online": self.phones.online_count(),
                                "strict": self.strict_view()},
                 "message": self.message,
+                "pomodoro": self.settings.get("pomodoro", {}),
             }
 
     def _session_view(self):
@@ -619,6 +738,22 @@ class SessionManager:
             "ask_presence": self.sm.ask_presence,
             "plot": s["plot"],
             "no_phone": s.get("no_phone", False),
+            "pomodoro": self._pomodoro_view(s),
+        }
+
+    def _pomodoro_view(self, s):
+        pomo = s.get("pomo")
+        if not pomo:
+            return None
+        on_break = s["phase"] == "break"
+        return {
+            "phase": s["phase"],
+            "cycle": s["cycle"],                    # сколько перерывов уже было
+            "cycles": pomo["cycles"],
+            "break_long": s["break_long"] if on_break else False,
+            "phase_left_s": max(0.0, (s["break_len_s"] if on_break else pomo["work_s"]) - s["phase_s"]),
+            "break_s": s["totals"].get(BREAK, 0.0),
+            "phase_total_s": s["break_len_s"] if on_break else pomo["work_s"],
         }
 
     def _device_view(self):

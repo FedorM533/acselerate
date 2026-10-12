@@ -94,12 +94,17 @@ MIGRATIONS = [
     """
     CREATE TABLE secrets (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     """,
+    # 5: перерывы Pomodoro — отдельная колонка, в «время фокуса» они не входят
+    """
+    ALTER TABLE sessions ADD COLUMN break_s REAL DEFAULT 0;
+    """,
 ]
 
 # Секунды каждого состояния → колонка в sessions.
 STATE_COLUMNS = {
     "FOCUS": "focus_s", "NOTEBOOK": "notebook_s", "MAYBE_DISTRACTED": "maybe_s",
     "DISTRACTED": "distracted_s", "PHONE_OUT": "phone_out_s", "PAUSED": "paused_s",
+    "BREAK": "break_s",
 }
 
 
