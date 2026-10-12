@@ -57,5 +57,5 @@ def test_ui_keeps_game_quiet_during_work():
     js = (WEB / "app.js").read_text(encoding="utf-8")
     assert 'QUIET_STATES = ["FOCUS", "NOTEBOOK"]' in js
     assert 'quietToast("Рыбка выросла' in js
-    assert 'e.type === "reward") quietToast' in js
+    assert 'e.type === "reward" && document.body.classList.contains("game-on")) quietToast' in js
     assert "canAnnounce()" in js   # объявляем только в IDLE/PAUSED, не во время «отвлёкся»

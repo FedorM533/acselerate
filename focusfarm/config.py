@@ -86,6 +86,8 @@ def validate_settings(s: dict) -> dict:
         if isinstance(w, bool) or not isinstance(w, int) or not 3 <= w <= 120:
             raise ConfigError("protection.warn_s должен быть целым числом секунд от 3 до 120")
     ui = s.get("ui", {})
+    if not isinstance(ui.get("game_mode", False), bool):
+        raise ConfigError("ui.game_mode должен быть true или false")
     if "pond_fish_max" in ui:
         n = ui["pond_fish_max"]
         if isinstance(n, bool) or not isinstance(n, int) or not 0 <= n <= 60:

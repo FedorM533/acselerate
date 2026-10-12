@@ -15,8 +15,8 @@
       <span class="state-icon" id="state-icon"></span><span id="state-label">…</span>
     </div>
     <div class="top-right">
-      <span class="chip coins-chip" id="coins-chip" title="Монеты"><img src="sprites/coin.svg" alt=""><b id="coins">0</b></span>
-      <span class="chip" title="Дней подряд с 25+ минутами фокуса">🔥 <b id="streak">0</b>&nbsp;дн.</span>
+      <span class="chip coins-chip game-only" id="coins-chip" title="Монеты"><img src="sprites/coin.svg" alt=""><b id="coins">0</b></span>
+      <span class="chip game-only" title="Дней подряд с 25+ минутами фокуса">🔥 <b id="streak">0</b>&nbsp;дн.</span>
       <span class="chip dock-chip" id="dock-chip" title="Телефон">📱<span class="dot"></span><span id="dock-chip-text">телефон</span></span>
       <button class="chip icon-btn" id="sound-toggle" title="Звуки интерфейса">🔈</button>
     </div>
@@ -25,18 +25,18 @@
   <div id="banner" class="banner" hidden></div>
 
   <nav class="tabs">
-    <button data-tab="farm" class="active">🐟 Пруд</button>
-    <button data-tab="session">⏱ Сессия</button>
-    <button data-tab="quests">🎯 Задания <span class="badge" id="quests-badge" hidden></span></button>
-    <button data-tab="collection">📖 Коллекция</button>
+    <button data-tab="farm" class="game-only">🐟 Пруд</button>
+    <button data-tab="session" class="active">⏱ Сессия</button>
+    <button data-tab="quests" class="game-only">🎯 Задания <span class="badge" id="quests-badge" hidden></span></button>
+    <button data-tab="collection" class="game-only">📖 Коллекция</button>
     <button data-tab="stats">📊 Статистика</button>
-    <button data-tab="shop">🛒 Магазин</button>
+    <button data-tab="shop" class="game-only">🛒 Магазин</button>
     <button data-tab="settings">⚙️ Настройки</button>
   </nav>
 
   <main>
     <!-- ПРУД -->
-    <section id="tab-farm" class="tab active">
+    <section id="tab-farm" class="tab">
       <div class="farm-wrap">
         <div class="farm-scene weather-sunny" id="farm-scene">
           <div class="water"></div>
@@ -80,7 +80,7 @@
     </section>
 
     <!-- СЕССИЯ -->
-    <section id="tab-session" class="tab">
+    <section id="tab-session" class="tab active">
       <div class="session-layout">
         <div class="card session-main">
           <div class="ring-wrap">
@@ -99,8 +99,8 @@
           <div class="crop-line" id="crop-line"></div>
 
           <div id="start-form" class="start-form">
-            <label>Место <select id="start-plot"></select></label>
-            <label>Рыбка <select id="start-crop"></select></label>
+            <label class="game-only">Место <select id="start-plot"></select></label>
+            <label class="game-only">Рыбка <select id="start-crop"></select></label>
             <label>Минут <input id="start-length" type="number" min="1" max="240" value="25"></label>
             <button id="start-btn" class="btn primary big">▶ Начать</button>
             <p class="muted small" id="pomo-hint"></p>
@@ -212,7 +212,7 @@
       <div class="stats-cards">
         <div class="card stat"><div class="stat-ico">🐟</div><div class="stat-num" id="st-focus">0</div><div class="stat-label" id="st-focus-label">минут фокуса сегодня</div></div>
         <div class="card stat"><div class="stat-ico">☁️</div><div class="stat-num" id="st-distr">0</div><div class="stat-label">отвлечений</div><div class="stat-sub" id="st-reasons"></div></div>
-        <div class="card stat"><div class="stat-ico">🔥</div><div class="stat-num" id="st-streak">0</div><div class="stat-label">дней подряд с 25+ мин</div></div>
+        <div class="card stat game-only"><div class="stat-ico">🔥</div><div class="stat-num" id="st-streak">0</div><div class="stat-label">дней подряд с 25+ мин</div></div>
         <div class="card stat"><div class="stat-ico">☕</div><div class="stat-num" id="st-rest">0</div><div class="stat-label">минут отдыха</div><div class="stat-sub" id="st-rest-sub"></div></div>
         <div class="card stat"><div class="stat-ico">⏱</div><div class="stat-num" id="st-sessions">0</div><div class="stat-label">сессий</div></div>
       </div>

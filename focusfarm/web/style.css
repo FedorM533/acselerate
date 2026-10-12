@@ -1,4 +1,5 @@
 /* «Уютный пруд». Все цвета и размеры — токены в :root.
+body:not(.game-on) .game-only { display: none !important; }
    Шрифт Nunito (SIL OFL 1.1) лежит локально в fonts/ — интернет не нужен. */
 
 @font-face {

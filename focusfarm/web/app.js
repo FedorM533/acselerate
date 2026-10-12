@@ -101,7 +101,13 @@ function showTab(name) {
   $$(".tab").forEach((t) => t.classList.toggle("active", t.id === "tab-" + name));
   if (tabLoaders[name]) tabLoaders[name]();
 }
-$$(".tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
+// Игровой режим: без него пруд, коллекция, задания, магазин, монеты и серия скрыты.
+function applyGameMode(on) {
+  document.body.classList.toggle("game-on", !!on);
+  const active = document.querySelector(".tabs button.active");
+  if (!on && active && active.classList.contains("game-only")) showTab("session");
+}
+$(".tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
 
 // ================= звуки интерфейса (Web Audio, без аудиофайлов) =================
 
@@ -178,7 +184,7 @@ function handleEvents(events) {
     if (e.type === "weed") toast("В воде появился ил 🫧");
     // Игра не отвлекает: «рыбка выросла» ждёт, пока человек не в фокусе.
     if (e.type === "crop_ready") quietToast("Рыбка выросла! Нажми на неё, чтобы выпустить 🎉");
-    if (e.type === "reward") quietToast(rewardText(e));
+    if (e.type === "reward" && document.body.classList.contains("game-on")) quietToast(rewardText(e));
     if (e.type === "session_started") toast("Сессия началась. Удачи! 🐟");
     if (e.type === "session_ended") toast(e.message);
     if (e.type === "break_started" || e.type === "break_ended") toast(e.message);
@@ -861,7 +867,8 @@ const SETTINGS_GROUPS = [
     ["pomodoro", "cycles", "После скольких рабочих отрезков перерыв длинный", "шт"],
     ["pomodoro", "long_break_min", "Длинный перерыв (20–30)", "мин"],
   ]],
-  ["🎮 Игра", [
+  ["🎮 Игровой режим", [
+    ["ui", "game_mode", "Включить игру: пруд, рыбки, магазин, задания и серию дней"],
     ["ui", "pond_fish_max", "Сколько выпущенных рыбок плавает в пруду (0 — никого)", "шт"],
     ["rewards", "enabled", "Задания и ачивки (выключи для полной тишины)"],
   ]],
@@ -1098,6 +1105,7 @@ $("#settings-save").onclick = async () => {
   if (password) body.password = password;
   await api("PUT", "/api/settings", body);
   pondMax = body.ui.pond_fish_max;
+  applyGameMode(body.ui.game_mode);
   renderSwimmers();
   toast("Настройки сохранены ✔");
   refresh();
@@ -1306,6 +1314,7 @@ async function refreshCollection() {
 async function loadPondMax() {
   const s = await api("GET", "/api/settings");
   pondMax = s.ui ? s.ui.pond_fish_max : 12;
+  applyGameMode(!!(s.ui && s.ui.game_mode));
   renderSwimmers();
 }
 
