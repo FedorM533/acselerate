@@ -13,6 +13,9 @@
 """
 import logging
 import os
+import shutil
+import subprocess
+import sys
 
 import psutil
 
@@ -29,6 +32,10 @@ PROTECTED = frozenset({
     "services.exe", "lsass.exe", "svchost.exe", "dwm.exe", "explorer.exe",
     "taskmgr.exe", "conhost.exe", "cmd.exe", "powershell.exe", "pwsh.exe",
     "windowsterminal.exe", "python.exe", "pythonw.exe", "py.exe", "node.exe",
+    # Linux: оболочка рабочего стола, терминалы и сам Python.
+    "systemd", "gnome-shell", "xwayland", "xorg", "kwin_wayland", "kwin_x11", "plasmashell",
+    "gnome-terminal-server", "kgx", "ptyxis", "konsole", "xterm", "xfce4-terminal", "tilix",
+    "bash", "sh", "zsh", "fish", "python", "python3", "node",
 })
 
 
@@ -53,8 +60,22 @@ class PsutilProcesses:
         return pids
 
     def window_apps(self) -> list[tuple[int, str]]:
-        """Программы с видимым окном (для белого списка). Системные из папки Windows
-        и окна без заголовка пропускаем: закрывать их нельзя, а пользователь их не видит."""
+        """Программы с видимым окном (для белого списка)."""
+        if sys.platform.startswith("linux"):
+            return self._linux_window_apps()
+        return self._windows_window_apps()
+
+    def request_close(self, pid: int) -> bool:
+        """Вежливо просит окна процесса закрыться (как кнопка «×»). True — хотя бы одному окну отправили."""
+        if sys.platform.startswith("linux"):
+            return self._linux_request_close(pid)
+        return self._windows_request_close(pid)
+
+    # ---------- Windows ----------
+
+    def _windows_window_apps(self) -> list[tuple[int, str]]:
+        """Системные из папки Windows и окна без заголовка пропускаем: закрывать
+        их нельзя, а пользователь их не видит."""
         try:
             import win32con
             import win32gui
@@ -85,8 +106,7 @@ class PsutilProcesses:
                 continue
         return result
 
-    def request_close(self, pid: int) -> bool:
-        """Вежливо просит окна процесса закрыться (WM_CLOSE). True — хотя бы одному окну отправили."""
+    def _windows_request_close(self, pid: int) -> bool:
         try:
             import win32con
             import win32gui
@@ -107,6 +127,50 @@ class PsutilProcesses:
             log.warning("Не удалось послать WM_CLOSE процессу %s", pid, exc_info=True)
             return False
         return bool(hwnds)
+
+    # ---------- Linux ----------
+    # Окна узнаём так же, как монитор активности: X11 — xprop, GNOME на Wayland —
+    # наше расширение GNOME Shell. Без них белый список на Linux не работает.
+
+    def _linux_backend(self) -> str | None:
+        from focusfarm.activity import linux
+        if getattr(self, "_backend", None) is None:
+            self._backend = linux.window_backend()   # расширение могли включить уже после старта
+        return self._backend
+
+    def _linux_window_apps(self) -> list[tuple[int, str]]:
+        from focusfarm.activity import linux
+        try:
+            windows = linux.list_windows(self._linux_backend())
+        except (OSError, subprocess.SubprocessError, ValueError):
+            log.warning("Не удалось перечислить окна", exc_info=True)
+            return []
+        result = {}
+        for pid, _title in windows:
+            name = linux.process_name(pid)
+            if name != "unknown":
+                result[pid] = name
+        return list(result.items())
+
+    def _linux_request_close(self, pid: int) -> bool:
+        from focusfarm.activity import linux
+        backend = self._linux_backend()
+        try:
+            if backend == "gnome":
+                return linux.extension_close(pid)
+            if backend == "x11" and shutil.which("wmctrl"):
+                sent = False
+                for window in linux.parse_xprop_client_list(
+                        linux._run(["xprop", "-root", "_NET_CLIENT_LIST"])):
+                    owner, _ = linux.parse_xprop_window(
+                        linux._run(["xprop", "-id", window, "_NET_WM_PID", "_NET_WM_NAME"]))
+                    if owner == pid:
+                        linux._run(["wmctrl", "-i", "-c", window])
+                        sent = True
+                return sent
+        except (OSError, subprocess.SubprocessError, ValueError):
+            log.warning("Не удалось вежливо закрыть процесс %s", pid, exc_info=True)
+        return False   # не смогли попросить — после предупреждения завершим процесс (SIGTERM)
 
     def terminate(self, pid: int) -> bool:
         try:

@@ -1,15 +1,17 @@
 # Правила классификации окон. Применяются сверху вниз, первое совпадение побеждает.
 # process — имя процесса (без учёта регистра), title_contains — слова в заголовке окна.
+# Имена на Windows — с .exe, на Linux — без него (посмотреть: python -m focusfarm.activity).
 default: neutral
 rules:
   - category: work
-    process: [code.exe, idea64.exe, pycharm64.exe, winword.exe, excel.exe, powerpnt.exe, acrord32.exe, notepad++.exe]
+    process: [code.exe, idea64.exe, pycharm64.exe, winword.exe, excel.exe, powerpnt.exe, acrord32.exe, notepad++.exe,
+              code, codium, idea, pycharm, soffice.bin, evince, papers, okular, gnome-text-editor, gedit, kate]
   - category: work
     title_contains: [moodle, stepik, "google docs", "документ", overleaf, leetcode]
   - category: distraction
     title_contains: [youtube, "вконтакте", vk.com, tiktok, twitch, "кинопоиск", "steam"]
   - category: distraction
-    process: [steam.exe, telegram.exe, discord.exe]
+    process: [steam.exe, telegram.exe, discord.exe, steam, telegram-desktop, telegram, discord]
   # Сайты для расширения браузера (extension/): блокируются во время сессии.
   - category: distraction
     domains: [youtube.com, vk.com, tiktok.com, twitch.tv, kinopoisk.ru, store.steampowered.com]

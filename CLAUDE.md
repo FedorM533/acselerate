@@ -11,8 +11,8 @@ pywin32 (Windows), pyserial, pytest. Фронтенд — `focusfarm/web/`: чи
 (ES-модули) без сборки, свои SVG. Прошивка — Arduino (ESP32) в `firmware/`.
 
 ## Команды
-- Установка: `py -3 -m venv .venv` → `.venv\Scripts\python -m pip install -r requirements.txt`
-- Запуск: `run.bat` (или `.venv\Scripts\python -m focusfarm`), флаги `--no-browser`, `--demo 30`, `--dev`, `--port`, `--db`, `--fresh`
+- Установка: `py -3 -m venv .venv` → `.venv\Scripts\python -m pip install -r requirements.txt` (Linux: `./run.sh` всё сделает сам)
+- Запуск: `run.bat` / `./run.sh` (или `.venv\Scripts\python -m focusfarm`), флаги `--no-browser`, `--demo 30`, `--dev`, `--port`, `--db`, `--fresh`
 - Демо для защиты: `run_demo.bat` (×30, чистый пруд в `data/demo.db`), сценарий — `docs/DEMO.md`
 - Тесты: `.venv\Scripts\python -m pytest -q`; Android: `powershell -File android/build_debug.ps1` (тесты + APK)
 - Монитор активности в консоли: `python -m focusfarm.activity`
@@ -52,7 +52,11 @@ pywin32 (Windows), pyserial, pytest. Фронтенд — `focusfarm/web/`: чи
   приложение `android/` (сборка `android/build_debug.ps1`, Android Gradle Plugin не принимает кириллицу в пути).
 - Строгий режим (`protection.strictness: hard`): пауза, досрочный конец и смена защиты только с паролем
   (`SessionManager.require_unlock`); `focusfarm/strict.py` + `watchdog.py` перезапускают программу. От администратора не защищает.
-- Проверка расширения в настоящем Chromium: `python scripts/check_extension.py`.
+- Проверка расширения в настоящем Chromium: `python scripts/check_extension.py`; в Firefox — `python scripts/check_extension_firefox.py`.
+- Linux: монитор `activity/linux.py` (простой — Mutter по D-Bus через `gdbus`; окно — `xprop` на X11,
+  на GNOME Wayland — наше расширение GNOME Shell `linux/gnome-extension/`, ставится
+  `python -m focusfarm.tools.gnome_ext`). USB-телефон — из `/sys/bus/usb/devices`. В `rules.yaml` имена
+  программ и с `.exe` (Windows), и без (Linux).
 - Внутренние имена остались от фермы: plot = место в пруду, crop = рыбка, weeds = ил, harvest = выпуск.
 - Тесты API — через `tests/conftest.py` (`Env`: FakeClock, база в памяти, `FakeMonitor`).
 - Толкования неоднозначных мест ТЗ — `docs/DECISIONS.md`. Спорное — спрашивать у команды.

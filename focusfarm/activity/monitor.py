@@ -21,6 +21,7 @@ class ActivityMonitor:
     """Базовый интерфейс."""
     available = True
     name = "base"
+    hint = None    # подсказка для интерфейса: как включить монитор на этой системе
 
     def sample(self) -> ActivitySample:
         raise NotImplementedError
@@ -36,6 +37,9 @@ def create_monitor() -> ActivityMonitor:
         elif sys.platform == "darwin":
             from focusfarm.activity.macos import MacMonitor
             monitor = MacMonitor()
+        elif sys.platform.startswith("linux"):
+            from focusfarm.activity.linux import LinuxMonitor
+            monitor = LinuxMonitor()
         else:
             return FallbackMonitor()
         monitor.sample()  # пробный вызов: если упадёт — используем запасной
@@ -52,6 +56,7 @@ class SafeMonitor(ActivityMonitor):
         self.inner = inner
         self.name = inner.name
         self.available = inner.available
+        self.hint = inner.hint
         self.last_error = None
 
     def sample(self) -> ActivitySample:

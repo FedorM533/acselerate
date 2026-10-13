@@ -3,7 +3,7 @@
 Как это работает:
 1. Раз в `POLL_S` секунд (в фоновом потоке) спрашиваем у системы список
    USB-устройств. На Windows — PowerShell `Get-PnpDevice`, на macOS —
-   `system_profiler`. На других системах список пуст.
+   `system_profiler`, на Linux — папка `/sys/bus/usb/devices` (права не нужны).
 2. «Мой телефон» запоминается при привязке (см. `UsbPhoneSensor.pair_*`):
    сравниваем список до и после подключения кабеля, новое устройство — телефон.
 3. Телефон считается «в подставке», пока его устройство есть в списке.
@@ -20,6 +20,7 @@ import re
 import subprocess
 import sys
 import threading
+from pathlib import Path
 
 from focusfarm.sensors.phone import PhoneSensor
 
@@ -76,6 +77,40 @@ def parse_macos(text: str) -> list[dict]:
     return result
 
 
+LINUX_USB = Path("/sys/bus/usb/devices")
+LINUX_ROOT_HUB_VID = "1D6B"    # «Linux Foundation»: корневые хабы самого компьютера
+
+
+def _read(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="replace").strip()
+    except OSError:
+        return ""
+
+
+def list_linux(root: Path = LINUX_USB) -> list[dict]:
+    """Устройства из sysfs: у каждого папка с файлами idVendor, idProduct, serial, product.
+    Папки с «:» в имени — интерфейсы одного устройства, их пропускаем (как MI_00 на Windows)."""
+    if not root.is_dir():
+        return []
+    devices = {}
+    for path in sorted(root.iterdir()):
+        if ":" in path.name:
+            continue
+        vid, serial = _read(path / "idVendor").upper(), _read(path / "serial")
+        if not vid or not serial or vid == LINUX_ROOT_HUB_VID:
+            continue
+        pid = _read(path / "idProduct").upper()
+        maker, product = _read(path / "manufacturer"), _read(path / "product")
+        if maker and product.lower().startswith(maker.lower()):
+            maker = ""    # «SAMSUNG» + «SAMSUNG_Android» → без повтора
+        name = " ".join(filter(None, (maker, product)))
+        key = f"{vid}:{serial}"
+        devices.setdefault(key, {"id": key, "vid": vid, "pid": pid, "serial": serial,
+                                 "name": name.replace("_", " ") or f"USB-устройство {vid}:{pid}"})
+    return list(devices.values())
+
+
 class UsbLister:
     """Спрашивает у системы список USB-устройств. В тестах заменяется заглушкой."""
 
@@ -90,6 +125,8 @@ class UsbLister:
             out = subprocess.run(["system_profiler", "SPUSBDataType"],
                                  capture_output=True, text=True, timeout=15).stdout
             return parse_macos(out)
+        if sys.platform.startswith("linux"):
+            return list_linux()
         return []
 
 

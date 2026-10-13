@@ -277,7 +277,7 @@ function renderBanner() {
   const messages = [];
   if (!connected) messages.push("Нет связи с программой — переподключаюсь…");
   if (state && !state.activity.available) {
-    messages.push("Монитор активности недоступен, работает только датчик телефона.");
+    messages.push(state.activity.hint || "Монитор активности недоступен, работает только датчик телефона.");
   }
   if (state && state.phone.usb && state.phone.usb.error) messages.push(state.phone.usb.error);
   if (state && state.device.error) messages.push("Подставка: " + state.device.error);
@@ -1466,10 +1466,12 @@ $("#setup-ext-btn").onclick = async () => {
 
 $("#setup-ext-go").onclick = async () => {
   const browser = $("#setup-browser").value;
-  if (!browser) return toast("Не нашёл Chrome, Edge или Яндекс Браузер", true);
+  if (!browser) return toast("Не нашёл Chrome, Edge, Firefox или Яндекс Браузер", true);
   const r = await api("POST", "/api/extension/install", { browser });
-  $("#setup-ext-steps").hidden = false;
-  $("#setup-ext-path").textContent = (r.copied ? "Путь уже в буфере обмена: " : "Путь к папке: ") + r.folder
+  const steps = $("#setup-ext-steps");
+  steps.replaceChildren(...r.steps.map((text) => Object.assign(document.createElement("li"), { textContent: text })));
+  steps.hidden = false;
+  $("#setup-ext-path").textContent = (r.copied ? "Путь уже в буфере обмена (Ctrl+V): " : "Путь: ") + r.folder
     + (r.opened ? "" : ` (откройте страницу расширений в ${r.browser} сами)`);
 };
 

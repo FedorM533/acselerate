@@ -31,7 +31,7 @@ class Quiet(http.server.BaseHTTPRequestHandler):
 fake = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Quiet)
 threading.Thread(target=fake.serve_forever, daemon=True).start()
 FAKE = f"http://{SITE}:{fake.server_address[1]}"
-server = subprocess.Popen([str(ROOT / ".venv/Scripts/python.exe"), "-m", "focusfarm", "--dev",
+server = subprocess.Popen([sys.executable, "-m", "focusfarm", "--dev",
     "--no-browser", "--db", str(tmp / "t.db"), "--fresh"], cwd=ROOT,
     stdout=open(tmp / "server.log", "w"), stderr=subprocess.STDOUT)
 results = []

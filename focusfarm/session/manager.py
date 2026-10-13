@@ -708,6 +708,7 @@ class SessionManager:
                 "session": self._session_view(),
                 "activity": {**self.activity, "available": self.monitor.available,
                              "monitor": self.monitor.name, "error": self.monitor.last_error,
+                             "hint": getattr(self.monitor, "hint", None),
                              "forced_category": self.forced_category},
                 "phone": {"docked": self.phone.is_docked(), "source": self.phone.source,
                           "usb": self.usb_view()},
