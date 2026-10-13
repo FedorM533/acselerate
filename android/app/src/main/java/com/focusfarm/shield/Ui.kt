@@ -11,9 +11,17 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /** Небольшие помощники, чтобы собирать экраны кодом без XML-разметки. */
-const val INK = 0xFF1F2A44.toInt()
-const val MUTED = 0xFF5A6B80.toInt()
-const val ACCENT = 0xFF2A7F9E.toInt()
+// Цвета Carpo (те же значения, что в res/values/carpo_colors.xml и tokens.css).
+const val INK = 0xFF1F2A25.toInt()
+const val MUTED = 0xFF5B6F66.toInt()
+const val ACCENT = 0xFF2E4A3F.toInt()
+const val CREAM = 0xFFF6F2EB.toInt()
+const val PAPER = 0xFFFBF9F5.toInt()
+const val CLAY = 0xFFD97A5A.toInt()
+const val LINE = 0xFFD8D0C2.toInt()
+
+/** Вид кнопки: основная (зелёная), контурная и кнопка для тёмно-зелёного фона (терракотовая). */
+enum class Look { PRIMARY, GHOST, ON_GREEN, GHOST_ON_GREEN }
 
 fun Context.dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
@@ -25,24 +33,36 @@ fun Context.text(text: String, size: Float = 16f, bold: Boolean = false, color: 
         if (bold) setTypeface(typeface, Typeface.BOLD)
     }
 
-fun Context.button(text: String, onClick: () -> Unit): Button = Button(this).apply {
+fun Context.button(text: String, look: Look = Look.PRIMARY, onClick: () -> Unit): Button = Button(this).apply {
     this.text = text
     isAllCaps = false
-    setTextColor(Color.WHITE)
-    background = GradientDrawable().apply {
-        setColor(ACCENT)
-        cornerRadius = dp(12).toFloat()
+    stateListAnimator = null
+    setTypeface(typeface, Typeface.BOLD)
+    minHeight = dp(48)
+    minimumHeight = dp(48)
+    val (fill, stroke, textColor) = when (look) {
+        Look.PRIMARY -> Triple(ACCENT, ACCENT, CREAM)
+        Look.GHOST -> Triple(Color.TRANSPARENT, ACCENT, ACCENT)
+        Look.ON_GREEN -> Triple(CLAY, CLAY, INK)
+        Look.GHOST_ON_GREEN -> Triple(Color.TRANSPARENT, 0xFF5E7A6D.toInt(), CREAM)
     }
-    setPadding(dp(16), dp(10), dp(16), dp(10))
+    setTextColor(textColor)
+    background = GradientDrawable().apply {
+        setColor(fill)
+        setStroke(dp(1), stroke)
+        cornerRadius = dp(999).toFloat()          // «таблетка»
+    }
+    setPadding(dp(22), dp(10), dp(22), dp(10))
     setOnClickListener { onClick() }
 }
 
 fun Context.card(vararg children: View): LinearLayout = LinearLayout(this).apply {
     orientation = LinearLayout.VERTICAL
-    setPadding(dp(16), dp(14), dp(16), dp(14))
+    setPadding(dp(20), dp(18), dp(20), dp(18))
     background = GradientDrawable().apply {
-        setColor(Color.WHITE)
-        cornerRadius = dp(16).toFloat()
+        setColor(PAPER)
+        setStroke(dp(1), LINE)
+        cornerRadius = dp(24).toFloat()
     }
     layoutParams = LinearLayout.LayoutParams(
         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT

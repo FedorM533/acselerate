@@ -30,26 +30,36 @@ class BlockActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setBackgroundColor(0xFF2A7F9E.toInt())
+            setBackgroundColor(ACCENT)
             setPadding(dp(24), dp(24), dp(24), dp(24))
         }
-        root.addView(text("🐟", 64f))
-        root.addView(text("Идёт учёба", 28f, bold = true, color = Color.WHITE))
-        root.addView(text("${appLabel()} сейчас отвлекает.\nВернись к делу: рыбка ждёт.", 17f, color = Color.WHITE).apply {
+        root.addView(android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.carpo_mark_cream)
+            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO     // знак — украшение
+        }, LinearLayout.LayoutParams(dp(96), dp(96)))
+        root.addView(text("Идёт учёба", 30f, color = CREAM).apply {
+            gravity = Gravity.CENTER
+            typeface = android.graphics.Typeface.create("sans-serif-light", android.graphics.Typeface.NORMAL)
+            setPadding(0, dp(12), 0, 0)
+        })
+        root.addView(text("${appLabel()} сейчас отвлекает.\nВернись к делу: рыбка ждёт.", 17f, color = CREAM).apply {
             gravity = Gravity.CENTER
             setPadding(0, dp(12), 0, dp(12))
         })
-        timeView = text("", 22f, bold = true, color = Color.WHITE)
+        timeView = text("", 40f, color = CREAM).apply {
+            gravity = Gravity.CENTER
+            typeface = android.graphics.Typeface.create("sans-serif-thin", android.graphics.Typeface.NORMAL)
+        }
         root.addView(timeView)
-        root.addView(button("Вернуться к учёбе") { goHome() }.apply { setPadding(dp(24), dp(12), dp(24), dp(12)) },
+        root.addView(button("Вернуться к учёбе", Look.ON_GREEN) { goHome() }.apply { setPadding(dp(24), dp(12), dp(24), dp(12)) },
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                 .apply { topMargin = dp(24) })
-        attemptView = text("", 15f, color = Color.WHITE).apply { gravity = Gravity.CENTER; setPadding(0, dp(16), 0, 0) }
-        openButton = button("") {
+        attemptView = text("", 15f, color = 0xFFDCE5DF.toInt()).apply { gravity = Gravity.CENTER; setPadding(0, dp(16), 0, 0) }
+        openButton = button("", Look.GHOST_ON_GREEN) {
             Snooze.set(pkg)
             packageManager.getLaunchIntentForPackage(pkg)?.let { startActivity(it) }
             finish()
-        }.apply { alpha = 0.8f }
+        }
         if (!hard) {         // мягкий режим: можно открыть «всё равно», но не сразу и не навсегда
             root.addView(attemptView)
             root.addView(openButton,
@@ -59,6 +69,11 @@ class BlockActivity : Activity() {
         updateOpenButton()
         root.padForSystemBars()
         setContentView(root)
+        // Фон тёмно-зелёный: системные панели в его цвет, значки светлые.
+        window.statusBarColor = ACCENT
+        window.navigationBarColor = ACCENT
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = 0
     }
 
     override fun onNewIntent(intent: Intent) {

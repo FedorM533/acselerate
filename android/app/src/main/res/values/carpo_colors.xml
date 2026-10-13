@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="carpo_icon_background">#2E4A3F</color>
+    <color name="carpo_green">#2E4A3F</color>
+    <color name="carpo_green_dark">#1C2E26</color>
+    <color name="carpo_clay">#D97A5A</color>
+    <color name="carpo_sage">#C9D6CC</color>
+    <color name="carpo_cream">#F6F2EB</color>
+    <color name="carpo_ink">#1F2A25</color>
+    <color name="carpo_ink_secondary">#3F5249</color>
+</resources>

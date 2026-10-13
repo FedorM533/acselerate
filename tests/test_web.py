@@ -40,8 +40,10 @@ def test_all_crop_stages_have_sprites_and_valid_svg():
 
 
 def test_font_is_local_with_license():
-    assert (WEB / "fonts" / "Nunito.ttf").exists()
-    assert "Open Font License" in (WEB / "fonts" / "OFL.txt").read_text(encoding="utf-8")
+    for name in ("jost-latin-300-normal.woff2", "jost-cyrillic-300-normal.woff2", "manrope-latin-600-normal.woff2", "manrope-cyrillic-600-normal.woff2"):
+        assert (WEB / "fonts" / name).exists(), name
+    for name in ("LICENSE-Jost.txt", "LICENSE-Manrope.txt"):
+        assert "Open Font License" in (WEB / "fonts" / name).read_text(encoding="utf-8"), name
 
 
 def test_rewards_ui_pieces_exist(env):

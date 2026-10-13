@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Фирменные цвета Carpo лежат в carpo_colors.xml. Шрифты Jost/Manrope в приложении не подключены: системный. -->
     <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#FFF4F8FB</item>
-        <item name="android:statusBarColor">#FF2A7F9E</item>
+        <item name="android:windowBackground">@color/carpo_cream</item>
+        <item name="android:statusBarColor">@color/carpo_cream</item>
+        <item name="android:navigationBarColor">@color/carpo_cream</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:colorAccent">@color/carpo_green</item>
+        <item name="android:colorControlActivated">@color/carpo_green</item>
+        <item name="android:textColorPrimary">@color/carpo_ink</item>
     </style>
 </resources>

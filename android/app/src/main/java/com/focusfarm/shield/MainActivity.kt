@@ -76,7 +76,19 @@ class MainActivity : Activity() {
 
     private fun buildUi() {
         val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        column.addView(text("🐟 Carpo", 24f, bold = true).apply { setPadding(dp(16), dp(20), dp(16), dp(4)) })
+        column.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(dp(20), dp(20), dp(16), dp(4))
+            addView(android.widget.ImageView(this@MainActivity).apply {
+                setImageResource(R.mipmap.ic_launcher)
+                importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, LinearLayout.LayoutParams(dp(40), dp(40)))
+            addView(text("Carpo", 28f).apply {
+                typeface = android.graphics.Typeface.create("sans-serif-light", android.graphics.Typeface.NORMAL)
+                setPadding(dp(12), 0, 0, 0)
+            })
+        })
 
         serviceView = text("", 16f)
         serviceButton = button("Включить службу блокировки") { openAccessibility() }
@@ -86,9 +98,9 @@ class MainActivity : Activity() {
 
         pairView = text("", 15f)
         findButton = button("Найти компьютер") { findPc() }
-        scanButton = button("Сканировать QR с компьютера") { scanQr() }
-        pasteButton = button("Вставить ссылку вручную") { askLink() }
-        unpairButton = button("Отключить от компьютера") { unpair() }
+        scanButton = button("Сканировать QR с компьютера", Look.GHOST) { scanQr() }
+        pasteButton = button("Вставить ссылку вручную", Look.GHOST) { askLink() }
+        unpairButton = button("Отключить от компьютера", Look.GHOST) { unpair() }
         hintView = text("На компьютере в Carpo нажмите «Подключить телефон», потом здесь «Найти компьютер» и введите код.", 13f, color = MUTED)
         column.addView(card(text("Компьютер", 14f, color = MUTED), pairView, findButton, hintView, scanButton, pasteButton, unpairButton))
 
@@ -117,7 +129,7 @@ class MainActivity : Activity() {
         }
         column.addView(card(
             text("Что блокировать", 14f, color = MUTED), group,
-            button("Выбрать приложения…") {
+            button("Выбрать приложения…", Look.GHOST) {
                 if (refuseWhileLocked()) return@button
                 startActivity(Intent(this, AppPickerActivity::class.java).putExtra(AppPickerActivity.EXTRA_MODE, prefs.listMode))
             },
@@ -131,7 +143,7 @@ class MainActivity : Activity() {
             hint = "минут"
         }
         startButton = button("Начать учёбу на телефоне") { startLocal() }
-        stopButton = button("Закончить учёбу") { stopLocal() }
+        stopButton = button("Закончить учёбу", Look.GHOST) { stopLocal() }
         column.addView(card(
             text("Учёба без компьютера", 14f, color = MUTED), minutes, startButton, stopButton,
             text("Когда учёбу запускает компьютер, телефон защищается сам.", 13f, color = MUTED),
@@ -143,16 +155,16 @@ class MainActivity : Activity() {
     private fun refresh() {
         val now = System.currentTimeMillis()
         val enabled = isServiceEnabled()
-        serviceView.text = if (enabled) "✅ Служба блокировки включена" else "⚠ Служба блокировки выключена: блокировка не работает"
+        serviceView.text = if (enabled) "Служба блокировки включена" else "Служба блокировки выключена: блокировка не работает"
         serviceButton.visibility = if (enabled) android.view.View.GONE else android.view.View.VISIBLE
 
         linkView.text = if (prefs.paired) "Связь с компьютером: ${LinkStatus.label()}" else "Компьютер не подключён (блокировка работает и без него)"
         val state = prefs.shieldState()
         shieldView.text = if (state.active(now)) {
             val who = if (state.remoteActive(now)) "по команде компьютера" else "на телефоне"
-            "🔒 Идёт учёба $who, осталось ${formatTime(state.remainingMs(now))}"
+            "Идёт учёба $who, осталось ${formatTime(state.remainingMs(now))}"
         } else if (prefs.breakUntil > now) {
-            "☕ Перерыв, ещё ${formatTime(prefs.breakUntil - now)}. Блокировка включится сама"
+            "Перерыв, ещё ${formatTime(prefs.breakUntil - now)}. Блокировка включится сама"
         } else "Сейчас учёбы нет"
 
         pairView.text = if (prefs.paired) "Подключён: ${prefs.host}:${prefs.port}" else "Не подключён"
@@ -292,7 +304,7 @@ class MainActivity : Activity() {
                 result.onSuccess { token ->
                     prefs.pair(link.host, link.port, token)
                     LinkService.start(this)
-                    Toast.makeText(this, "Телефон подключён ✔", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Телефон подключён", Toast.LENGTH_LONG).show()
                 }.onFailure { Toast.makeText(this, it.message, Toast.LENGTH_LONG).show() }
                 refresh()
             }

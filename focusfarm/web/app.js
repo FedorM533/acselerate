@@ -8,13 +8,13 @@ const $$ = (sel) => document.querySelectorAll(sel);
 // Состояние показываем тремя способами: цвет (класс s-XXX) + иконка + текст.
 const STATE_LABELS = {
   IDLE: "Сессия не идёт",
-  FOCUS: "Работаешь 🐟",
-  NOTEBOOK: "Пишешь в тетради ✏️",
+  FOCUS: "Работаешь",
+  NOTEBOOK: "Пишешь в тетради",
   MAYBE_DISTRACTED: "Кажется, отвлёкся…",
   DISTRACTED: "Отвлёкся — вода мутнеет",
   PHONE_OUT: "Телефон отключён",
   PAUSED: "Пауза",
-  BREAK: "Перерыв ☕",
+  BREAK: "Перерыв",
 };
 // Короткие названия — для легенд и таблиц.
 const STATE_SHORT = {
@@ -25,7 +25,7 @@ const CATEGORY_LABELS = { work: "работа", neutral: "нейтрально",
 const SOUND_NAMES = { 1: "мягкий сигнал", 2: "сигнал «отвлёкся»", 3: "«рыбка выпущена»", 4: "«сессия началась»" };
 
 // Иконки состояний — простые SVG (свои).
-const STROKE = 'stroke="#3B2A1E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"';
+const STROKE = 'stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"';
 const STATE_ICONS = {
   FOCUS: `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="7" fill="#F5C542" ${STROKE}/><path d="M16 2v4M16 26v4M2 16h4M26 16h4M6 6l3 3M23 23l3 3M6 26l3-3M23 9l3-3" ${STROKE} fill="none"/></svg>`,
   NOTEBOOK: `<svg viewBox="0 0 32 32"><path d="M7 25l2-7L22 5l5 5L14 23z" fill="#8FD3C8" ${STROKE}/><path d="M7 25l7-2" ${STROKE}/></svg>`,
@@ -101,13 +101,24 @@ function showTab(name) {
   $$(".tab").forEach((t) => t.classList.toggle("active", t.id === "tab-" + name));
   if (tabLoaders[name]) tabLoaders[name]();
 }
+// Тема: light / dark / system. Выбор дублируется в localStorage, чтобы страница не мигала при загрузке.
+const darkQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+let themeChoice = "system";
+function applyTheme(choice) {
+  themeChoice = ["light", "dark"].includes(choice) ? choice : "system";
+  const dark = themeChoice === "dark" || (themeChoice === "system" && darkQuery && darkQuery.matches);
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  try { localStorage.setItem("carpoTheme", themeChoice); } catch (e) { /* без localStorage тоже работает */ }
+}
+if (darkQuery) darkQuery.addEventListener("change", () => { if (themeChoice === "system") applyTheme("system"); });
+
 // Игровой режим: без него пруд, коллекция, задания, магазин, монеты и серия скрыты.
 function applyGameMode(on) {
   document.body.classList.toggle("game-on", !!on);
   const active = document.querySelector(".tabs button.active");
   if (!on && active && active.classList.contains("game-only")) showTab("session");
 }
-$(".tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
+$$(".tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
 
 // ================= звуки интерфейса (Web Audio, без аудиофайлов) =================
 
@@ -115,7 +126,7 @@ let soundOn = localStorage.getItem("uiSound") === "on";
 let audioCtx = null;
 
 function updateSoundButton() {
-  $("#sound-toggle").textContent = soundOn ? "🔊" : "🔈";
+  $("#sound-toggle").textContent = soundOn ? "Звук включён" : "Звук выключен";
   $("#sound-toggle").title = soundOn ? "Звук включён — нажми, чтобы выключить" : "Звук выключен — нажми, чтобы включить";
 }
 $("#sound-toggle").onclick = () => {
@@ -181,24 +192,24 @@ const eventHooks = [];   // вкладки могут реагировать н�
 function handleEvents(events) {
   for (const e of events) {
     if (e.type === "notice") toast(e.text);
-    if (e.type === "weed") toast("В воде появился ил 🫧");
+    if (e.type === "weed") toast("В воде появился ил");
     // Игра не отвлекает: «рыбка выросла» ждёт, пока человек не в фокусе.
-    if (e.type === "crop_ready") quietToast("Рыбка выросла! Нажми на неё, чтобы выпустить 🎉");
+    if (e.type === "crop_ready") quietToast("Рыбка выросла! Нажми на неё, чтобы выпустить");
     if (e.type === "reward" && document.body.classList.contains("game-on")) quietToast(rewardText(e));
-    if (e.type === "session_started") toast("Сессия началась. Удачи! 🐟");
+    if (e.type === "session_started") toast("Сессия началась. Удачи!");
     if (e.type === "session_ended") toast(e.message);
     if (e.type === "break_started" || e.type === "break_ended") toast(e.message);
     // Защита от отвлечений: это не игра, а часть самой учёбы, поэтому показываем сразу.
     if (e.type === "block_warning") {
-      toast(e.hard ? `«${e.process}» отвлекает и закроется через ${e.seconds} с. Сохрани работу 💾`
-                   : `«${e.process}» отвлекает от учёбы 🐟`, true);
+      toast(e.hard ? `«${e.process}» отвлекает и закроется через ${e.seconds} с. Сохрани работу`
+                   : `«${e.process}» отвлекает от учёбы`, true);
     }
     if (e.type === "phone_report" && e.kind === "service_off" && state && state.session) {
-      toast("На телефоне выключили службу блокировки 📱", true);
+      toast("На телефоне выключили службу блокировки", true);
     }
     if (e.type === "extension_lost") toast(e.message, true);
-    if (e.type === "app_closed") toast(`«${e.process}» закрыта — возвращаемся к учёбе 📚`);
-    if (e.type === "block_failed") toast(`Не получилось закрыть «${e.process}». Закрой её сам 🙏`, true);
+    if (e.type === "app_closed") toast(`«${e.process}» закрыта — возвращаемся к учёбе`);
+    if (e.type === "block_failed") toast(`Не получилось закрыть «${e.process}». Закрой её сам`, true);
     if (e.type === "sound") {
       playTone(SOUND_TONES[e.n]);
       showStandNote(e.n);
@@ -283,9 +294,9 @@ const WEATHER = {
   MAYBE_DISTRACTED: "cloudy", DISTRACTED: "gloomy", PHONE_OUT: "gloomy",
 };
 const WEATHER_TEXT = {
-  sunny: "💧 Вода чистая — рыбки растут",
-  cloudy: "🌫 Вода слегка мутнеет…",
-  gloomy: "🌊 Вода мутная — рыбки ждут тебя",
+  sunny: "Вода чистая — рыбки растут",
+  cloudy: "Вода слегка мутнеет…",
+  gloomy: "Вода мутная — рыбки ждут тебя",
 };
 
 function plotSprite(p) {
@@ -384,7 +395,7 @@ function renderFarm(s) {
 
   // Боковая панель.
   setStateView($("#farm-state"), $("#farm-state-icon"), $("#farm-state-text"), s.state);
-  $("#farm-weather").textContent = s.farm.raining ? "⛲ Родник: рост +10%" : WEATHER_TEXT[weather];
+  $("#farm-weather").textContent = s.farm.raining ? "Родник: рост +10%" : WEATHER_TEXT[weather];
   $("#farm-start").hidden = !!s.session;
   const active = s.farm.plots.find((p) => p.active);
   let hint = s.message || "Нажми на свободное место, чтобы поселить рыбку.";
@@ -397,7 +408,7 @@ function renderFarm(s) {
   const todayMin = minutes(s.farm.today_focus_s);
   $("#today-focus").textContent = todayMin;
   $("#today-goal").style.width = `${Math.min(100, (todayMin / 25) * 100)}%`;
-  $("#today-goal-text").textContent = todayMin >= 25 ? "День засчитан в серию 🔥" : `До зачёта дня: ${25 - todayMin} мин`;
+  $("#today-goal-text").textContent = todayMin >= 25 ? "День засчитан в серию" : `До зачёта дня: ${25 - todayMin} мин`;
 }
 
 // ---------- анимация урожая: монеты летят к счётчику ----------
@@ -445,17 +456,17 @@ $("#farm-grid").onclick = async (e) => {
     const r = await api("POST", "/api/farm/harvest", { x, y, name });
     refreshCollection();
     celebrateHarvest(btn, r);
-    if (r.weed_penalty) toast("Ил рядом забрал 20% монет — в следующий раз очисти воду 🫧");
-    else toast("Рыбка выпущена в пруд 🐟");
+    if (r.weed_penalty) toast("Ил рядом забрал 20% монет — в следующий раз очисти воду");
+    else toast("Рыбка выпущена в пруд");
     playTone("harvest");
   } else if (p.weeds) {
     if (!state.farm.can_weed) {
-      toast(`Очистить воду можно после 5 минут фокуса — осталось ${minutes(state.farm.weed_unlock_left_s)} мин 🐟`);
+      toast(`Очистить воду можно после 5 минут фокуса — осталось ${minutes(state.farm.weed_unlock_left_s)} мин`);
       return;
     }
     await api("POST", "/api/farm/weed", { x, y });
     playTone("click");
-    toast("Вода стала чище 👍");
+    toast("Вода стала чище");
   } else if (!state.session) {
     selectedPlot = `${x},${y}`;
     playTone("click");
@@ -542,7 +553,7 @@ function renderSession(s) {
     }
     $("#skip-break-btn").hidden = !onBreak;
     $("#pause-btn").hidden = $("#notebook-btn").hidden = onBreak;
-    $("#pause-btn .ico").textContent = session.paused ? "▶" : "⏸";
+    $("#pause-btn .ico").textContent = "";
     $("#pause-btn .lbl").textContent = session.paused ? "Продолжить" : "Пауза";
     $("#notebook-btn").classList.toggle("active", session.notebook);
     const totals = Object.entries(session.totals).filter(([, sec]) => sec >= 1);
@@ -589,7 +600,7 @@ function renderStand(s) {
   $("#stand").classList.toggle("undocked", !s.phone.docked);
   $("#stand").classList.toggle("clickable", s.dev_tools);
   $("#stand").title = s.dev_tools ? "Нажми, чтобы положить или взять телефон" : "Телефон";
-  $("#stand-status").textContent = s.phone.docked ? "📱 Телефон подключён" : "Телефон не подключён";
+  $("#stand-status").textContent = s.phone.docked ? "Телефон подключён" : "Телефон не подключён";
   const dock = dockStatus(s);
   const usb = s.phone.usb;
   let hint = s.device.status ? s.device.status + ". " : "";
@@ -713,7 +724,7 @@ function renderTimeline(tl) {
   $("#legend").innerHTML = TIMELINE_ORDER.map((s) => `<span class="s-${s}">${STATE_SHORT[s]}</span>`).join("");
   if (!tl || tl.duration_s <= 0 || !tl.segments.length) {
     svg.innerHTML = "";
-    $("#tl-start").textContent = "Сессий ещё не было — подключи телефон 🐟";
+    $("#tl-start").textContent = "Сессий ещё не было — подключи телефон";
     $("#tl-end").textContent = "";
     return;
   }
@@ -751,7 +762,7 @@ function renderStateBars(byState) {
 function renderTop(top) {
   $("#st-top").innerHTML = top.length
     ? top.map((p) => `<li>${p.name} <span class="cnt">— ${p.count} ${timesWord(p.count)}</span></li>`).join("")
-    : `<p class="empty-note">Отвлечений не было 🎉</p>`;
+    : `<p class="empty-note">Отвлечений не было</p>`;
 }
 
 // ---------- неделя: столбцы по дням (SVG, без библиотек) ----------
@@ -829,7 +840,7 @@ $("#shop-grid").onclick = async (e) => {
   if (!btn) return;
   render(await api("POST", "/api/shop/buy", { item: btn.dataset.buy }));
   playTone("harvest");
-  toast("Покупка удалась! 🎉");
+  toast("Покупка удалась!");
 };
 tabLoaders.shop = () => state && renderShop(state);
 renderHooks.push((s) => { if ($("#tab-shop").classList.contains("active")) renderShop(s); });
@@ -838,28 +849,28 @@ renderHooks.push((s) => { if ($("#tab-shop").classList.contains("active")) rende
 
 // Группы настроек: [раздел, ключ, подпись, единица].
 const SETTINGS_GROUPS = [
-  ["📱 Телефон", [
+  ["Телефон", [
     ["thresholds", "phone_grace_s", "Сколько секунд можно смотреть в телефон без последствий", "с"],
     ["session", "auto_start_on_dock", "Начинать сессию, когда подключаю телефон"],
     ["session", "auto_end_after_phone_out_min", "Через сколько минут без телефона завершать сессию", "мин"],
   ]],
-  ["🎮 Отвлечения", [
+  ["Отвлечения", [
     ["thresholds", "distraction_confirm_s", "Сколько секунд на YouTube и т. п. до «Отвлёкся»", "с"],
     ["thresholds", "neutral_limit_s", "Сколько секунд в «нейтральной» программе до «Кажется, отвлёкся»", "с"],
     ["thresholds", "idle_limit_s", "Сколько секунд без клавиатуры и мыши до «Кажется, отвлёкся»", "с"],
     ["thresholds", "maybe_to_distracted_s", "Через сколько секунд «Кажется» становится «Отвлёкся»", "с"],
     ["thresholds", "recover_s", "Сколько секунд работы нужно, чтобы вернуться в фокус", "с"],
   ]],
-  ["✏️ Режим тетради", [
+  ["Режим тетради", [
     ["thresholds", "notebook_max_min", "Сколько минут подряд можно писать до вопроса «Ты ещё здесь?»", "мин"],
     ["thresholds", "notebook_answer_s", "Сколько секунд ждать ответа", "с"],
   ]],
-  ["⏱ Сессия", [
+  ["Сессия", [
     ["session", "default_length_min", "Длина сессии", "мин"],
     ["session", "break_min", "Перерыв после сессии", "мин"],
     ["session", "demo_length_min", "Длина сессии в демо-режиме", "мин"],
   ]],
-  ["🍅 Pomodoro (длинные сессии)", [
+  ["Pomodoro (длинные сессии)", [
     ["pomodoro", "enabled", "Перерывы в длинных сессиях"],
     ["pomodoro", "min_session_min", "С какой длины сессии включать перерывы", "мин"],
     ["pomodoro", "work_min", "Работа между перерывами", "мин"],
@@ -867,7 +878,7 @@ const SETTINGS_GROUPS = [
     ["pomodoro", "cycles", "После скольких рабочих отрезков перерыв длинный", "шт"],
     ["pomodoro", "long_break_min", "Длинный перерыв (20–30)", "мин"],
   ]],
-  ["🎮 Игровой режим", [
+  ["Игровой режим", [
     ["ui", "game_mode", "Включить игру: пруд, рыбки, магазин, задания и серию дней"],
     ["ui", "pond_fish_max", "Сколько выпущенных рыбок плавает в пруду (0 — никого)", "шт"],
     ["rewards", "enabled", "Задания и ачивки (выключи для полной тишины)"],
@@ -899,19 +910,19 @@ function showAllowBox() {
   const white = $("#set-listmode").value === "whitelist";
   $("#allow-box").hidden = !white;
   $("#allow-warn").textContent = white && !lines($("#allow-apps").value).length && !lines($("#allow-sites").value).length
-    ? "⚠ Белый список пуст — пока ничего не блокируется. Добавьте программы и сайты, которые нужны для учёбы."
+    ? "Белый список пуст — пока ничего не блокируется. Добавьте программы и сайты, которые нужны для учёбы."
     : white ? "Всё, чего нет в списках, будет блокироваться во время учёбы. Программа и браузер тоже должны быть в списке."
       : "";
 }
 
 async function loadWifi() {
   const w = await api("GET", "/api/wifi/status");
-  $("#wifi-status").textContent = w.error ? `⚠ ${w.error}`
-    : w.running ? `🟢 Готово к подключению телефонов: ${w.address}`
+  $("#wifi-status").textContent = w.error ? `${w.error}`
+    : w.running ? `Готово к подключению телефонов: ${w.address}`
       : w.enabled ? "Запускаю…" : "Выключено";
   $("#wifi-pair").disabled = !w.running;
   $("#wifi-devices").innerHTML = w.devices.map((d) => `<div class="field">
-    <span>${d.online ? "🟢" : "⚪"} ${d.name}</span>
+    <span><i class="dot ${d.online ? "on" : "off"}"></i>${d.name}</span>
     <button class="btn small danger" data-wifi-del="${d.id}">Удалить</button></div>`).join("")
     || '<p class="muted small">Телефонов пока нет.</p>';
   $$("[data-wifi-del]").forEach((b) => (b.onclick = async (e) => {
@@ -937,7 +948,7 @@ async function loadSettings() {
     fields.filter(([group, key]) => key in s[group])
       .map(([group, key, label, unit]) => fieldHtml(group, key, label, unit, s[group][key])).join("") +
     `</div>`).join("");
-  html = `<div class="settings-group"><h3>🛡 Защита от отвлечений</h3>
+  html = `<div class="settings-group"><h3>Защита от отвлечений</h3>
     <label class="field"><span>Насколько строго</span>
       <select id="set-strictness">
         <option value="soft">мягко — предупреждение, ничего не закрываем</option>
@@ -969,7 +980,7 @@ async function loadSettings() {
     <p class="muted small">Программы закрывает сама «Фокус-пруд», сайты блокирует расширение для браузера
       (папка <code>extension/</code>). На телефоне то же делает приложение «Фокус-пруд Щит» (папка <code>android/</code>).</p>
   </div>
-  <div class="settings-group"><h3>🔒 Строгий режим</h3>
+  <div class="settings-group"><h3>Строгий режим</h3>
     <p class="muted small">Если защита «жёсткая», то во время сессии нельзя поставить паузу, завершить её досрочно
       или ослабить защиту. Выйти можно только по таймеру или с паролем. Если программу закроют, сторож запустит её снова,
       а расширение браузера и телефон сообщат, если их отключат. Это защита от случайного «ну я на минутку»;
@@ -980,7 +991,7 @@ async function loadSettings() {
     <div class="form-row"><button class="btn small" id="strict-set">Сохранить пароль</button>
       <button class="btn small" id="strict-clear">Убрать пароль</button></div>
   </div>
-  <div class="settings-group"><h3>📱 Телефон по Wi-Fi</h3>
+  <div class="settings-group"><h3>Телефон по Wi-Fi</h3>
     <label class="field"><span>Связь с телефоном</span>
       <span class="toggle"><input type="checkbox" id="set-lan"><span></span></span></label>
     <p class="muted small">Без интернета и чужих серверов: ПК и телефон должны быть в одной сети Wi-Fi.
@@ -990,7 +1001,15 @@ async function loadSettings() {
     <div id="wifi-qr"></div>
     <div id="wifi-devices"></div>
   </div>` + html;
-  html += `<div class="settings-group"><h3>🔊 Звук и режим</h3>
+  html += `<div class="settings-group"><h3>Оформление</h3>
+    <label class="field"><span>Тема интерфейса</span>
+      <select id="set-theme">
+        <option value="light">Светлая</option>
+        <option value="dark">Тёмная</option>
+        <option value="system">Как в системе</option>
+      </select></label>
+  </div>`;
+  html += `<div class="settings-group"><h3>Звук и режим</h3>
     <label class="field"><span>Звуки подставки</span>
       <span class="toggle"><input type="checkbox" id="set-sound" ${s.sound.enabled ? "checked" : ""}><span></span></span></label>
     <label class="field"><span>Режим работы</span>
@@ -1002,7 +1021,7 @@ async function loadSettings() {
     <label class="field"><span>Во сколько раз ускорять время в демо</span>
       <span class="input-unit">×<input type="number" id="set-speed" min="1" max="1000" value="${s.demo_speed}"></span></label>
   </div>
-  <div class="settings-group"><h3>📱 Телефон по кабелю</h3>
+  <div class="settings-group"><h3>Телефон по кабелю</h3>
     <p id="usb-status" class="muted"></p>
     <div id="pair-box" class="pair-box"></div>
     <label class="field"><span>Чем определять «телефон подключён»</span>
@@ -1012,16 +1031,17 @@ async function loadSettings() {
         <option value="serial">только подставка ESP32</option>
         <option value="mock">только вручную (разработчик)</option>
       </select></label>
-    <p class="muted small">💡 Чтобы телефоном нельзя было пользоваться, включи на нём режим «Фокусирование»
+    <p class="muted small">Чтобы телефоном нельзя было пользоваться, включи на нём режим «Фокусирование»
       (iPhone) или «Цифровое благополучие → Режим фокусировки» (Android) и оставь только нужные приложения.</p>
   </div>
-  <div class="settings-group"><h3>🔌 Подставка</h3>
+  <div class="settings-group"><h3>Подставка</h3>
     <label class="field"><span>COM-порт</span>
       <span class="input-unit"><select id="set-port"></select><button class="btn small" id="ports-refresh" title="Обновить список">↻</button></span></label>
     <p class="muted small">«Нет подставки» — телефон определяется только по кабелю.</p>
   </div>`;
   $("#settings-groups").innerHTML = html;
   $("#set-mode").value = s.mode;
+  $("#set-theme").value = (s.ui || {}).theme || "system";
   $("#set-strictness").value = (s.protection || {}).strictness || "soft";
   $("#set-warns").value = (s.protection || {}).warn_s || 10;
   $("#set-targets").value = (s.protection || {}).targets || "pc";
@@ -1047,15 +1067,15 @@ async function loadSettings() {
       $("#wifi-qr").innerHTML = `<div class="qr">${r.qr_svg}</div>
         <p class="muted small">Откройте приложение на телефоне и отсканируйте код. Он действует ${r.expires_in} секунд.</p>`;
     } catch (err) {
-      $("#wifi-qr").innerHTML = `<p class="muted small">⚠ ${err.message || err}</p>`;
+      $("#wifi-qr").innerHTML = `<p class="muted small">${err.message || err}</p>`;
     }
   };
   await loadWifi();
   await loadStrict();
   const live = (await api("GET", "/api/state")).protection || {};
   $("#ext-status").textContent = live.extension_connected
-    ? "🌐 Расширение браузера подключено ✔"
-    : "🌐 Расширение браузера не видно: сайты не блокируются (установка — extension/README.md)";
+    ? "Расширение браузера подключено"
+    : "Расширение браузера не видно: сайты не блокируются (установка — extension/README.md)";
   $("#set-source").value = s.device.phone_source || "auto";
   await loadUsb();
   $("#ports-refresh").onclick = (e) => { e.preventDefault(); loadPorts($("#set-port").value); };
@@ -1075,7 +1095,7 @@ $("#settings-groups").addEventListener("click", async (e) => {
   if (e.target.id === "strict-set") {
     await api("PUT", "/api/strict/password", { new: $("#strict-new").value, old: $("#strict-old").value || null });
     $("#strict-new").value = $("#strict-old").value = "";
-    toast("Пароль сохранён ✔");
+    toast("Пароль сохранён");
     await loadStrict();
   } else if (e.target.id === "strict-clear") {
     await api("DELETE", "/api/strict/password", { password: $("#strict-old").value || null });
@@ -1090,6 +1110,7 @@ $("#settings-save").onclick = async () => {
   $$("#settings-groups [data-group]").forEach((input) => {
     body[input.dataset.group][input.dataset.key] = input.type === "checkbox" ? input.checked : Number(input.value);
   });
+  body.ui.theme = $("#set-theme").value;
   body.sound = { enabled: $("#set-sound").checked };
   body.mode = $("#set-mode").value;
   body.network = { lan_enabled: $("#set-lan").checked };
@@ -1106,8 +1127,9 @@ $("#settings-save").onclick = async () => {
   await api("PUT", "/api/settings", body);
   pondMax = body.ui.pond_fish_max;
   applyGameMode(body.ui.game_mode);
+  applyTheme(body.ui.theme);
   renderSwimmers();
-  toast("Настройки сохранены ✔");
+  toast("Настройки сохранены");
   refresh();
 };
 tabLoaders.settings = loadSettings;
@@ -1120,7 +1142,7 @@ function renderPairBox(extra = "") {
   const box = $("#pair-box");
   if (!box) return;
   const steps = {
-    idle: `<button class="btn" id="pair-start">🔗 Привязать телефон</button>`,
+    idle: `<button class="btn" id="pair-start">Привязать телефон</button>`,
     unplug: `<p><b>Шаг 1.</b> Отключи телефон от компьютера, потом нажми «Дальше».</p>
       <button class="btn primary" id="pair-next">Дальше</button> <button class="btn" id="pair-cancel">Отмена</button>`,
     plug: `<p><b>Шаг 2.</b> Подключи телефон кабелем (на телефоне выбери «Передача файлов», если спросит) и нажми «Найти».</p>
@@ -1134,7 +1156,7 @@ async function loadUsb() {
   const info = await api("GET", "/api/phone");
   const usb = info.usb;
   $("#usb-status").textContent = usb && usb.paired
-    ? `Привязан: ${usb.name || "телефон"} — сейчас ${usb.docked ? "подключён ✅" : "не подключён"}.`
+    ? `Привязан: ${usb.name || "телефон"} — сейчас ${usb.docked ? "подключён" : "не подключён"}.`
     : "Телефон не привязан. Привяжи его один раз — дальше таймер будет стартовать при подключении кабеля.";
   pairStep = "idle";
   renderPairBox();
@@ -1158,12 +1180,12 @@ document.addEventListener("click", async (e) => {
   else if (id === "pair-cancel") { pairStep = "idle"; renderPairBox(); }
   else if (id === "pair-find") {
     const r = await api("POST", "/api/phone/pair/finish");
-    if (r.paired) { toast("Телефон привязан ✔"); await loadUsb(); }
+    if (r.paired) { toast("Телефон привязан"); await loadUsb(); }
     else if (r.candidates.length > 1) await manualPairList("Найдено несколько новых устройств — выбери телефон:");
     else await manualPairList("Новое устройство не появилось. Возможно, кабель только для зарядки. Выбери телефон из списка или смени кабель:");
   } else if (e.target.dataset && e.target.dataset.pair) {
     await api("POST", "/api/phone/pair", { id: e.target.dataset.pair, name: e.target.dataset.name });
-    toast("Телефон привязан ✔");
+    toast("Телефон привязан");
     await loadUsb();
   } else if (id === "pair-remove") {
     await api("DELETE", "/api/phone/pair");
@@ -1254,7 +1276,7 @@ $("#rules-save").onclick = async () => {
     || (r.domains || []).length);
   rules = await api("PUT", "/api/rules", { default: rules.default, rules: clean });
   renderRules();
-  toast("Правила сохранены ✔");
+  toast("Правила сохранены");
 };
 
 // ================= тишина: игра не отвлекает от работы =================
@@ -1284,9 +1306,9 @@ function flushQuiet() {
 
 function rewardText(e) {
   const coins = e.coins ? ` +${e.coins} монет` : "";
-  if (e.kind === "quest") return `🎯 Задание выполнено: ${e.title}${coins}`;
+  if (e.kind === "quest") return `Задание выполнено: ${e.title}${coins}`;
   const building = e.building ? " — новое здание в пруду!" : "";
-  return `🏆 Ачивка «${e.title}»${coins}${building}`;
+  return `Ачивка «${e.title}»${coins}${building}`;
 }
 
 function renderBadges(s) {
@@ -1315,6 +1337,7 @@ async function loadPondMax() {
   const s = await api("GET", "/api/settings");
   pondMax = s.ui ? s.ui.pond_fish_max : 12;
   applyGameMode(!!(s.ui && s.ui.game_mode));
+  applyTheme(s.ui && s.ui.theme);
   renderSwimmers();
 }
 
@@ -1366,7 +1389,7 @@ function renderCollectionTab() {
   setHtml($("#fish-list"), collection.fish.length
     ? collection.fish.map((f) => `<li><img src="sprites/${f.fish_id}_adult.svg" alt="">
         <b>${f.name ? escapeHtml(f.name) : "Без имени"}</b> <span class="muted">${names[f.fish_id]}</span> <span>${"★".repeat(f.stars)}</span></li>`).join("")
-    : `<li class="muted">Пока никого. Выпусти первую рыбку — она поселится в пруду 🐟</li>`);
+    : `<li class="muted">Пока никого. Выпусти первую рыбку — она поселится в пруду</li>`);
 }
 tabLoaders.collection = async () => { await refreshCollection(); renderCollectionTab(); };
 
@@ -1379,13 +1402,13 @@ async function loadQuestsTab() {
     : "Тихий режим: задания и ачивки выключены (Настройки → Игра).";
   setHtml($("#quests-list"), r.quests.map((q) => `
     <div class="quest${q.done ? " done" : ""}">
-      <h4>${q.done ? "✅ " : ""}${q.title}</h4>
+      <h4>${q.done ? "Готово · " : ""}${q.title}</h4>
       <div class="q-bar"><div style="width:${(q.progress / q.target) * 100}%"></div></div>
       <div class="muted small">${q.progress} / ${q.target} · награда ${q.reward} монет${q.paid ? " (получено)" : ""}</div>
     </div>`).join(""));
   setHtml($("#achievements-grid"), r.achievements.map((a) => `
     <div class="ach${a.unlocked ? "" : " locked"}">
-      <h4>${a.unlocked ? "🏆" : "🔒"} ${a.title}</h4>
+      <h4>${a.unlocked ? "" : "Закрыто · "}${a.title}</h4>
       <div class="muted small">${a.desc}</div>
     </div>`).join(""));
   if (r.unseen > 0 && !isQuiet()) render(await api("POST", "/api/rewards/seen"));
@@ -1411,12 +1434,12 @@ async function refreshSetup() {
   try {
     const wifi = await api("GET", "/api/wifi/status");
     const online = wifi.devices.filter((d) => d.online).length;
-    $("#setup-phone").textContent = online ? `🟢 Подключён: ${wifi.devices.filter((d) => d.online).map((d) => d.name).join(", ")}`
-      : wifi.devices.length ? "⚪ Телефон сопряжён, но сейчас не на связи" : "Не подключён";
+    $("#setup-phone").textContent = online ? `Подключён: ${wifi.devices.filter((d) => d.online).map((d) => d.name).join(", ")}`
+      : wifi.devices.length ? "Телефон сопряжён, но сейчас не на связи" : "Не подключён";
     $("#setup-phone-btn").textContent = wifi.devices.length ? "Подключить ещё" : "Подключить телефон";
     if (online && !$("#setup-phone-box").hidden) $("#setup-phone-box").hidden = true;   // подключились: код больше не нужен
     const ext = await api("GET", "/api/extension/browsers");
-    $("#setup-ext").textContent = ext.connected ? "🟢 Расширение работает" : "Расширение не установлено: сайты не блокируются";
+    $("#setup-ext").textContent = ext.connected ? "Расширение работает" : "Расширение не установлено: сайты не блокируются";
     $("#setup-ext-btn").hidden = ext.connected;
   } catch (_) { /* карточка не должна мешать остальному интерфейсу */ }
 }
