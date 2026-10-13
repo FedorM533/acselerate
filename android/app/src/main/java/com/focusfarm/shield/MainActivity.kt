@@ -137,6 +137,38 @@ class MainActivity : Activity() {
             text("Телефон, сообщения, клавиатура, настройки и главный экран разрешены всегда.", 13f, color = MUTED),
         ))
 
+        val nudgeSwitch = Switch(this).apply {
+            text = "Звуки, если долго отвлекаешься"
+            isChecked = prefs.nudgeOn
+            setOnCheckedChangeListener { _, checked -> prefs.nudgeOn = checked }
+        }
+        val volume = android.widget.SeekBar(this).apply {
+            max = 95
+            progress = prefs.nudgeVolume - 5
+            setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: android.widget.SeekBar?, value: Int, fromUser: Boolean) {
+                    if (fromUser) prefs.nudgeVolume = value + 5
+                }
+                override fun onStartTrackingTouch(bar: android.widget.SeekBar?) {}
+                override fun onStopTrackingTouch(bar: android.widget.SeekBar?) {}
+            })
+        }
+        val previews = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            (1..Nudge.LEVELS).forEach { level ->
+                addView(button("$level", Look.GHOST) {
+                    NudgePlayer.play(this@MainActivity, level, prefs.nudgeVolume / 100f)
+                }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(8) })
+            }
+        }
+        column.addView(card(
+            text("Звуки-напоминания", 14f, color = MUTED), nudgeSwitch,
+            text("Громкость", 13f, color = MUTED), volume,
+            text("Прослушать (от мягкого к настойчивому):", 13f, color = MUTED), previews,
+            text("Звук нарастает, пока сидишь в запрещённом приложении, которое открыл «всё равно», и при повторных заходах. " +
+                "В беззвучном режиме телефон только вибрирует.", 13f, color = MUTED),
+        ))
+
         minutes = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
             setText("25")

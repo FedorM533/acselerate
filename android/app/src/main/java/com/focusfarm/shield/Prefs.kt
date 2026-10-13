@@ -48,6 +48,15 @@ class Prefs(context: Context) {
         get() = sp.getLong("escLast", 0)
         set(v) = sp.edit().putLong("escLast", v).apply()
 
+    // ---- звуки-напоминания, если долго отвлекаешься (см. Nudge) ----
+    var nudgeOn: Boolean
+        get() = sp.getBoolean("nudgeOn", true)
+        set(v) = sp.edit().putBoolean("nudgeOn", v).apply()
+    /** Громкость в процентах, 5..100. */
+    var nudgeVolume: Int
+        get() = sp.getInt("nudgeVolume", 60).coerceIn(5, 100)
+        set(v) = sp.edit().putInt("nudgeVolume", v.coerceIn(5, 100)).apply()
+
     /** До какого момента идёт перерыв Pomodoro (сообщил компьютер); 0 — перерыва нет. */
     var breakUntil: Long
         get() = sp.getLong("breakUntil", 0)

@@ -6,6 +6,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
 
@@ -17,17 +19,43 @@ class FocusAccessibilityService : AccessibilityService() {
     private lateinit var prefs: Prefs
     private var lastPkg = ""
     private var lastAt = 0L
+    private var currentPkg = ""                   // что сейчас на экране (без системных окон)
+    private val handler = Handler(Looper.getMainLooper())
+    private val nudges = NudgeTracker()
+    private val nudgeTick = object : Runnable {
+        override fun run() {
+            checkNudge()
+            handler.postDelayed(this, NUDGE_EVERY_MS)
+        }
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         prefs = Prefs(this)
         Events.add(this, "service_on")
+        handler.removeCallbacks(nudgeTick)
+        handler.postDelayed(nudgeTick, NUDGE_EVERY_MS)
+    }
+
+    /**
+     * Мягкий режим: человек нажал «всё равно открыть» и сидит в запрещённом приложении. Чем дольше,
+     * тем настойчивее звук (60 с, 3, 6 и 10 минут), пока он не вернётся к делу.
+     */
+    private fun checkNudge() {
+        val now = System.currentTimeMillis()
+        val state = prefs.shieldState()
+        val distracted = state.active(now) && currentPkg.isNotEmpty() &&
+            Snooze.active(currentPkg, now) &&
+            Policy.isBlocked(currentPkg, state.mode(now), prefs.blocked, prefs.allowed, SystemApps.get(this))
+        val level = nudges.tick(distracted, now)
+        if (level > 0 && prefs.nudgeOn) NudgePlayer.play(this, level, prefs.nudgeVolume / 100f)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null || event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
         val now = System.currentTimeMillis()
+        if (pkg != packageName && pkg !in SystemApps.get(this)) currentPkg = pkg
         val state = prefs.shieldState()
         if (!state.active(now)) return
         val blocked = Policy.isBlocked(
@@ -42,6 +70,9 @@ class FocusAccessibilityService : AccessibilityService() {
         val count = Escalation.nextCount(prefs.escCount, prefs.escLast, now)
         prefs.escCount = count
         prefs.escLast = now
+        // Повторные заходы подряд: со второго звучит уровень 1, дальше всё настойчивее.
+        val level = Nudge.levelForAttempt(count)
+        if (level > 0 && prefs.nudgeOn) NudgePlayer.play(this, level, prefs.nudgeVolume / 100f)
         startActivity(
             Intent(this, BlockActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -54,6 +85,7 @@ class FocusAccessibilityService : AccessibilityService() {
     override fun onInterrupt() {}
 
     override fun onUnbind(intent: Intent?): Boolean {
+        handler.removeCallbacks(nudgeTick)
         Events.add(this, "service_off")      // службу выключили: расскажем ПК при следующей связи
         // Если учёба идёт, не даём выключить блокировку молча: громкое уведомление с переходом в настройки.
         if (Prefs(this).shieldState().active(System.currentTimeMillis())) warnServiceOff()
@@ -82,6 +114,7 @@ class FocusAccessibilityService : AccessibilityService() {
     }
 
     private companion object {
+        const val NUDGE_EVERY_MS = 5_000L
         const val ALERT_CHANNEL = "alert"
         const val ALERT_ID = 2
     }
