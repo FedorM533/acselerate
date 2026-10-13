@@ -144,6 +144,17 @@ const TONES = {
   soft: [[440, 0, 0.25], [392, 0.2, 0.3]],                   // мягкий сигнал
   distracted: [[392, 0, 0.25], [330, 0.22, 0.35]],
   click: [[880, 0, 0.05]],
+  // Запасные тоны «возвращалок» (если системный звук не сработал): от мягкого к настойчивому.
+  nudge1: [[523, 0, 0.3], [659, 0.25, 0.5]],
+  nudge2: [[523, 0, 0.14], [659, 0.12, 0.14], [784, 0.24, 0.14], [1047, 0.36, 0.4]],
+  nudge3: [[880, 0, 0.12], [880, 0.18, 0.12], [880, 0.36, 0.12], [698, 0.56, 0.12], [698, 0.74, 0.12], [698, 0.92, 0.25]],
+  nudge4: [[1000, 0, 0.18], [700, 0.2, 0.18], [1000, 0.4, 0.18], [700, 0.6, 0.18], [1000, 0.8, 0.18], [700, 1.0, 0.18]],
+};
+const NUDGE_TEXTS = {
+  1: "Ты давно отвлёкся. Самое время вернуться к учёбе",
+  2: "Пора вернуться к работе: пруд ждёт",
+  3: "Отвлечение затянулось. Вернись к учёбе",
+  4: "Хватит отвлекаться! Возвращайся к учёбе",
 };
 // Номер звука подставки → мелодия интерфейса.
 const SOUND_TONES = { 1: "soft", 2: "distracted", 3: "harvest", 4: "plant" };
@@ -210,6 +221,11 @@ function handleEvents(events) {
     if (e.type === "extension_lost") toast(e.message, true);
     if (e.type === "app_closed") toast(`«${e.process}» закрыта — возвращаемся к учёбе`);
     if (e.type === "block_failed") toast(`Не получилось закрыть «${e.process}». Закрой её сам`, true);
+    // Звук-«возвращалка» играет сам компьютер; браузер подхватывает, только если системный не сработал.
+    if (e.type === "nudge") {
+      if (!e.system) playTone("nudge" + e.level);
+      toast(NUDGE_TEXTS[e.level] || NUDGE_TEXTS[4], true);
+    }
     if (e.type === "sound") {
       playTone(SOUND_TONES[e.n]);
       showStandNote(e.n);
@@ -1012,6 +1028,16 @@ async function loadSettings() {
   html += `<div class="settings-group"><h3>Звук и режим</h3>
     <label class="field"><span>Звуки подставки</span>
       <span class="toggle"><input type="checkbox" id="set-sound" ${s.sound.enabled ? "checked" : ""}><span></span></span></label>
+    <label class="field"><span>Звуки-напоминания, если долго отвлекаешься</span>
+      <span class="toggle"><input type="checkbox" id="set-nudge" ${(s.sound.nudge || {}).enabled !== false ? "checked" : ""}><span></span></span></label>
+    <label class="field"><span>Громкость напоминаний</span>
+      <input type="range" id="set-nudge-volume" min="0.1" max="1" step="0.05" value="${(s.sound.nudge || {}).volume ?? 0.6}"></label>
+    <div class="form-row">
+      <span class="muted small">Прослушать:</span>
+      ${[1, 2, 3, 4].map((n) => `<button class="btn small nudge-preview" data-level="${n}">${n}</button>`).join(" ")}
+    </div>
+    <p class="muted small">Чем дольше отвлечение, тем настойчивее звук: от мягкого «дзынь» до тревожной сирены.
+      Играет сам компьютер, даже если эта вкладка закрыта.</p>
     <label class="field"><span>Режим работы</span>
       <select id="set-mode">
         <option value="normal">обычный</option>
@@ -1020,6 +1046,15 @@ async function loadSettings() {
       </select></label>
     <label class="field"><span>Во сколько раз ускорять время в демо</span>
       <span class="input-unit">×<input type="number" id="set-speed" min="1" max="1000" value="${s.demo_speed}"></span></label>
+  </div>
+  <div class="settings-group"><h3>Отзыв и поддержка</h3>
+    <p id="about-version" class="muted small"></p>
+    <div class="form-row">
+      <button class="btn small" id="feedback-open">Написать отзыв</button>
+      <a class="btn small" id="report-download" href="/api/diagnostics" download="carpo-report.zip">Скачать отчёт для разработчика</a>
+    </div>
+    <p class="muted small">Отчёт — это версия, система и журнал программы. Заголовков окон, паролей и личных
+      данных в нём нет. Приложи его к отзыву, если что-то сломалось.</p>
   </div>
   <div class="settings-group"><h3>Телефон по кабелю</h3>
     <p id="usb-status" class="muted"></p>
@@ -1077,6 +1112,13 @@ async function loadSettings() {
     ? "Расширение браузера подключено"
     : "Расширение браузера не видно: сайты не блокируются (установка — extension/README.md)";
   $("#set-source").value = s.device.phone_source || "auto";
+  const about = await api("GET", "/api/about");
+  $("#about-version").textContent = `Carpo ${about.version}`;
+  $("#feedback-open").onclick = (e) => {
+    e.preventDefault();
+    if (about.feedback_url) window.open(about.feedback_url, "_blank");
+    else toast("Пока некуда отправлять отзыв: скачай отчёт и пришли его автору приложения");
+  };
   await loadUsb();
   $("#ports-refresh").onclick = (e) => { e.preventDefault(); loadPorts($("#set-port").value); };
   await loadPorts(s.device.serial_port);
@@ -1092,7 +1134,10 @@ async function loadStrict() {
 }
 
 $("#settings-groups").addEventListener("click", async (e) => {
-  if (e.target.id === "strict-set") {
+  if (e.target.classList.contains("nudge-preview")) {
+    e.preventDefault();
+    await api("POST", "/api/sound/preview", { level: Number(e.target.dataset.level), volume: Number($("#set-nudge-volume").value) });
+  } else if (e.target.id === "strict-set") {
     await api("PUT", "/api/strict/password", { new: $("#strict-new").value, old: $("#strict-old").value || null });
     $("#strict-new").value = $("#strict-old").value = "";
     toast("Пароль сохранён");
@@ -1111,7 +1156,8 @@ $("#settings-save").onclick = async () => {
     body[input.dataset.group][input.dataset.key] = input.type === "checkbox" ? input.checked : Number(input.value);
   });
   body.ui.theme = $("#set-theme").value;
-  body.sound = { enabled: $("#set-sound").checked };
+  body.sound = { enabled: $("#set-sound").checked,
+                 nudge: { enabled: $("#set-nudge").checked, volume: Number($("#set-nudge-volume").value) } };
   body.mode = $("#set-mode").value;
   body.network = { lan_enabled: $("#set-lan").checked };
   body.protection = {

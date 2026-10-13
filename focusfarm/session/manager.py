@@ -59,7 +59,7 @@ EXTENSION_TIMEOUT_S = 90  # сколько тишины от расширени�
 class SessionManager:
     def __init__(self, settings: dict, db: Database, clock: Clock | None = None,
                  bus: EventBus | None = None, monitor=None, classifier=None,
-                 phone=None, device=None, rng=None, blocker=None):
+                 phone=None, device=None, rng=None, blocker=None, nudge_player=None):
         self.clock = clock or RealClock()
         # Без явного блокировщика ничего не закрываем (тесты, демо).
         self.blocker = blocker or NullBlocker()
@@ -84,7 +84,7 @@ class SessionManager:
         self.rewards = RewardsService(db, self.game, self.clock, self.bus,
                                       enabled=settings.get("rewards", {}).get("enabled", True))
         self._last_reward_eval = 0.0
-        self.reactions = Reactions(self.device, self.clock, self.bus, settings.get("sound"))
+        self.reactions = Reactions(self.device, self.clock, self.bus, settings.get("sound"), nudge_player)
         db.close_unfinished_sessions()
 
         self.state = IDLE
@@ -390,6 +390,7 @@ class SessionManager:
                 return
 
             self._update_state()
+            self.reactions.tick(self.speed)   # звуки-«возвращалки» при долгом отвлечении
             for event in self.game.tick(self.state, dt, self.clock.today()):
                 self.bus.publish(event["type"], event)
 

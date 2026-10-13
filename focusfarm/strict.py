@@ -14,6 +14,8 @@ import sys
 import time
 from pathlib import Path
 
+from focusfarm import paths
+
 log = logging.getLogger(__name__)
 
 ITERATIONS = 200_000
@@ -106,7 +108,7 @@ class StrictGuard:
 
     @staticmethod
     def _spawn_watchdog(lock_path, port, relaunch_args) -> int:
-        cmd = [sys.executable, "-m", "focusfarm.watchdog", "--lock", str(lock_path), "--port", str(port),
+        cmd = [*paths.watchdog_command(), "--lock", str(lock_path), "--port", str(port),
                "--", *relaunch_args]
         flags = 0
         if os.name == "nt":
@@ -120,6 +122,7 @@ def _pid_alive(pid: int) -> bool:
     """Жив ли именно сторож: номер процесса после перезагрузки мог достаться чужой программе."""
     try:
         import psutil
-        return "focusfarm.watchdog" in " ".join(psutil.Process(pid).cmdline())
+        cmdline = " ".join(psutil.Process(pid).cmdline())
+        return "focusfarm.watchdog" in cmdline or "--watchdog" in cmdline   # из исходников / из Carpo.exe
     except Exception:
         return False

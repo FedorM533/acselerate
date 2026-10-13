@@ -12,7 +12,8 @@ import sqlite3
 import threading
 from pathlib import Path
 
-DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+from focusfarm.paths import DATA_DIR  # noqa: E402  (в собранном приложении база лежит в профиле)
+
 DEFAULT_PATH = DATA_DIR / "focusfarm.db"
 
 MIGRATIONS = [

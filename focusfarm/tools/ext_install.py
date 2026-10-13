@@ -18,7 +18,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-SOURCE = Path(__file__).resolve().parent.parent.parent / "extension"
+from focusfarm.paths import EXTENSION_DIR as SOURCE  # noqa: E402  (в собранном приложении лежит рядом с exe)
 
 
 def _roots() -> list[str]:

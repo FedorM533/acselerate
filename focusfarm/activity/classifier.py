@@ -7,7 +7,7 @@ from pathlib import Path
 from focusfarm.config import CONFIG_DIR, ConfigError, load_yaml, save_yaml
 
 CATEGORIES = ("work", "neutral", "distraction")
-RULES_PATH = CONFIG_DIR / "rules.yaml"
+from focusfarm.paths import RULES_PATH  # noqa: E402  (в собранном приложении правила лежат в профиле)
 
 
 def normalize_domain(value) -> str:

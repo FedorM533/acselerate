@@ -11,13 +11,14 @@
 import argparse
 from pathlib import Path
 import logging
+import logging.handlers
 import sys
 import threading
 import webbrowser
 
 import uvicorn
 
-from focusfarm import fix_console_encoding
+from focusfarm import fix_console_encoding, paths
 from focusfarm.api.server import build_manager, create_app
 from focusfarm.storage.db import DEFAULT_PATH
 from focusfarm.strict import StrictGuard, pending_resume
@@ -41,7 +42,13 @@ def main():
             parser.error("--fresh работает только с отдельной базой: --db data/demo.db")
         Path(args.db).unlink(missing_ok=True)
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    paths.seed_user_files()
+    handlers = [logging.StreamHandler()]
+    if paths.FROZEN:   # у собранного приложения журнал в файле: его друзья присылают вместе с отзывом
+        handlers.append(logging.handlers.RotatingFileHandler(
+            paths.LOG_DIR / "carpo.log", maxBytes=1_000_000, backupCount=2, encoding="utf-8"))
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+                        handlers=handlers)
 
     # Флаги командной строки действуют только на этот запуск и в базу не пишутся.
     cli = {}

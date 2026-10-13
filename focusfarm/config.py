@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
+from focusfarm.paths import CONFIG_DIR  # noqa: E402  (в собранном приложении папка другая)
 
 MODES = ("normal", "dev", "demo")
 PHONE_SOURCES = ("auto", "usb", "serial", "mock")   # как определяем «телефон подключён»

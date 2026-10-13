@@ -5,11 +5,14 @@ manager.tick() и рассылает состояние всем открыты�
 """
 import asyncio
 import contextlib
+import io
 import logging
+import platform
+import zipfile
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -18,6 +21,7 @@ from focusfarm.activity.monitor import create_monitor
 from focusfarm.blocker.apps import AppBlocker
 from focusfarm.config import ConfigError, deep_merge, load_settings
 from focusfarm.device.dock import Dock
+from focusfarm import __version__, nudge_sounds, paths
 from focusfarm.game.engine import GameError
 from focusfarm.phone.lan import LanServer, NoLan
 from focusfarm.phone.qr import qr_svg
@@ -27,7 +31,7 @@ from focusfarm.storage.db import DEFAULT_PATH, Database
 from focusfarm.tools import ext_install
 
 log = logging.getLogger(__name__)
-WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+WEB_DIR = paths.WEB_DIR
 
 # Какие разделы настроек можно менять из интерфейса.
 EDITABLE_SETTINGS = ("mode", "demo_speed", "thresholds", "session", "sound", "device", "ui", "rewards",
@@ -35,6 +39,11 @@ EDITABLE_SETTINGS = ("mode", "demo_speed", "thresholds", "session", "sound", "de
 
 
 # ---------- тела запросов ----------
+
+class SoundPreviewBody(BaseModel):
+    level: int = 1
+    volume: float = 0.6
+
 
 class StartBody(BaseModel):
     plot: list[int] | None = None
@@ -100,6 +109,7 @@ def build_manager(db_path=DEFAULT_PATH, cli_overrides: dict | None = None, **kwa
         dock = Dock(settings.get("device", {}).get("serial_port", ""))
         kwargs["phone"] = kwargs["device"] = dock
     kwargs.setdefault("blocker", AppBlocker())
+    kwargs.setdefault("nudge_player", nudge_sounds.play_system)   # настоящие звуки-«возвращалки»
     manager = SessionManager(settings, db, **kwargs)
     manager.cli_overrides = cli_overrides or {}
     return manager
@@ -275,6 +285,35 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
         manager.apply_settings(settings)
         lan.sync(settings)       # включили или выключили связь с телефоном
         return get_settings()
+
+    @app.get("/api/about")
+    def about():
+        """Версия и ссылка для отзывов (кнопка «Написать отзыв» в настройках)."""
+        return {"version": __version__, "feedback_url": (manager.settings.get("app") or {}).get("feedback_url", ""),
+                "packaged": paths.FROZEN}
+
+    @app.get("/api/diagnostics")
+    def diagnostics():
+        """Архив для разработчика: версия, система и журнал. Заголовков окон и пароля здесь нет."""
+        buf = io.BytesIO()
+        info = [f"Carpo {__version__}", f"Система: {platform.platform()}", f"Python: {platform.python_version()}",
+                f"Собранная версия: {paths.FROZEN}", f"Режим: {manager.settings.get('mode')}",
+                f"Защита: {manager.settings.get('protection', {}).get('strictness')}"
+                f" / {manager.settings.get('protection', {}).get('targets')}",
+                f"Расширение браузера подключено: {manager.extension_connected()}"]
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("info.txt", "\n".join(info))
+            for log_file in sorted(paths.LOG_DIR.glob("carpo.log*")):
+                z.write(log_file, f"logs/{log_file.name}")
+        return Response(buf.getvalue(), media_type="application/zip",
+                        headers={"Content-Disposition": 'attachment; filename="carpo-report.zip"'})
+
+    @app.post("/api/sound/preview")
+    def sound_preview(body: SoundPreviewBody):
+        """Кнопка «прослушать» в настройках: играет звук-«возвращалку» выбранного уровня."""
+        level = max(1, min(nudge_sounds.LEVELS, body.level))
+        played = bool(manager.reactions.nudge_player(level, body.volume))
+        return {"played": played, "level": level}
 
     @app.get("/api/strict")
     def strict_status():

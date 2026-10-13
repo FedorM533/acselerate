@@ -13,6 +13,8 @@ import sys
 import time
 from pathlib import Path
 
+from focusfarm import paths
+
 CHECK_EVERY_S = 3
 DEAD_CHECKS = 2          # столько проверок подряд программа молчит — перезапуск
 START_GRACE_S = 30       # после запуска даём программе время подняться, чтобы не плодить копии
@@ -39,7 +41,7 @@ def launch(args: list[str]):
     flags = 0
     if os.name == "nt":
         flags = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
-    subprocess.Popen([sys.executable, "-m", "focusfarm", "--no-browser", *args], creationflags=flags,
+    subprocess.Popen([*paths.self_command(), "--no-browser", *args], creationflags=flags,
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                      close_fds=True)
 

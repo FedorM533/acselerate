@@ -5,3 +5,7 @@ __pycache__/
 data/*.db
 data/*.db-*
 data/*.log
+
+# Сборка Windows (scripts/build_windows.ps1)
+build/
+dist/
