@@ -11,6 +11,16 @@ const fmt = (s, o) => s.replace(/\{(\w+)\}/g, (_, k) => o[k]);
 const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+// Режим скриншота для сравнения «до/после»: ?shot=1&t=12&tod=dusk&seed=7&scene=all
+// Фиксирует случайность, время суток и момент анимации; игровую логику не трогает.
+const Q = new URLSearchParams(location.search);
+const SHOT = Q.has("shot") ? { t: parseFloat(Q.get("t") || "10"), tod: Q.get("tod"), all: Q.get("scene") === "all" } : null;
+function mulberry32(a) {
+  return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const rnd = SHOT ? mulberry32(parseInt(Q.get("seed") || "1", 10)) : Math.random;
+if (SHOT) document.body.classList.add("pond-shot");
+
 let CFG, VIS, PAL, STR, REASONS, DW, DH, MOT, UND;
 const imgs = {};
 const P = {
@@ -65,6 +75,7 @@ function shadowSprite(name, blurDesign, drawWidth) {
 
 // ---------------------------------------------------------------- время суток
 function todNow() {
+  if (SHOT && SHOT.tod) return SHOT.tod;
   const n = new Date(), m = n.getHours() * 60 + n.getMinutes();
   const toMin = (s) => { const [h, mm] = s.split(":").map(Number); return h * 60 + mm; };
   for (const t of PAL.timeOfDay) {
@@ -96,7 +107,7 @@ function applyScene(revealIds = new Set(), now = performance.now()) {
     const it = P.items.get(key);
     const reveal = revealIds.has(p.source);
     if (!it) {
-      P.items.set(key, { ...p, todA: 1, bob: Math.random() * 6.28, bobP: lerp(...VIS.surfaceBob.periodSec, Math.random()),
+      P.items.set(key, { ...p, sway: SWAY_ASSETS.has(p.asset), todA: 1, bob: rnd() * 6.28, bobP: lerp(...VIS.surfaceBob.periodSec, rnd()),
         revealStart: reveal ? now : null });
       if (reveal) addRipple(p.x * DW, p.y * DH, Math.max(140, p.width * DW * 0.9), now, 1800);
     } else if (it.asset !== p.asset || it.width !== p.width) {
@@ -113,17 +124,17 @@ function applyScene(revealIds = new Set(), now = performance.now()) {
 }
 
 // ---------------------------------------------------------------- карпы
-function randIn(z) { return [lerp(z.x1, z.x2, Math.random()) * DW, lerp(z.y1, z.y2, Math.random()) * DH]; }
+function randIn(z) { return [lerp(z.x1, z.x2, rnd()) * DW, lerp(z.y1, z.y2, rnd()) * DH]; }
 
 function addKoi(key, kk, reveal, now) {
   const z = CFG.canvas.swimZone;
-  let [x, y] = randIn(z), a = Math.random() * Math.PI * 2;
+  let [x, y] = randIn(z), a = rnd() * Math.PI * 2;
   if (reveal && VIS.reveal.koiEntersFromEdge) {          // новый карп приплывает из-за края
-    const side = Math.random() < 0.5 ? -1 : 1;
-    x = side < 0 ? -120 : DW + 120; y = lerp(0.3, 0.6, Math.random()) * DH; a = side < 0 ? 0 : Math.PI;
+    const side = rnd() < 0.5 ? -1 : 1;
+    x = side < 0 ? -120 : DW + 120; y = lerp(0.3, 0.6, rnd()) * DH; a = side < 0 ? 0 : Math.PI;
   }
-  const f = { key, asset: kk.asset, len: kk.length * DH, x, y, a, omega: 0, speed: 0, cruise: lerp(0.85, 1.15, Math.random()),
-    phase: Math.random() * 6, slowUntil: 0, attractUntil: 0, revealStart: reveal ? now : null };
+  const f = { key, asset: kk.asset, len: kk.length * DH, x, y, a, omega: 0, speed: 0, cruise: lerp(0.85, 1.15, rnd()),
+    phase: rnd() * 6, slowUntil: 0, attractUntil: 0, revealStart: reveal ? now : null };
   [f.tx, f.ty] = randIn(z);
   if (reveal) { [f.tx, f.ty] = [DW / 2, DH * 0.45]; f.attractUntil = now + 4000; }
   P.koi.set(key, f);
@@ -143,7 +154,7 @@ function stepKoi(f, dt, now, fishes) {
   const turn = clamp(diff, -maxTurn * dt, maxTurn * dt);
   f.a += turn;
   f.omega = lerp(f.omega, dt > 0 ? turn / dt : 0, Math.min(1, dt * 4));
-  if (now > f.slowUntil && now > f.attractUntil && Math.random() < dt * 0.04) f.slowUntil = now + 2500 + Math.random() * 3500;
+  if (now > f.slowUntil && now > f.attractUntil && rnd() < dt * 0.04) f.slowUntil = now + 2500 + rnd() * 3500;
   const boost = now < f.attractUntil ? MOT.tapAttraction.speedBoost : 1;
   const dist = Math.hypot(f.tx - f.x, f.ty - f.y);
   let target = MOT.speedCanvasPerSec * DH * f.cruise * slow * boost * (now < f.slowUntil ? 0.3 : 1);
@@ -176,17 +187,57 @@ function drawKoi(c, f, now, shadow) {
   if (!f.buf) { f.buf = document.createElement("canvas"); f.bctx = f.buf.getContext("2d"); }
   if (f.buf.width !== bw || f.buf.height !== bh) { f.buf.width = bw; f.buf.height = bh; }
   const b = f.bctx; b.clearRect(0, 0, bw, bh);
+  // Рыбу один раз масштабируем до целых пикселей и режем полосы по целым строкам: так на краях полос
+  // нет пересэмплирования по вертикали, и на теле не видно ровных линий-швов.
+  const fw = Math.max(1, Math.round(W * k));
+  if (!f.sprite || f.sprite.width !== fw || f.sprite.height !== bh || f.spriteAsset !== f.asset) {
+    f.sprite = document.createElement("canvas"); f.sprite.width = fw; f.sprite.height = bh; f.spriteAsset = f.asset;
+    const s = f.sprite.getContext("2d"); s.imageSmoothingQuality = "high"; s.drawImage(im, 0, 0, fw, bh);
+  }
   const N = UND.strips;
   for (let i = 0; i < N; i++) {
     const y0 = Math.round(i * bh / N), y1 = Math.round((i + 1) * bh / N);
     const v = (i + 0.5) / N;
     const env = 0.08 + 0.92 * Math.pow(Math.max(0, (v - 0.2) / 0.8), 1.6);
     const off = amp * env * Math.sin(f.phase - v * Math.PI * 2 * UND.waves) - UND.turnBend * f.omega * v * v * L;
-    b.drawImage(im, 0, y0 / bh * im.height, im.width, (y1 - y0) / bh * im.height, (pad + off) * k, y0, W * k, y1 - y0);
+    b.drawImage(f.sprite, 0, y0, fw, y1 - y0, (pad + off) * k, y0, fw, y1 - y0);
   }
+  shadeKoi(b, f, W, L, pad, bw, bh, now);
   c.translate(f.x, f.y); c.rotate(f.a + Math.PI / 2); c.globalAlpha = alpha;
   c.drawImage(f.buf, -(W / 2 + pad), -L / 2, bw / k, bh / k);
   c.restore();
+}
+
+// Реализм на самом карпе (рисуется поверх уже собранного тела, только там, где есть пиксели рыбы):
+// подводный оттенок, светотень поперёк тела от единого света сверху-слева, блики каустики.
+function shadeKoi(b, f, W, L, pad, bw, bh, now) {
+  const theta = f.a + Math.PI / 2;
+  b.save();
+  b.setTransform(1, 0, 0, 1, 0, 0);
+  b.globalCompositeOperation = "source-atop";
+  // вода поглощает красное и контраст: чуть сине-зелёный тон
+  b.globalAlpha = 0.14; b.fillStyle = "#0d5560"; b.fillRect(0, 0, bw, bh);
+  // свет приходит из (-0.55, -0.83) в мире; в системе рыбы поперечная составляющая:
+  const lx = -0.55 * Math.cos(theta) + -0.83 * Math.sin(theta);
+  const s = clamp(Math.abs(lx), 0.3, 1) * (lx < 0 ? -1 : 1);
+  const cx = (W / 2 + pad) * k, half = W * 0.5 * k;
+  const g = b.createLinearGradient(cx + s * half, 0, cx - s * half, 0);   // от освещённого борта к теневому
+  g.addColorStop(0, "rgba(255,248,230,0.16)"); g.addColorStop(0.45, "rgba(255,248,230,0)"); g.addColorStop(1, "rgba(0,22,34,0.30)");
+  b.globalAlpha = 1; b.fillStyle = g; b.fillRect(0, 0, bw, bh);
+  // мягкий блик вдоль спины: вытянутое пятно света на освещённой стороне тела
+  b.save();
+  b.translate(cx + s * half * 0.3, bh * 0.36); b.scale(1, 3.4);
+  const sheen = b.createRadialGradient(0, 0, 0, 0, 0, half * 0.55);
+  sheen.addColorStop(0, "rgba(255,252,240,0.26)"); sheen.addColorStop(1, "rgba(255,252,240,0)");
+  b.fillStyle = sheen; b.fillRect(-half, -bh, half * 2, bh * 2);
+  b.restore();
+  // блики каустики на спине: тот же дрейф, что и на дне, в координатах рыбы
+  if (view.cl && view.cl.length) {
+    b.setTransform(k, 0, 0, k, (W / 2 + pad) * k, (L / 2) * k);
+    b.rotate(-theta); b.translate(-f.x, -f.y);
+    for (const c of view.cl) { b.globalAlpha = c.a * 0.38; b.drawImage(c.im, c.x, c.y, c.w, c.h); }
+  }
+  b.restore();
 }
 
 // ---------------------------------------------------------------- декор
@@ -195,6 +246,7 @@ function drawItem(c, it, now, pass) {
   if (!im) return;
   let s = 1, a = it.todA, rot = (it.rotation || 0) * Math.PI / 180;
   if (it.revealStart) { const e = ease((now - it.revealStart) / VIS.reveal.durationMs); s = lerp(VIS.reveal.fromScale, 1, e); a *= e; }
+  const sway = it.sway && !reduceMotion ? swayAngle(it, now) : 0;   // ветер: корень на месте, верхушка гуляет
   if (it.layer === "surface" && !reduceMotion) {      // кувшинки и лотосы чуть покачиваются
     const ph = now / 1000 / it.bobP * Math.PI * 2 + it.bob;
     rot += Math.sin(ph) * VIS.surfaceBob.rotationDeg * Math.PI / 180; s *= 1 + Math.sin(ph * 0.7) * VIS.surfaceBob.scale;
@@ -211,10 +263,12 @@ function drawItem(c, it, now, pass) {
       if (!cfg) { c.restore(); continue; }
       const sp = shadowSprite(asset, cfg.blur, w), r = w / img.width;
       c.translate(it.x * DW + cfg.offset[0], it.y * DH + cfg.offset[1]); c.rotate(rot); c.scale(s, s);
+      if (sway) { c.translate(0, h / 2); c.rotate(sway); c.translate(0, -h / 2); }
       c.globalAlpha = cfg.opacity * a * kk * P.shadowK;
       c.drawImage(sp.canvas, -w / 2 - sp.pad * r, -h / 2 - sp.pad * r, sp.canvas.width * r, sp.canvas.height * r);
     } else {
       c.translate(it.x * DW, it.y * DH); c.rotate(rot); c.scale(s, s); c.globalAlpha = a * kk;
+      if (sway) { c.translate(0, h / 2); c.rotate(sway); c.translate(0, -h / 2); }
       if (it.layer === "glow") c.globalCompositeOperation = "lighter";
       c.drawImage(img, -w / 2, -h / 2, w, h);
     }
@@ -223,9 +277,17 @@ function drawItem(c, it, now, pass) {
 }
 const isAnimating = (it, now) => (it.revealStart && now - it.revealStart < VIS.reveal.durationMs) || (it.swapStart && now - it.swapStart < 1200);
 
+const SWAY_ASSETS = new Set(["reeds", "fern"]);
+// Лёгкий ветер: ровное покачивание плюс медленные порывы; период секунд в 7–8, амплитуда ~2°.
+function swayAngle(it, now) {
+  const t = now / 1000;
+  const gust = fbm(t * 0.12 + it.bob, it.bobP, 7, 2) - 0.5;
+  return (Math.sin(t * 0.85 + it.bob) * 0.55 + gust * 2.4) * 0.035;
+}
+
 function drawStatic(target, now) {
   for (const layer of ["shore", "overhang"]) {
-    const items = [...P.items.values()].filter((i) => i.layer === layer);
+    const items = [...P.items.values()].filter((i) => i.layer === layer && !i.sway);
     for (const it of items) drawItem(target, it, now, "shadow");
     for (const it of items) drawItem(target, it, now, "main");
   }
@@ -263,7 +325,7 @@ function timeTrail(base, golden, now) {
   for (let i = 0; i < n + golden; i++) {
     const isG = i >= n;
     const [tx, ty] = randIn({ x1: z.x1 + 0.05, x2: z.x2 - 0.05, y1: 0.3, y2: 0.62 });
-    P.particles.push({ x0: DW / 2 + (Math.random() - 0.5) * 300, y0: DH * 0.86, cx: lerp(DW / 2, tx, 0.3) + (Math.random() - 0.5) * 400,
+    P.particles.push({ x0: DW / 2 + (rnd() - 0.5) * 300, y0: DH * 0.86, cx: lerp(DW / 2, tx, 0.3) + (rnd() - 0.5) * 400,
       cy: DH * 0.45, x1: tx, y1: ty, start: now + i * tt.staggerMs, color: isG ? tt.goldenColor : tt.baseColor,
       size: isG ? 26 : 18, rippled: false });
   }
@@ -294,7 +356,7 @@ function completionWave(now) {
   const cw = VIS.completionWave;
   for (let i = 0; i < cw.ringCount; i++) addRipple(DW / 2, DH * 0.45, 520 + i * 90, now + i * 380, cw.durationMs, 1);
   for (const f of P.koi.values()) {
-    const a = Math.random() * 6.28;
+    const a = rnd() * 6.28;
     f.tx = DW / 2 + Math.cos(a) * 150; f.ty = DH * 0.45 + Math.sin(a) * 150; f.attractUntil = now + cw.gatherMs;
   }
   return cw.durationMs;
@@ -308,8 +370,8 @@ function syncAmbient(tod) {
   P.ambientKey = key; P.ambient = [];
   if (reduceMotion) return;
   for (const a of want) for (let i = 0; i < a.count; i++) {
-    P.ambient.push({ type: a.type, asset: a.asset, size: a.size * DW, x: Math.random() * DW, y: Math.random() * DH,
-      t: Math.random() * 10, rot: Math.random() * 360, i });
+    P.ambient.push({ type: a.type, asset: a.asset, size: a.size * DW, x: rnd() * DW, y: rnd() * DH,
+      t: rnd() * 10, rot: rnd() * 360, i });
   }
 }
 
@@ -321,7 +383,7 @@ function drawAmbient(c, dt) {
       glowDot(c, p.x, p.y, p.size * 0.5, "#E9FF9E", 0.3 + 0.6 * Math.max(0, Math.sin(p.t * 1.3 + p.i)));
     } else {
       p.x += 12 * dt; p.y += 13 * dt; p.rot += 25 * dt;
-      if (p.x > DW + 40 || p.y > DH + 40) { p.x = -30; p.y = Math.random() * DH * 0.8; }
+      if (p.x > DW + 40 || p.y > DH + 40) { p.x = -30; p.y = rnd() * DH * 0.8; }
       const im = imgs[p.asset];
       if (!im) continue;
       c.save(); c.translate(p.x, p.y); c.rotate(p.rot * Math.PI / 180);
@@ -330,11 +392,130 @@ function drawAmbient(c, dt) {
   }
 }
 
+// ---------------------------------------------------------------- текстуры света (считаются один раз)
+// Детерминированный шум: не зависит от rnd(), поэтому картинка одинакова при каждом запуске.
+function hash2(x, y, s) {
+  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(s, 1442695041)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function vnoise(x, y, s) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi, s), b = hash2(xi + 1, yi, s), c = hash2(xi, yi + 1, s), d = hash2(xi + 1, yi + 1, s);
+  return lerp(lerp(a, b, u), lerp(c, d, u), v);
+}
+function fbm(x, y, s, octaves = 5) {
+  let v = 0, amp = 0.5, f = 1;
+  for (let i = 0; i < octaves; i++) { v += amp * vnoise(x * f, y * f, s + i); f *= 2.02; amp *= 0.5; }
+  return v;
+}
+// Серая текстура вокруг 128: нейтральна для soft-light/overlay, светлее и темнее — пятна света.
+function noiseTexture(w, h, scale, seed, contrast) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const x = c.getContext("2d"), img = x.createImageData(w, h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const n = (fbm(i / w * scale, j / h * scale * (h / w), seed) - 0.5) * 2.2 * contrast;
+    const g = clamp(128 + n * 128, 0, 255), o = (j * w + i) * 4;
+    img.data[o] = img.data[o + 1] = img.data[o + 2] = g; img.data[o + 3] = 255;
+  }
+  x.putImageData(img, 0, 0);
+  return c;
+}
+function grainTexture(size, seed) {
+  const c = document.createElement("canvas"); c.width = c.height = size;
+  const x = c.getContext("2d"), img = x.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) {
+    const g = clamp(128 + (hash2(i % size, (i / size) | 0, seed) - 0.5) * 120, 0, 255);
+    img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = g; img.data[i * 4 + 3] = 255;
+  }
+  x.putImageData(img, 0, 0);
+  return c;
+}
+const FX = {};
+// Отдельный генератор для зерна: не сдвигает последовательность rnd(), поэтому скриншоты сравнимы.
+const frng = SHOT ? (() => { let n = 0; return () => hash2(n++, 7, 3); })() : Math.random;
+// Положение и яркость слоёв каустики в этот момент (общее для воды и для света на карпах).
+function causticLayers(now) {
+  const t = now / 1000, out = [];
+  VIS.caustics.layers.forEach((L, i) => {
+    const im = FX["soft_" + L.asset.split("/").pop()] || imgs[L.asset.split("/").pop()];
+    if (!im) return;
+    const per = L.swayPeriodSec, w = DW * L.scale, h = DH * L.scale;
+    const dx = L.swayAmplitudePx * Math.sin(t / per * 6.283 + i) + L.driftPxPerSec[0] * per / 4 * Math.sin(t / (per * 3) * 6.283);
+    const dy = L.swayAmplitudePx * Math.cos(t / (per * 1.3) * 6.283 + i) + L.driftPxPerSec[1] * per / 4 * Math.sin(t / (per * 2.6) * 6.283);
+    out.push({ im, x: (DW - w) / 2 + dx, y: (DH - h) / 2 + dy, w, h, a: L.alpha * 0.9 * view.caus });
+  });
+  return out;
+}
+// Размытая копия картинки (один раз при загрузке): мягкие края каустики.
+function softCopy(im, blurPx) {
+  const c = document.createElement("canvas"); c.width = im.width; c.height = im.height;
+  const x = c.getContext("2d"); x.filter = `blur(${blurPx}px)`; x.drawImage(im, 0, 0);
+  return c;
+}
+function buildFx() {
+  for (const L of VIS.caustics.layers) {
+    const name = L.asset.split("/").pop();
+    if (imgs[name]) FX["soft_" + name] = softCopy(imgs[name], 3.6);
+  }
+  FX.mottle = noiseTexture(200, 320, 4.5, 11, 1.0);    // крупные пятна света и глубины на воде
+  FX.haze = noiseTexture(200, 320, 2.6, 23, 1.0);      // дымка над водой
+  FX.grain = grainTexture(128, 5);
+}
+
+// Пылинки и пыльца в воздухе над водой: очень редкие, медленные, видны только при свете.
+function buildMotes() {
+  P.motes = Array.from({ length: 26 }, (_, i) => ({
+    x: hash2(i, 1, 5) * DW, y: hash2(i, 2, 5) * DH, r: lerp(5, 13, hash2(i, 3, 5)), t: hash2(i, 4, 5) * 10, a: lerp(0.35, 1, hash2(i, 5, 5)), i,
+  }));
+}
+function drawMotes(c, dt) {
+  if (reduceMotion || !P.motes) return;
+  const light = view.caus;                           // днём заметнее, ночью почти нет
+  c.globalCompositeOperation = "lighter";
+  for (const m of P.motes) {
+    m.t += dt;
+    m.x += (fbm(m.y * 0.004, m.t * 0.05, 3, 2) - 0.5) * 18 * dt + 3 * dt;
+    m.y += (fbm(m.x * 0.004, m.t * 0.05, 9, 2) - 0.5) * 14 * dt - 1.5 * dt;
+    if (m.x > DW + 20) m.x = -20; if (m.x < -20) m.x = DW + 20;
+    if (m.y < -20) m.y = DH + 20; if (m.y > DH + 20) m.y = -20;
+    glowDot(c, m.x, m.y, m.r, "#EFFFF2", 0.16 * light * m.a * (0.6 + 0.4 * Math.sin(m.t * 0.7 + m.i)));
+  }
+  c.globalCompositeOperation = "source-over";
+}
+
+// Финальная обработка кадра: воздух, свет сверху-слева, спокойные цвета, виньетка, зерно.
+function drawFinish(c, now) {
+  const k0 = view.caus;                                  // днём сильнее, ночью слабее (то же, что у каустики)
+  const drift = reduceMotion ? 0 : Math.sin(now / 1000 / 47 * Math.PI * 2) * 34;
+  // дымка
+  c.globalCompositeOperation = "screen"; c.globalAlpha = 0.085 * k0;
+  c.drawImage(FX.haze, -150 + drift, -200 - drift * 0.5, DW * 1.3, DH * 1.3);
+  // единый свет: диагональ от верхнего левого угла
+  const lg = c.createLinearGradient(0, 0, DW * 0.75, DH * 0.55);
+  lg.addColorStop(0, `rgba(255,246,216,${0.2 * k0})`); lg.addColorStop(0.5, `rgba(255,246,216,${0.05 * k0})`); lg.addColorStop(1, "rgba(255,246,216,0)");
+  c.globalAlpha = 1; c.fillStyle = lg; c.fillRect(0, 0, DW, DH);
+  // спокойные цвета: немного убираем насыщенность
+  c.globalCompositeOperation = "saturation"; c.globalAlpha = 0.2; c.fillStyle = "#808080"; c.fillRect(0, 0, DW, DH);
+  // виньетка всегда лёгкая (во время сессии ещё усиливается отдельно)
+  c.globalCompositeOperation = "source-over"; c.globalAlpha = 1;
+  const vg = c.createRadialGradient(DW / 2, DH * 0.5, DH * 0.3, DW / 2, DH * 0.5, DH * 0.78);
+  vg.addColorStop(0, "rgba(2,12,18,0)"); vg.addColorStop(1, "rgba(2,12,18,0.36)");
+  c.fillStyle = vg; c.fillRect(0, 0, DW, DH);
+  // зерно: едва заметное, сдвигается, чтобы не было «сетки»
+  c.globalCompositeOperation = "overlay"; c.globalAlpha = 0.07;
+  const gx = (frng() * 128) | 0, gy = (frng() * 128) | 0;
+  c.save(); c.scale(3, 3); c.translate(-gx, -gy);
+  c.fillStyle = c.createPattern(FX.grain, "repeat"); c.fillRect(gx, gy, DW / 3 + 1, DH / 3 + 1); c.restore();
+  c.globalCompositeOperation = "source-over"; c.globalAlpha = 1;
+}
+
 // ---------------------------------------------------------------- кадр
 function resize() {
   const r = cv.getBoundingClientRect();
   if (r.width < 2) return;
-  const dpr = Math.min(devicePixelRatio || 1, VIS.performance.maxDevicePixelRatio);
+  const dpr = SHOT && Q.has("dpr") ? parseFloat(Q.get("dpr")) : Math.min(devicePixelRatio || 1, VIS.performance.maxDevicePixelRatio);
   cv.width = stat.width = Math.round(r.width * dpr); cv.height = stat.height = Math.round(r.height * dpr);
   k = cv.width / DW; P.staticDirty = true;
 }
@@ -349,7 +530,12 @@ function frame(now) {
   if (now - lastDraw < 1000 / VIS.performance.targetFps - 2) return;
   const dt = Math.min(0.06, (now - last) / 1000);
   last = now; lastDraw = now;
+  render(now, dt);
+}
 
+// Один кадр: обновляет мир на dt секунд и рисует его. Отдельно от frame(), чтобы режим скриншота
+// мог прокрутить анимацию детерминированными шагами.
+function render(now, dt) {
   const tod = todNow();
   if (tod !== view.tod) { view.waterFrom = view.tod; view.waterStart = now; view.tod = tod; P.staticDirty = true; syncAmbient(tod); }
   const ov = PAL.overlay[tod], target = [...hexRgb(ov.color), ov.opacity];
@@ -361,9 +547,9 @@ function frame(now) {
   const fishes = [...P.koi.values()];
   for (const f of fishes) stepKoi(f, dt, now, fishes);
   if (now > nextKiss && fishes.length && !reduceMotion) {            // рыба касается поверхности — круг у головы
-    const f = fishes[Math.floor(Math.random() * fishes.length)];
+    const f = fishes[Math.floor(rnd() * fishes.length)];
     addRipple(f.x + Math.cos(f.a) * f.len * 0.42, f.y + Math.sin(f.a) * f.len * 0.42, 70, now, 1600, 0.7);
-    nextKiss = now + lerp(...MOT.surfaceKissEverySec, Math.random()) * 1000;
+    nextKiss = now + lerp(...MOT.surfaceKissEverySec, rnd()) * 1000;
   }
 
   ctx.setTransform(k, 0, 0, k, 0, 0);
@@ -372,19 +558,16 @@ function frame(now) {
   if (wt < 1 && imgs["water_" + view.waterFrom]) { ctx.globalAlpha = 1; ctx.drawImage(imgs["water_" + view.waterFrom], 0, 0, DW, DH); }
   if (imgs["water_" + tod]) { ctx.globalAlpha = wt; ctx.drawImage(imgs["water_" + tod], 0, 0, DW, DH); }
   ctx.globalAlpha = 1;
-  // 2. каустика: два слоя дрейфуют навстречу друг другу
-  if (!reduceMotion) {
-    const t = now / 1000;
+  // 1б. пятна света и глубины: вода перестаёт быть ровной заливкой
+  ctx.globalCompositeOperation = "soft-light"; ctx.globalAlpha = 0.5 + 0.2 * view.caus;
+  const md = reduceMotion ? 0 : Math.sin(now / 1000 / 61 * Math.PI * 2) * 40;
+  ctx.drawImage(FX.mottle, -140 + md, -180 - md * 0.6, DW * 1.3, DH * 1.3);
+  ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
+  // 2. каустика: два слоя дрейфуют навстречу друг другу (мягкие копии: резкая сетка выглядела как трещины)
+  view.cl = reduceMotion ? [] : causticLayers(now);
+  if (view.cl.length) {
     ctx.globalCompositeOperation = "screen";
-    VIS.caustics.layers.forEach((L, i) => {
-      const im = imgs[L.asset.split("/").pop()];
-      if (!im) return;
-      const per = L.swayPeriodSec, w = DW * L.scale, h = DH * L.scale;
-      const dx = L.swayAmplitudePx * Math.sin(t / per * 6.283 + i) + L.driftPxPerSec[0] * per / 4 * Math.sin(t / (per * 3) * 6.283);
-      const dy = L.swayAmplitudePx * Math.cos(t / (per * 1.3) * 6.283 + i) + L.driftPxPerSec[1] * per / 4 * Math.sin(t / (per * 2.6) * 6.283);
-      ctx.globalAlpha = L.alpha * view.caus * (P.running ? 0.8 : 1);
-      ctx.drawImage(im, (DW - w) / 2 + dx, (DH - h) / 2 + dy, w, h);
-    });
+    for (const c of view.cl) { ctx.globalAlpha = c.a * (P.running ? 0.8 : 1); ctx.drawImage(c.im, c.x, c.y, c.w, c.h); }
     ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
   }
   // 3–4. тени карпов на дне и сами карпы
@@ -404,6 +587,10 @@ function frame(now) {
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(stat, 0, 0); ctx.setTransform(k, 0, 0, k, 0, 0);
   }
+  // 6б. качающиеся от ветра растения рисуем каждый кадр (в кэш берега они не попадают)
+  const swaying = [...P.items.values()].filter((i) => i.sway);
+  for (const it of swaying) drawItem(ctx, it, now, "shadow");
+  for (const it of swaying) drawItem(ctx, it, now, "main");
   // 7. тонировка времени суток
   const [r, g, b, a] = view.tint;
   if (a > 0.005) {
@@ -416,6 +603,9 @@ function frame(now) {
     vg.addColorStop(0, "rgba(2,14,20,0)"); vg.addColorStop(1, `rgba(2,14,20,${MOT.sessionCalm.vignetteOpacity})`);
     ctx.fillStyle = vg; ctx.fillRect(0, 0, DW, DH);
   }
+  // 8б. воздух, свет, цвет, виньетка, зерно
+  drawFinish(ctx, now);
+  drawMotes(ctx, dt);
   // 9. свечение, атмосфера, круги, частицы
   for (const it of P.items.values()) if (it.layer === "glow") drawItem(ctx, it, now, "main");
   drawAmbient(ctx, dt);
@@ -614,6 +804,19 @@ function bindUi() {
   setIdleTexts();
 }
 
+// ---------------------------------------------------------------- скриншот
+// Прокручивает мир шагами по 1/30 с до момента t и рисует один кадр. Потом window.__pondShot = true.
+function runShot() {
+  if (SHOT.all) { P.shown = CFG.unlocks.map((u) => u.id); applyScene(); }
+  P.looping = true; resize();
+  const step = 1 / 30;
+  let now = 0;
+  const t0 = performance.now(), n = Math.round(SHOT.t * 30);
+  for (let i = 0; i < n; i++) { now += step * 1000; render(now, step); }
+  window.__pondMsPerFrame = (performance.now() - t0) / Math.max(1, n);   // замер: сколько мс уходит на кадр
+  window.__pondShot = true;
+}
+
 // ---------------------------------------------------------------- запуск
 async function init() {
   try {
@@ -621,16 +824,18 @@ async function init() {
     CFG = cfg.progression; VIS = cfg.visual; PAL = cfg.palette; STR = cfg.strings; REASONS = cfg.reasons;
     DW = CFG.canvas.width; DH = CFG.canvas.height; MOT = VIS.koi; UND = VIS.koi.undulation;
     await loadAll(assetNames(CFG));
+    buildFx(); buildMotes();
     const st = await api("GET", "/api/pond");
     P.shown = st.unlocked.map((u) => u.id).filter((id) => !st.unseen.includes(id));   // непоказанное появится анимацией
     bindUi();
     applyScene();
     $("#pond-loading").remove();
     P.ready = true;
-    new ResizeObserver(resize).observe($("#pond-stage"));
+    if (!SHOT) new ResizeObserver(resize).observe($("#pond-stage"));   // в режиме скриншота resize очистил бы кадр
     document.addEventListener("visibilitychange", wake);
     setTimeout(() => { $("#pond-tap").style.opacity = 0; }, 6000);
     nextKiss = performance.now() + 6000;
+    if (SHOT) return runShot();
     wake();
     setTimeout(playReveals, 1200);
   } catch (err) {

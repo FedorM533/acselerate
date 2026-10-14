@@ -52,3 +52,5 @@
 .pond-toast b { display: block; font-size: 12px; color: var(--p-ok); font-weight: 600; margin-bottom: 3px; }
 .pond-tap { position: absolute; left: 50%; top: 46%; transform: translateX(-50%); font-size: 13px; color: #ffffffb0; pointer-events: none; transition: opacity 1.2s; }
 @media (prefers-reduced-motion: reduce) { .pond-sheet { transition: none; } }
+/* Режим скриншота (?shot=1): чистая картинка без карточек и панели разработчика */
+.pond-shot .pond-ui, .pond-shot .pond-tap, .pond-shot .pond-sheet, .pond-shot .pond-toast, .pond-shot #dev-panel { display: none !important; }
