@@ -4,7 +4,7 @@ from focusfarm.session.state_machine import DISTRACTED, FOCUS, IDLE, PHONE_OUT
 
 
 def test_full_cycle_through_api(make_env):
-    """Положить телефон → фокус → отвлечение → сорняк → возврат → урожай."""
+    """Положить телефон → фокус → отвлечение → возврат → статистика."""
     env = make_env(docked=False)
     device = env.manager.device
     assert env.state()["state"] == IDLE
@@ -16,10 +16,9 @@ def test_full_cycle_through_api(make_env):
     assert s["state"] == FOCUS and s["session"] is not None
     assert device.led == "GREEN" and "SOUND 4" in device.log
 
-    # 2. Работаем 5 минут — редис растёт.
+    # 2. Работаем 5 минут.
     env.tick(300)
-    plot = next(p for p in env.state()["farm"]["plots"] if p["active"])
-    assert plot["crop"] == "guppy" and plot["stage"] == "young"
+    assert env.state()["session"]["totals"]["FOCUS"] >= 300
 
     # 3. Открыли YouTube → «кажется, отвлёкся» → «отвлёкся».
     env.monitor.use("chrome.exe", "Котики - YouTube")
@@ -29,31 +28,15 @@ def test_full_cycle_through_api(make_env):
     assert env.state()["state"] == DISTRACTED and device.led == "RED"
     assert "SOUND 2" in device.log
 
-    # 4. Минута отвлечения → сорняк.
-    env.tick(60)
-    farm = env.state()["farm"]
-    weeds = [p for p in farm["plots"] if p["weeds"]]
-    assert len(weeds) == 1
-
-    # 5. Вернулись к работе → через recover_s снова FOCUS.
+    # 4. Вернулись к работе → через recover_s снова FOCUS.
     env.monitor.use("code.exe", "main.py")
     env.tick(6)
     assert env.state()["state"] == FOCUS
 
-    # 6. После 5 минут фокуса можно прополоть.
-    env.post("/api/farm/weed", {"x": weeds[0]["x"], "y": weeds[0]["y"]})
-    assert not any(p["weeds"] for p in env.state()["farm"]["plots"])
-
-    # 7. Дорастили — урожай.
+    # 5. Ещё 5 минут работы.
     env.tick(300)
-    plot = next(p for p in env.state()["farm"]["plots"] if p["active"])
-    assert plot["ripe"] and "SOUND 3" not in device.log   # во время работы подставка молчит
-    result = env.post("/api/farm/harvest", {"x": plot["x"], "y": plot["y"]}).json()
-    assert "SOUND 3" in device.log                          # звук — когда рыбку выпустили
-    assert result["coins"] == 5 and result["stars"] == 2   # 1 эпизод отвлечения → ★★
-    assert env.state()["farm"]["coins"] == 5
 
-    # 8. Завершаем, смотрим статистику.
+    # 6. Завершаем, смотрим статистику.
     env.post("/api/session/end")
     assert env.state()["state"] == IDLE and device.led == "OFF"
     stats = env.client.get("/api/stats?range=day").json()
@@ -75,11 +58,8 @@ def test_window_titles_never_saved(env):
     assert "chrome.exe" in dump
 
 
-def test_manual_start_with_plot_and_crop(env):
-    env.manager.game.coins = 30
-    env.post("/api/shop/buy", {"item": "crop:goldfish"})
-    s = env.post("/api/session/start", {"plot": [2, 1], "crop": "goldfish", "length_min": 25}).json()
-    assert s["session"]["plot"] == [2, 1]
+def test_manual_start_with_length(env):
+    s = env.post("/api/session/start", {"length_min": 25}).json()
     assert s["session"]["planned_s"] == 1500
 
 
@@ -136,12 +116,11 @@ def test_auto_end_when_time_is_up(env):
     assert s["state"] == IDLE and "Отдохни" in s["message"]
 
 
-def test_demo_speed_accelerates_growth(make_env):
+def test_demo_speed_accelerates_time(make_env):
     env = make_env(mode="demo", overrides={"demo_speed": 30})
     env.post("/api/session/start", {})
-    env.tick(20)                       # 20 с × 30 = 600 с = редис готов
-    plot = next(p for p in env.state()["farm"]["plots"] if p["active"])
-    assert plot["ripe"]
+    env.tick(20)                       # 20 с × 30 = 600 игровых секунд
+    assert env.state()["session"]["elapsed_s"] == 600
     assert env.state()["speed"] == 30
 
 
@@ -161,8 +140,8 @@ def test_forced_category(env):
     assert env.state()["state"] == FOCUS
 
 
-def test_farm_survives_restart(tmp_path, env):
-    db_path = tmp_path / "farm.db"
+def test_crash_closes_unfinished_session(tmp_path, env):
+    db_path = tmp_path / "focus.db"
     from focusfarm.api.server import build_manager
     m1 = build_manager(db_path, cli_overrides={"mode": "dev"}, clock=env.clock, monitor=env.monitor,
                        phone=MockPhoneSensor(docked=True))
@@ -173,7 +152,6 @@ def test_farm_survives_restart(tmp_path, env):
     m1.db.conn.close()
     m2 = build_manager(db_path, cli_overrides={"mode": "dev"}, clock=env.clock, monitor=env.monitor,
                        phone=MockPhoneSensor(docked=True))
-    assert m2.game.plot(0, 0).progress_s == 100
     assert m2.db.last_session()["end_reason"] == "crash"
 
 
@@ -219,7 +197,7 @@ def test_ports_endpoint(env):
 def test_websocket_sends_state(env):
     with env.client.websocket_connect("/ws") as ws:
         data = ws.receive_json()
-        assert data["state"] == IDLE and "farm" in data and data["events"] == []
+        assert data["state"] == IDLE and data["events"] == []
 
 
 def test_events_table_filled(env):

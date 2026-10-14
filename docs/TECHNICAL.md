@@ -39,9 +39,6 @@ py -3 -m venv .venv
 | `--no-browser` | не открывать браузер |
 
 Демо для защиты: **`run_demo.bat`** и сценарий [`docs/DEMO.md`](docs/DEMO.md).
-Автопилот показа: `python scripts/demo_autopilot.py` (`--step` — по Enter).
-Скриншоты для самопроверки: `pip install -r requirements-dev.txt`, затем
-`python scripts/screenshots.py` → [`docs/screenshots/`](docs/screenshots/README.md).
 Ускорение можно включить и переменной окружения `FOCUSFARM_DEMO_SPEED=30`.
 
 ## Как это работает
@@ -118,7 +115,6 @@ py -3 -m venv .venv
 ```bat
 .venv\Scripts\python -m pytest -q                 :: все тесты
 .venv\Scripts\python -m focusfarm.activity        :: что видит монитор активности (Ctrl+C — выход)
-.venv\Scripts\python -m focusfarm.tools.make_sprites  :: перерисовать SVG-спрайты
 ```
 
 ## Приватность
@@ -148,7 +144,7 @@ focusfarm/
   blocker/       блокировка программ (чёрный/белый список, WM_CLOSE)
   phone/         связь с Android по Wi-Fi: hub, lan, qr
   strict.py, watchdog.py  строгий режим: пароль, флаг, сторож
-  web/           интерфейс: index.html, app.js, style.css, sprites/, fonts/ (Nunito, OFL)
+  web/           интерфейс: index.html, app.js, style.css, fonts/ (Nunito, OFL)
 scripts/         автопилот демо и скриншоты
 firmware/        прошивка ESP32 и протокол
 android/         приложение для Android (Kotlin, Gradle)

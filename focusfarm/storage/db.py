@@ -99,6 +99,18 @@ MIGRATIONS = [
     """
     ALTER TABLE sessions ADD COLUMN break_s REAL DEFAULT 0;
     """,
+    # 6: старая игра (пруд с рыбками, монеты, задания) удалена вместе со своими таблицами.
+    # Колонка sessions.crop_id остаётся пустой: SQLite не любит удаление колонок в старых версиях.
+    """
+    DROP TABLE IF EXISTS plots;
+    DROP TABLE IF EXISTS wallet;
+    DROP TABLE IF EXISTS farm;
+    DROP TABLE IF EXISTS unlocks;
+    DROP TABLE IF EXISTS streak;
+    DROP TABLE IF EXISTS collection;
+    DROP TABLE IF EXISTS quest_claims;
+    DROP TABLE IF EXISTS achievements;
+    """,
 ]
 
 # Секунды каждого состояния → колонка в sessions.
@@ -137,43 +149,13 @@ class Database:
     def schema_version(self) -> int:
         return self.conn.execute("SELECT version FROM schema_version").fetchone()["version"]
 
-    # ---------- ферма ----------
-
-    def load_farm(self) -> dict:
-        with self.lock:
-            c = self.conn
-            wallet = c.execute("SELECT coins FROM wallet WHERE id = 1").fetchone()
-            farm = c.execute("SELECT size FROM farm WHERE id = 1").fetchone()
-            data = {
-                "coins": wallet["coins"] if wallet else 0,
-                "unlocks": [r["item"] for r in c.execute("SELECT item FROM unlocks")],
-                "days": {r["day"]: r["focus_s"] for r in c.execute("SELECT day, focus_s FROM streak")},
-                "plots": [dict(r) for r in c.execute("SELECT * FROM plots")],
-            }
-            if farm:
-                data["size"] = farm["size"]
-            return data
-
-    def save_farm(self, data: dict):
-        with self.lock, self.conn:
-            c = self.conn
-            c.execute("INSERT OR REPLACE INTO wallet VALUES (1, ?)", (data["coins"],))
-            c.execute("INSERT OR REPLACE INTO farm VALUES (1, ?)", (data["size"],))
-            c.executemany("INSERT OR IGNORE INTO unlocks VALUES (?)", [(u,) for u in data["unlocks"]])
-            c.executemany("INSERT OR REPLACE INTO streak VALUES (?, ?)", list(data["days"].items()))
-            c.executemany(
-                "INSERT OR REPLACE INTO plots VALUES (:x, :y, :crop_id, :progress_s, :weeds, :quality_hits)",
-                data["plots"],
-            )
-
     # ---------- сессии и события ----------
 
-    def start_session(self, start: float, planned_min: float, crop_id: str | None,
-                      practice: bool = False) -> int:
+    def start_session(self, start: float, planned_min: float, practice: bool = False) -> int:
         with self.lock, self.conn:
             cur = self.conn.execute(
-                "INSERT INTO sessions (start, planned_min, crop_id, practice) VALUES (?, ?, ?, ?)",
-                (start, planned_min, crop_id, int(practice)),
+                "INSERT INTO sessions (start, planned_min, practice) VALUES (?, ?, ?)",
+                (start, planned_min, int(practice)),
             )
             return cur.lastrowid
 
@@ -237,63 +219,6 @@ class Database:
     def all_sessions(self) -> list[dict]:
         with self.lock:
             return [dict(r) for r in self.conn.execute("SELECT * FROM sessions ORDER BY start")]
-
-    # ---------- коллекция рыбок ----------
-
-    def add_fish(self, fish_id: str, name: str, stars: int, released_at: float) -> int:
-        with self.lock, self.conn:
-            cur = self.conn.execute(
-                "INSERT INTO collection (fish_id, name, stars, released_at) VALUES (?, ?, ?, ?)",
-                (fish_id, name, stars, released_at))
-            return cur.lastrowid
-
-    def list_fish(self) -> list[dict]:
-        """Все выпущенные рыбки, новые первыми."""
-        with self.lock:
-            return [dict(r) for r in self.conn.execute("SELECT * FROM collection ORDER BY id DESC")]
-
-    def collection_summary(self) -> dict:
-        """{fish_id: {"count": сколько выпущено, "best_stars": лучшие звёзды}}."""
-        with self.lock:
-            rows = self.conn.execute(
-                "SELECT fish_id, COUNT(*) AS n, MAX(stars) AS best FROM collection GROUP BY fish_id")
-            return {r["fish_id"]: {"count": r["n"], "best_stars": r["best"]} for r in rows}
-
-    def count_fish_since(self, since: float) -> int:
-        with self.lock:
-            return self.conn.execute(
-                "SELECT COUNT(*) AS n FROM collection WHERE released_at >= ?", (since,)).fetchone()["n"]
-
-    # ---------- задания и ачивки ----------
-
-    def quest_claims(self, day: str) -> list[dict]:
-        with self.lock:
-            return [dict(r) for r in self.conn.execute("SELECT * FROM quest_claims WHERE day = ?", (day,))]
-
-    def add_quest_claim(self, day: str, quest_id: str, coins: int):
-        with self.lock, self.conn:
-            self.conn.execute("INSERT OR IGNORE INTO quest_claims (day, quest_id, coins) VALUES (?, ?, ?)",
-                              (day, quest_id, coins))
-
-    def achievements_list(self) -> list[dict]:
-        with self.lock:
-            return [dict(r) for r in self.conn.execute("SELECT * FROM achievements ORDER BY unlocked_at")]
-
-    def add_achievement(self, achievement_id: str, ts: float, coins: int):
-        with self.lock, self.conn:
-            self.conn.execute("INSERT OR IGNORE INTO achievements (id, unlocked_at, coins) VALUES (?, ?, ?)",
-                              (achievement_id, ts, coins))
-
-    def unseen_rewards(self) -> int:
-        with self.lock:
-            q = self.conn.execute("SELECT COUNT(*) AS n FROM quest_claims WHERE seen = 0").fetchone()["n"]
-            a = self.conn.execute("SELECT COUNT(*) AS n FROM achievements WHERE seen = 0").fetchone()["n"]
-            return q + a
-
-    def mark_rewards_seen(self):
-        with self.lock, self.conn:
-            self.conn.execute("UPDATE quest_claims SET seen = 1")
-            self.conn.execute("UPDATE achievements SET seen = 1")
 
     # ---------- телефоны по Wi-Fi ----------
 

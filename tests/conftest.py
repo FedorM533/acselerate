@@ -1,7 +1,6 @@
 """Общие заготовки для тестов: менеджер с FakeClock, базой в памяти
 и управляемым «монитором активности»."""
 import datetime as dt
-import random
 
 import pytest
 from fastapi.testclient import TestClient
@@ -39,7 +38,7 @@ class Env:
         settings = load_settings(overrides={"mode": mode, **(overrides or {})})
         self.monitor = FakeMonitor()
         self.manager = SessionManager(settings, self.db, clock=self.clock,
-                                      monitor=self.monitor, rng=random.Random(1),
+                                      monitor=self.monitor,
                                       phone=MockPhoneSensor(docked=docked))
         self.app = create_app(self.manager, run_loop=False, rules_path=tmp_path / "rules.yaml")
         self.client = TestClient(self.app)

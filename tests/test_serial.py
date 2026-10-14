@@ -1,6 +1,5 @@
 """Фаза 7: подставка по serial. Настоящий порт заменён заглушкой FakeSerial."""
 import queue
-import random
 import time
 
 import pytest
@@ -159,7 +158,7 @@ def test_session_driven_by_real_dock(opener):
     settings = load_settings(overrides={"mode": "normal", "device": {"serial_port": "COM7"}})
     dock = Dock("COM7", opener=opener)
     manager = SessionManager(settings, Database(":memory:"), clock=clock, phone=dock,
-                             device=dock, rng=random.Random(1))
+                             device=dock)
     try:
         wait_for(lambda: dock.serial_ok)
         port = opener.opened[0]

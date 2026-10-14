@@ -11,7 +11,7 @@ const STATE_LABELS = {
   FOCUS: "Работаешь",
   NOTEBOOK: "Пишешь в тетради",
   MAYBE_DISTRACTED: "Кажется, отвлёкся…",
-  DISTRACTED: "Отвлёкся — вода мутнеет",
+  DISTRACTED: "Отвлёкся",
   PHONE_OUT: "Телефон отключён",
   PAUSED: "Пауза",
   BREAK: "Перерыв",
@@ -22,7 +22,7 @@ const STATE_SHORT = {
   DISTRACTED: "Отвлёкся", PHONE_OUT: "Телефон отключён", PAUSED: "Пауза", BREAK: "Перерыв",
 };
 const CATEGORY_LABELS = { work: "работа", neutral: "нейтрально", distraction: "отвлечение" };
-const SOUND_NAMES = { 1: "мягкий сигнал", 2: "сигнал «отвлёкся»", 3: "«рыбка выпущена»", 4: "«сессия началась»" };
+const SOUND_NAMES = { 1: "мягкий сигнал", 2: "сигнал «отвлёкся»", 4: "«сессия началась»" };
 
 // Иконки состояний — простые SVG (свои).
 const STROKE = 'stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"';
@@ -112,12 +112,6 @@ function applyTheme(choice) {
 }
 if (darkQuery) darkQuery.addEventListener("change", () => { if (themeChoice === "system") applyTheme("system"); });
 
-// Игровой режим: без него пруд, коллекция, задания, магазин, монеты и серия скрыты.
-function applyGameMode(on) {
-  document.body.classList.toggle("game-on", !!on);
-  const active = document.querySelector(".tabs button.active");
-  if (!on && active && active.classList.contains("game-only")) showTab("session");
-}
 $$(".tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
 
 // ================= звуки интерфейса (Web Audio, без аудиофайлов) =================
@@ -140,7 +134,6 @@ updateSoundButton();
 // Каждая мелодия — список нот [частота Гц, начало с, длительность с].
 const TONES = {
   plant: [[523, 0, 0.12], [784, 0.1, 0.18]],                 // посадка / старт
-  harvest: [[523, 0, 0.12], [659, 0.1, 0.12], [784, 0.2, 0.12], [1047, 0.3, 0.3]],
   soft: [[440, 0, 0.25], [392, 0.2, 0.3]],                   // мягкий сигнал
   distracted: [[392, 0, 0.25], [330, 0.22, 0.35]],
   click: [[880, 0, 0.05]],
@@ -152,12 +145,12 @@ const TONES = {
 };
 const NUDGE_TEXTS = {
   1: "Ты давно отвлёкся. Самое время вернуться к учёбе",
-  2: "Пора вернуться к работе: пруд ждёт",
+  2: "Пора вернуться к работе",
   3: "Отвлечение затянулось. Вернись к учёбе",
   4: "Хватит отвлекаться! Возвращайся к учёбе",
 };
 // Номер звука подставки → мелодия интерфейса.
-const SOUND_TONES = { 1: "soft", 2: "distracted", 3: "harvest", 4: "plant" };
+const SOUND_TONES = { 1: "soft", 2: "distracted", 4: "plant" };
 
 function playTone(name) {
   if (!soundOn) return;
@@ -198,19 +191,15 @@ async function refresh() {
   render(await api("GET", "/api/state"));
 }
 
-const eventHooks = [];   // вкладки могут реагировать на события (урожай, сорняк…)
+const eventHooks = [];   // вкладки могут реагировать на события
 
 function handleEvents(events) {
   for (const e of events) {
     if (e.type === "notice") toast(e.text);
-    if (e.type === "weed") toast("В воде появился ил");
-    // Игра не отвлекает: «рыбка выросла» ждёт, пока человек не в фокусе.
-    if (e.type === "crop_ready") quietToast("Рыбка выросла! Нажми на неё, чтобы выпустить");
-    if (e.type === "reward" && document.body.classList.contains("game-on")) quietToast(rewardText(e));
     if (e.type === "session_started") toast("Сессия началась. Удачи!");
     if (e.type === "session_ended") toast(e.message);
     if (e.type === "break_started" || e.type === "break_ended") toast(e.message);
-    // Защита от отвлечений: это не игра, а часть самой учёбы, поэтому показываем сразу.
+    // Защита от отвлечений — часть самой учёбы, поэтому показываем сразу.
     if (e.type === "block_warning") {
       toast(e.hard ? `«${e.process}» отвлекает и закроется через ${e.seconds} с. Сохрани работу`
                    : `«${e.process}» отвлекает от учёбы`, true);
@@ -238,11 +227,8 @@ function render(s) {
   state = s;
   renderHeader(s);
   renderBanner();
-  renderFarm(s);
   renderSession(s);
   renderDevPanel(s);
-  renderBadges(s);
-  if (canAnnounce()) flushQuiet();
   for (const hook of renderHooks) hook(s);
 }
 const renderHooks = [];   // сюда вкладки добавляют свои обновления
@@ -255,8 +241,6 @@ function setStateView(pill, iconEl, textEl, stateName) {
   textEl.textContent = STATE_LABELS[stateName];
 }
 
-let lastCoins = null;
-
 // Как сейчас определяется телефон: кабель (usb), подставка ESP32 (serial) или вручную (mock).
 const PHONE_SOURCE_TEXT = { usb: "по кабелю", serial: "на подставке", mock: "вручную" };
 
@@ -268,11 +252,6 @@ function dockStatus(s) {
 
 function renderHeader(s) {
   setStateView($("#state-pill"), $("#state-icon"), $("#state-label"), s.state);
-  const coins = s.farm.coins;
-  if (lastCoins !== null && coins !== lastCoins) bumpCoins();
-  lastCoins = coins;
-  $("#coins").textContent = coins;
-  $("#streak").textContent = s.farm.streak;
   const dock = dockStatus(s);
   $("#dock-chip").className = "chip dock-chip " + dock.cls;
   $("#dock-chip-text").textContent = dock.text;
@@ -280,13 +259,6 @@ function renderHeader(s) {
   const badge = $("#demo-badge");
   badge.hidden = s.mode !== "demo";
   badge.textContent = `ДЕМО ×${s.speed}`;
-}
-
-function bumpCoins() {
-  const chip = $("#coins-chip");
-  chip.classList.remove("bump");
-  void chip.offsetWidth;   // перезапуск CSS-анимации
-  chip.classList.add("bump");
 }
 
 function renderBanner() {
@@ -302,225 +274,9 @@ function renderBanner() {
   banner.textContent = messages.join(" • ");
 }
 
-// ================= пруд =================
-
-// «Погода» в пруду — прозрачность воды: чистая → слегка мутная → мутная.
-const WEATHER = {
-  FOCUS: "sunny", NOTEBOOK: "sunny", IDLE: "sunny", PAUSED: "sunny",
-  MAYBE_DISTRACTED: "cloudy", DISTRACTED: "gloomy", PHONE_OUT: "gloomy",
-};
-const WEATHER_TEXT = {
-  sunny: "Вода чистая — рыбки растут",
-  cloudy: "Вода слегка мутнеет…",
-  gloomy: "Вода мутная — рыбки ждут тебя",
-};
-
-function plotSprite(p) {
-  return p.crop ? `sprites/${p.crop}_${p.stage}.svg` : null;
-}
-
-function plotHtml(p, s) {
-  let html = `<img class="bed" src="sprites/spot.svg" alt="">`;
-  if (p.crop) html += `<span class="plant${p.stage === "seed" ? " egg" : ""}"><img src="${plotSprite(p)}" alt=""></span>`;
-  if (p.weeds) html += `<img class="weed" src="sprites/silt.svg" alt="ил">`;
-  if (p.thirsty) html += `<img class="drop" src="sprites/bubble.svg" alt="ждёт тебя">`;
-  if (p.crop && (p.active || p.ripe)) html += `<span class="stars">${"★".repeat(p.stars)}</span>`;
-  if (p.ripe) {
-    html += `<span class="sparkle k1">✦</span><span class="sparkle k2">✦</span><span class="sparkle k3">✦</span>`;
-    html += `<span class="harvest">Выпустить +${p.value}</span>`;
-  } else if (p.active) {
-    html += `<span class="bar"><div style="width:${Math.round(p.progress * 100)}%"></div></span>`;
-  }
-  const tip = plotTip(p, s);
-  if (tip) html += `<span class="hover-tip">${tip}</span>`;
-  return html;
-}
-
-// Короткая подсказка при наведении.
-function plotTip(p, s) {
-  if (p.ripe) return "";
-  if (p.weeds) return s.farm.can_weed ? "Очистить воду" : "Очистить можно после 5 минут фокуса";
-  if (!p.crop) return s.session ? "" : "Поселить рыбку";
-  if (!s.session) return "Продолжить растить";
-  return "";
-}
-
-function plotTitle(p) {
-  if (!p.crop) return p.weeds ? "Свободное место, вода мутная" : "Свободное место";
-  const parts = [p.crop_name];
-  if (p.ripe) parts.push(`готово! +${p.value} монет`);
-  else parts.push(`${Math.round(p.progress * 100)}%, ещё ${minutes(p.left_s)} мин фокуса`);
-  if (p.weeds) parts.push("ил: −20% монет рядом");
-  if (p.thirsty) parts.push("ждёт тебя — вернись к работе");
-  return parts.join(" • ");
-}
-
-// Размер клетки подбираем под сцену, чтобы 3×3 и 5×5 помещались без прокрутки.
-function layoutFarm(size) {
-  const scene = $("#farm-scene");
-  const cell = Math.floor(Math.min(210, (scene.clientHeight * 0.66) / (size * 0.74 + 0.4), (scene.clientWidth - 320) / (size * 1.08)));
-  const grid = $("#farm-grid");
-  grid.style.setProperty("--cell", `${Math.max(60, cell)}px`);
-  grid.style.setProperty("--n", size);
-}
-
-function renderFarm(s) {
-  const grid = $("#farm-grid");
-  const size = s.farm.size;
-  if (grid.childElementCount !== size * size) {
-    grid.innerHTML = "";
-    for (const p of s.farm.plots) {
-      const btn = document.createElement("button");
-      btn.className = "plot";
-      btn.dataset.x = p.x;
-      btn.dataset.y = p.y;
-      btn.style.zIndex = p.y + 1;                                 // передние ряды поверх задних
-      btn.style.setProperty("--d", `${-((p.x * 7 + p.y * 3) % 9) / 2}s`);  // растения качаются вразнобой
-      grid.append(btn);
-    }
-    // Сетка идёт по строкам: y — ряд, x — место в ряду.
-    grid.replaceChildren(...[...grid.children].sort((a, b) => (a.dataset.y - b.dataset.y) || (a.dataset.x - b.dataset.x)));
-  }
-  layoutFarm(size);
-  for (const p of s.farm.plots) {
-    const btn = grid.querySelector(`[data-x="${p.x}"][data-y="${p.y}"]`);
-    setHtml(btn, plotHtml(p, s));
-    btn.title = plotTitle(p);
-    btn.setAttribute("aria-label", plotTitle(p));
-    btn.classList.toggle("active", p.active);
-    btn.classList.toggle("ripe", !!p.ripe);
-    // Созревшая грядка поднимается над соседями, чтобы кнопку «Собрать» ничто не закрывало.
-    btn.style.zIndex = p.ripe ? 50 + p.y : p.y + 1;
-    btn.classList.toggle("thirsty", !!p.thirsty);
-  }
-
-  // Погода и дождик-бонус.
-  const weather = WEATHER[s.state] || "sunny";
-  const scene = $("#farm-scene");
-  scene.classList.remove("weather-sunny", "weather-cloudy", "weather-gloomy");
-  scene.classList.add("weather-" + weather);
-  scene.classList.toggle("raining", s.farm.raining);
-
-  // Декор.
-  const decor = s.farm.decor;
-  $("#fence-row").hidden = !decor.includes("rocks");
-  setHtml($("#decor-left"), decor.includes("plants") ? `<img src="sprites/plants.svg" alt="водоросли">` : "");
-  setHtml($("#decor-right"), decor.includes("castle") ? `<img src="sprites/castle.svg" alt="замок">` : "");
-  renderBuildings(s);
-  renderSwimmers();
-
-  // Боковая панель.
-  setStateView($("#farm-state"), $("#farm-state-icon"), $("#farm-state-text"), s.state);
-  $("#farm-weather").textContent = s.farm.raining ? "Родник: рост +10%" : WEATHER_TEXT[weather];
-  $("#farm-start").hidden = !!s.session;
-  const active = s.farm.plots.find((p) => p.active);
-  let hint = s.message || "Нажми на свободное место, чтобы поселить рыбку.";
-  if (s.session && active && !active.ripe) hint = `${active.crop_name}: ещё ${minutes(active.left_s)} мин фокуса`;
-  if (s.session && active && active.ripe) hint = `${active.crop_name} выросла — нажми на неё, чтобы выпустить!`;
-  $("#farm-hint").textContent = hint;
-  $("#weed-status").textContent = s.farm.can_weed
-    ? "Можно чистить: нажми на ил."
-    : `Очистить воду можно после 5 минут фокуса в сессии (ещё ${minutes(s.farm.weed_unlock_left_s)} мин).`;
-  const todayMin = minutes(s.farm.today_focus_s);
-  $("#today-focus").textContent = todayMin;
-  $("#today-goal").style.width = `${Math.min(100, (todayMin / 25) * 100)}%`;
-  $("#today-goal-text").textContent = todayMin >= 25 ? "День засчитан в серию" : `До зачёта дня: ${25 - todayMin} мин`;
-}
-
-// ---------- анимация урожая: монеты летят к счётчику ----------
-
-function celebrateHarvest(btn, result) {
-  const from = btn.getBoundingClientRect();
-  const to = $("#coins-chip").getBoundingClientRect();
-  const text = document.createElement("div");
-  text.className = "float-text";
-  text.textContent = `+${result.coins} ${"★".repeat(result.stars)}`;
-  text.style.left = `${from.left + from.width / 2}px`;
-  text.style.top = `${from.top + from.height * 0.2}px`;
-  document.body.append(text);
-  setTimeout(() => text.remove(), 1900);
-  if (reduceMotion) return;
-  const count = Math.min(8, Math.max(3, result.coins));
-  for (let i = 0; i < count; i++) {
-    const coin = document.createElement("img");
-    coin.src = "sprites/coin.svg";
-    coin.className = "fly-coin";
-    document.body.append(coin);
-    const x0 = from.left + from.width / 2 - 17 + (Math.random() - 0.5) * 40;
-    const y0 = from.top + from.height / 2 - 17;
-    const x1 = to.left + 8;
-    const y1 = to.top + 4;
-    coin.animate([
-      { transform: `translate(${x0}px, ${y0}px) scale(.6)`, opacity: 0 },
-      { transform: `translate(${x0}px, ${y0 - 60}px) scale(1.1)`, opacity: 1, offset: 0.3 },
-      { transform: `translate(${x1}px, ${y1}px) scale(.8)`, opacity: 1 },
-    ], { duration: 900 + i * 90, easing: "cubic-bezier(.5,0,.4,1)" }).onfinish = () => {
-      coin.remove();
-      bumpCoins();
-    };
-  }
-}
-
-$("#farm-grid").onclick = async (e) => {
-  const btn = e.target.closest(".plot");
-  if (!btn || !state) return;
-  const x = Number(btn.dataset.x);
-  const y = Number(btn.dataset.y);
-  const p = state.farm.plots.find((q) => q.x === x && q.y === y);
-  if (p.ripe) {
-    const name = await askFishName(p);
-    const r = await api("POST", "/api/farm/harvest", { x, y, name });
-    refreshCollection();
-    celebrateHarvest(btn, r);
-    if (r.weed_penalty) toast("Ил рядом забрал 20% монет — в следующий раз очисти воду");
-    else toast("Рыбка выпущена в пруд");
-    playTone("harvest");
-  } else if (p.weeds) {
-    if (!state.farm.can_weed) {
-      toast(`Очистить воду можно после 5 минут фокуса — осталось ${minutes(state.farm.weed_unlock_left_s)} мин`);
-      return;
-    }
-    await api("POST", "/api/farm/weed", { x, y });
-    playTone("click");
-    toast("Вода стала чище");
-  } else if (!state.session) {
-    selectedPlot = `${x},${y}`;
-    playTone("click");
-    showTab("session");
-  }
-  refresh();
-};
-$("#farm-start").onclick = () => showTab("session");
-window.addEventListener("resize", () => state && layoutFarm(state.farm.size));
-
 // ================= сессия =================
 
-let selectedPlot = "";   // выбранная для старта грядка ("x,y" или "" — авто)
 const RING_LENGTH = 2 * Math.PI * 112;
-
-function renderStartForm(s) {
-  // Грядки, на которых можно начать: пустые или с недоросшим растением.
-  const plots = s.farm.plots.filter((p) => !p.crop || !p.ripe);
-  const plotOptions = [`<option value="">авто</option>`].concat(plots.map((p) => {
-    const text = p.crop ? `${p.crop_name} ${Math.round(p.progress * 100)}%` : "свободно";
-    return `<option value="${p.x},${p.y}">${p.y + 1} ряд, ${p.x + 1} место — ${text}</option>`;
-  }));
-  const prevPlot = $("#start-plot").value;
-  setHtml($("#start-plot"), plotOptions.join(""));
-  $("#start-plot").value = selectedPlot !== null ? selectedPlot : prevPlot;
-  if ($("#start-plot").selectedIndex < 0) $("#start-plot").value = "";
-  selectedPlot = null;
-
-  const crops = s.farm.crops.filter((c) => c.unlocked);
-  const prevCrop = $("#start-crop").value;
-  setHtml($("#start-crop"), [`<option value="">авто (по длине сессии)</option>`]
-    .concat(crops.map((c) => `<option value="${c.id}">${c.name} — ${c.focus_min} мин</option>`)).join(""));
-  $("#start-crop").value = prevCrop;
-  if ($("#start-crop").selectedIndex < 0) $("#start-crop").value = "";
-  // Для недоросшего растения выбирать растение не нужно.
-  const chosen = s.farm.plots.find((p) => `${p.x},${p.y}` === $("#start-plot").value);
-  $("#start-crop").disabled = !!(chosen && chosen.crop);
-}
 
 function renderRing(fraction, stateName) {
   const ring = $("#ring-fg");
@@ -529,24 +285,9 @@ function renderRing(fraction, stateName) {
   ring.style.strokeDashoffset = RING_LENGTH * (1 - Math.max(0, Math.min(1, fraction)));
 }
 
-function renderCropLine(s) {
-  const p = s.farm.plots.find((q) => q.active);
-  let html = "";
-  if (p && p.crop) {
-    const img = `<img src="${plotSprite(p)}" alt="">`;
-    html = p.ripe
-      ? `${img}<span><b>${p.crop_name}</b> выросла — выпусти её на вкладке «Пруд»!</span>`
-      : `${img}<span>Растёт <b>${p.crop_name}</b>: ещё ${minutes(p.left_s)} мин фокуса</span>`;
-  } else if (!s.session) {
-    html = `<span class="muted">Подключи телефон кабелем или поставь на подставку — таймер запустится сам</span>`;
-  }
-  setHtml($("#crop-line"), html);
-}
-
 function renderSession(s) {
   const session = s.session;
   setStateView($("#state-banner"), $("#state-banner-icon"), $("#state-banner-text"), s.state);
-  renderCropLine(s);
 
   $("#start-form").hidden = !!session;
   $("#session-controls").hidden = !session;
@@ -577,12 +318,11 @@ function renderSession(s) {
       ? totals.map(([st, sec]) => `<div><span class="cat s-${st}">${STATE_SHORT[st]}</span><b>${formatTime(sec)}</b></div>`).join("")
       : `<p class="muted">Пока пусто</p>`);
   } else {
-    renderStartForm(s);
     const pc = s.pomodoro || {};
     $("#pomo-hint").textContent = pc.enabled === false ? "" :
       `Сессии от ${pc.min_session_min} мин идут по Pomodoro: ${pc.work_min} мин работы, ${pc.short_break_min} мин отдыха, ` +
       `после ${pc.cycles} кругов перерыв ${pc.long_break_min} мин. Во время отдыха блокировка выключена.`;
-    // Без телефона таймер не запускается (кроме тренировки без награды).
+    // Без телефона таймер не запускается (кроме тренировки без телефона).
     $("#start-btn").disabled = !s.phone.docked;
     $("#phone-need").hidden = s.phone.docked;
     $("#timer").textContent = formatTime(Number($("#start-length").value || 25) * 60);
@@ -639,14 +379,10 @@ $("#stand").onclick = async () => {
   render(await api("POST", "/api/dev/phone", { docked: !state.phone.docked }));
 };
 
-$("#start-plot").onchange = () => renderStartForm(state);
 $("#start-length").oninput = () => { if (state && !state.session) renderSession(state); };
 
 function startBody(withoutPhone) {
-  const plot = $("#start-plot").value;
   return {
-    plot: plot ? plot.split(",").map(Number) : null,
-    crop: $("#start-crop").disabled ? null : ($("#start-crop").value || null),
     length_min: Number($("#start-length").value) || null,
     without_phone: withoutPhone,
   };
@@ -723,7 +459,6 @@ async function loadStats() {
   $("#st-sessions").textContent = st.sessions;
   $("#st-distr").textContent = st.distractions;
   $("#st-reasons").textContent = `окно: ${st.distraction_reasons.window} · телефон: ${st.distraction_reasons.phone}`;
-  $("#st-streak").textContent = state ? state.farm.streak : 0;
   $("#st-rest").textContent = minutes(st.rest.seconds);
   $("#st-rest-sub").textContent = st.rest.count ? `перерывов: ${st.rest.count}` : "перерывов не было";
   renderTimeline(st.timeline);
@@ -811,56 +546,6 @@ $$("#stats-range button").forEach((b) => (b.onclick = () => {
 }));
 tabLoaders.stats = loadStats;
 
-// ================= магазин =================
-
-const SHOP_DESC = {
-  crop: (item, s) => {
-    const c = s.farm.crops.find((q) => `crop:${q.id}` === item.item);
-    return c ? `${c.focus_min} мин фокуса → ${c.coins} монет` : "";
-  },
-  expand: (item) => `Больше мест — больше рыбок`,
-  decor: () => "Для красоты, на игру не влияет",
-  building: () => "Здание для пруда: красота, на игру не влияет",
-};
-
-function shopImage(item) {
-  if (item.kind === "crop") return `sprites/${item.item.split(":")[1]}_ready.svg`;
-  if (item.kind === "decor" || item.kind === "building") return `sprites/${item.item.split(":")[1]}.svg`;
-  return item.item === "expand_5" ? "sprites/grid5.svg" : "sprites/grid4.svg";
-}
-
-function renderShop(s) {
-  const coins = s.farm.coins;
-  $("#shop-coins").textContent = coins;
-  const price = (n) => `<span class="price-tag"><img src="sprites/coin.svg" alt="">${n}</span>`;
-  setHtml($("#shop-grid"), s.farm.shop.map((item) => {
-    let button;
-    if (item.owned) button = `<span class="owned-tag">✓ ${item.kind === "crop" ? "Открыто" : "Куплено"}</span>`;
-    else if (item.available === false) button = `<button class="btn" disabled>Сначала пруд поменьше</button>`;
-    else if (coins < item.price) button = `<button class="btn" disabled>ещё ${price(item.price - coins)}</button>`;
-    else button = `<button class="btn primary" data-buy="${item.item}">Купить за ${price(item.price)}</button>`;
-    const kind = { crop: "Рыбка", expand: "Пруд", decor: "Декор", building: "Здание" }[item.kind];
-    const locked = item.kind === "crop" && !item.owned;
-    return `<div class="card shop-item${locked ? " locked" : ""}">
-      <span class="shop-kind">${kind}</span>
-      <div class="shop-pic"><img class="main" src="${shopImage(item)}" alt="">${locked ? `<img class="lock" src="sprites/lock.svg" alt="закрыто">` : ""}</div>
-      <h3>${item.name}</h3>
-      <p class="desc">${SHOP_DESC[item.kind](item, s)}</p>
-      ${button}
-    </div>`;
-  }).join(""));
-}
-
-$("#shop-grid").onclick = async (e) => {
-  const btn = e.target.closest("[data-buy]");
-  if (!btn) return;
-  render(await api("POST", "/api/shop/buy", { item: btn.dataset.buy }));
-  playTone("harvest");
-  toast("Покупка удалась!");
-};
-tabLoaders.shop = () => state && renderShop(state);
-renderHooks.push((s) => { if ($("#tab-shop").classList.contains("active")) renderShop(s); });
-
 // ================= настройки =================
 
 // Группы настроек: [раздел, ключ, подпись, единица].
@@ -893,11 +578,6 @@ const SETTINGS_GROUPS = [
     ["pomodoro", "short_break_min", "Короткий перерыв", "мин"],
     ["pomodoro", "cycles", "После скольких рабочих отрезков перерыв длинный", "шт"],
     ["pomodoro", "long_break_min", "Длинный перерыв (20–30)", "мин"],
-  ]],
-  ["Игровой режим", [
-    ["ui", "game_mode", "Включить игру: пруд, рыбки, магазин, задания и серию дней"],
-    ["ui", "pond_fish_max", "Сколько выпущенных рыбок плавает в пруду (0 — никого)", "шт"],
-    ["rewards", "enabled", "Задания и ачивки (выключи для полной тишины)"],
   ]],
 ];
 
@@ -1151,7 +831,7 @@ $("#settings-groups").addEventListener("click", async (e) => {
 });
 
 $("#settings-save").onclick = async () => {
-  const body = { thresholds: {}, session: {}, ui: {}, rewards: {} };
+  const body = { thresholds: {}, session: {}, ui: {} };
   $$("#settings-groups [data-group]").forEach((input) => {
     body[input.dataset.group][input.dataset.key] = input.type === "checkbox" ? input.checked : Number(input.value);
   });
@@ -1171,10 +851,7 @@ $("#settings-save").onclick = async () => {
   if (password === null) return;
   if (password) body.password = password;
   await api("PUT", "/api/settings", body);
-  pondMax = body.ui.pond_fish_max;
-  applyGameMode(body.ui.game_mode);
   applyTheme(body.ui.theme);
-  renderSwimmers();
   toast("Настройки сохранены");
   refresh();
 };
@@ -1325,147 +1002,11 @@ $("#rules-save").onclick = async () => {
   toast("Правила сохранены");
 };
 
-// ================= тишина: игра не отвлекает от работы =================
-
-const QUIET_STATES = ["FOCUS", "NOTEBOOK"];
-const quietQueue = [];
-
-function isQuiet() {
-  return !!state && QUIET_STATES.includes(state.state);
-}
-
-// Объявлять можно только вне сессии или на паузе (как и на сервере): даже в «отвлёкся»
-// человека лучше не дёргать игрой, а вернуть к работе.
-function canAnnounce() {
-  return !state || state.state === "IDLE" || state.state === "PAUSED";
-}
-
-// Показывает тост сразу, если человек не в фокусе, иначе откладывает.
-function quietToast(text) {
-  if (canAnnounce()) toast(text);
-  else quietQueue.push(text);
-}
-
-function flushQuiet() {
-  while (quietQueue.length) toast(quietQueue.shift());
-}
-
-function rewardText(e) {
-  const coins = e.coins ? ` +${e.coins} монет` : "";
-  if (e.kind === "quest") return `Задание выполнено: ${e.title}${coins}`;
-  const building = e.building ? " — новое здание в пруду!" : "";
-  return `Ачивка «${e.title}»${coins}${building}`;
-}
-
-function renderBadges(s) {
-  const badge = $("#quests-badge");
-  const n = s.rewards ? s.rewards.unseen : 0;
-  badge.hidden = n <= 0;
-  badge.textContent = n;
-}
-
-function escapeHtml(text) {
-  return String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-
-// ================= коллекция и плавающие рыбки =================
-
-let collection = { fish: [], species: [] };
-let pondMax = 12;   // настройка ui.pond_fish_max
-
-async function refreshCollection() {
-  collection = await api("GET", "/api/collection");
-  renderSwimmers();
-  if ($("#tab-collection").classList.contains("active")) renderCollectionTab();
-}
-
-async function loadPondMax() {
-  const s = await api("GET", "/api/settings");
-  pondMax = s.ui ? s.ui.pond_fish_max : 12;
-  applyGameMode(!!(s.ui && s.ui.game_mode));
-  applyTheme(s.ui && s.ui.theme);
-  renderSwimmers();
-}
-
-function renderBuildings(s) {
-  setHtml($("#buildings"), s.farm.buildings.map((b) => `<img class="bld ${b}" src="sprites/${b}.svg" alt="">`).join(""));
-}
-
-// Лучшие по звёздам (затем новые), не больше pondMax. Рыбки в мутной воде просто тускнеют.
-function renderSwimmers() {
-  const shown = [...collection.fish]
-    .sort((a, b) => b.stars - a.stars || b.id - a.id)
-    .slice(0, Math.max(0, pondMax || 0));
-  const names = Object.fromEntries(collection.species.map((sp) => [sp.id, sp.name]));
-  setHtml($("#swimmers"), shown.map((f, k) => {
-    const h = (f.id * 2654435761) % 1000;
-    const top = 6 + (h % 38);
-    const dur = 16 + (h % 14);
-    const title = `${f.name || names[f.fish_id] || "Рыбка"} ${"★".repeat(f.stars)}`;
-    return `<div class="swimmer" style="top:${top}%;--dur:${dur}s;--delay:${-(h % 20)}s;--k:${k % 15}" title="${escapeHtml(title)}">` +
-      `<img src="sprites/${f.fish_id}_adult.svg" alt=""></div>`;
-  }).join(""));
-}
-
-const SUGGESTED_NAMES = ["Бублик", "Пузырик", "Нептун", "Златка", "Рыжик", "Плюх", "Чешуйка", "Кроха"];
-
-// Окошко «Как назовёшь рыбку?»: Enter — выпустить с именем, «Без имени» и Esc — без имени.
-function askFishName(p) {
-  const dlg = $("#name-dialog");
-  const input = $("#name-input");
-  $("#name-fish").textContent = p.crop_name.toLowerCase();
-  input.value = "";
-  input.placeholder = SUGGESTED_NAMES[Math.floor(Math.random() * SUGGESTED_NAMES.length)];
-  dlg.returnValue = "";
-  return new Promise((resolve) => {
-    dlg.onclose = () => resolve(dlg.returnValue === "ok" ? input.value.trim() : "");
-    dlg.showModal();
-    input.focus();
-  });
-}
-
-function renderCollectionTab() {
-  setHtml($("#species-grid"), collection.species.map((sp) => `
-    <div class="species-card${sp.count ? "" : " locked"}">
-      <img src="sprites/${sp.id}_ready.svg" alt="">
-      <h4>${sp.count ? sp.name : "???"}</h4>
-      <div class="muted">${sp.count ? `выпущено: ${sp.count} · лучшее: ${"★".repeat(sp.best_stars)}` : (sp.unlocked ? "ещё не выпускал" : "открой в магазине")}</div>
-    </div>`).join(""));
-  const names = Object.fromEntries(collection.species.map((sp) => [sp.id, sp.name]));
-  setHtml($("#fish-list"), collection.fish.length
-    ? collection.fish.map((f) => `<li><img src="sprites/${f.fish_id}_adult.svg" alt="">
-        <b>${f.name ? escapeHtml(f.name) : "Без имени"}</b> <span class="muted">${names[f.fish_id]}</span> <span>${"★".repeat(f.stars)}</span></li>`).join("")
-    : `<li class="muted">Пока никого. Выпусти первую рыбку — она поселится в пруду</li>`);
-}
-tabLoaders.collection = async () => { await refreshCollection(); renderCollectionTab(); };
-
-// ================= задания и ачивки =================
-
-async function loadQuestsTab() {
-  const r = await api("GET", "/api/rewards");
-  $("#quests-note").textContent = r.enabled
-    ? `Задания про фокус, без спешки и штрафов. Монет за задания — не больше ${r.coin_cap} в день. Награды приходят после сессии или на паузе.`
-    : "Тихий режим: задания и ачивки выключены (Настройки → Игра).";
-  setHtml($("#quests-list"), r.quests.map((q) => `
-    <div class="quest${q.done ? " done" : ""}">
-      <h4>${q.done ? "Готово · " : ""}${q.title}</h4>
-      <div class="q-bar"><div style="width:${(q.progress / q.target) * 100}%"></div></div>
-      <div class="muted small">${q.progress} / ${q.target} · награда ${q.reward} монет${q.paid ? " (получено)" : ""}</div>
-    </div>`).join(""));
-  setHtml($("#achievements-grid"), r.achievements.map((a) => `
-    <div class="ach${a.unlocked ? "" : " locked"}">
-      <h4>${a.unlocked ? "" : "Закрыто · "}${a.title}</h4>
-      <div class="muted small">${a.desc}</div>
-    </div>`).join(""));
-  if (r.unseen > 0 && !isQuiet()) render(await api("POST", "/api/rewards/seen"));
-}
-tabLoaders.quests = loadQuestsTab;
 
 // ================= запуск =================
 
 refresh().catch(() => {});
-refreshCollection().catch(() => {});
-loadPondMax().catch(() => {});
+api("GET", "/api/settings").then((cfg) => applyTheme(cfg.ui && cfg.ui.theme)).catch(() => {});
 connect();
 // Ссылка вида http://127.0.0.1:8765/#session сразу открывает нужную вкладку.
 if (location.hash) showTab(location.hash.slice(1));

@@ -18,7 +18,6 @@ def test_real_clock_moves_forward():
 def test_default_settings_are_valid():
     s = config.load_settings()
     assert s["thresholds"]["phone_grace_s"] == 30
-    assert s["game"]["crops"]["guppy"]["focus_min"] == 10
 
 
 def test_overrides_are_merged():

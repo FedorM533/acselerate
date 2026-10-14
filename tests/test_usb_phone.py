@@ -104,13 +104,12 @@ def test_session_does_not_start_without_phone(make_env):
     assert env.state()["session"] is None
 
 
-def test_practice_session_without_phone_gives_no_growth(make_env):
+def test_practice_session_without_phone(make_env):
     env = make_env(docked=False)
     env.post("/api/session/start", {"without_phone": True})
     env.tick(300)
     s = env.state()
     assert s["state"] == "FOCUS" and s["session"]["no_phone"]
-    assert all(p["crop"] is None for p in s["farm"]["plots"])
     assert s["session"]["totals"]["FOCUS"] >= 299   # время идёт в статистику
 
 
@@ -123,7 +122,6 @@ def test_normal_mode_phone_is_not_assumed_docked(make_env):
 
 def test_pairing_api_roundtrip(tmp_path):
     import datetime as dt
-    import random
 
     from fastapi.testclient import TestClient
 
@@ -138,7 +136,7 @@ def test_pairing_api_roundtrip(tmp_path):
     dock = Dock(usb=UsbPhoneSensor(lister))
     manager = SessionManager(load_settings(overrides={"mode": "dev"}), Database(":memory:"),
                              clock=FakeClock(dt.datetime(2026, 9, 30, 10, 0).timestamp()),
-                             monitor=FakeMonitor(), rng=random.Random(1), phone=dock, device=dock)
+                             monitor=FakeMonitor(), phone=dock, device=dock)
     client = TestClient(create_app(manager, run_loop=False, rules_path=tmp_path / "rules.yaml"))
 
     assert client.post("/api/phone/pair/begin").json() == {"ok": True}

@@ -22,13 +22,13 @@ LED_FOR_STATE = {
     "BREAK": "BLUE",     # перерыв Pomodoro (состояния нет в машине состояний, им управляет менеджер)
 }
 
-SOUND_SOFT, SOUND_DISTRACTED, SOUND_HARVEST, SOUND_START = 1, 2, 3, 4
+SOUND_SOFT, SOUND_DISTRACTED, SOUND_START = 1, 2, 4   # номер 3 в прошивке свободен
 
 # Мягкие уведомления в интерфейсе.
 NOTICE_FOR_STATE = {
-    MAYBE_DISTRACTED: "Кажется, ты отвлёкся. Растения ждут 🌱",
-    DISTRACTED: "Рост на паузе: вернись к работе, и пруд снова станет чистым.",
-    PHONE_OUT: "Телефон отключён — рыбки ждут, когда он вернётся.",
+    MAYBE_DISTRACTED: "Кажется, ты отвлёкся. Вернись к работе",
+    DISTRACTED: "Ты отвлёкся: вернись к работе",
+    PHONE_OUT: "Телефон отключён — верни его на подставку или подключи кабель",
 }
 
 
@@ -55,8 +55,6 @@ class Reactions:
 
         bus.subscribe("state_changed", self._on_state_changed)
         bus.subscribe("session_started", lambda d: self.play(SOUND_START))
-        # Звук «рыбка выпущена» — когда человек сам выпустил рыбку, а не посреди работы.
-        bus.subscribe("harvested", lambda d: self.play(SOUND_HARVEST))
 
     def set_sound_cfg(self, sound_cfg: dict):
         cfg = dict(sound_cfg or {})

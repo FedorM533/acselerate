@@ -26,8 +26,6 @@
       <span class="state-icon" id="state-icon"></span><span id="state-label">…</span>
     </div>
     <div class="top-right">
-      <span class="chip coins-chip game-only" id="coins-chip" title="Монеты"><img src="sprites/coin.svg" alt=""><b id="coins">0</b></span>
-      <span class="chip game-only" title="Дней подряд с 25+ минутами фокуса"><b id="streak">0</b>&nbsp;дн.</span>
       <span class="chip dock-chip" id="dock-chip" title="Телефон"><span class="dot"></span><span id="dock-chip-text">телефон</span></span>
       <button class="chip icon-btn" id="sound-toggle" title="Звуки интерфейса">Звук выключен</button>
     </div>
@@ -36,60 +34,12 @@
   <div id="banner" class="banner" hidden></div>
 
   <nav class="tabs">
-    <button data-tab="farm" class="game-only">Пруд</button>
     <button data-tab="session" class="active">Сессия</button>
-    <button data-tab="quests" class="game-only">Задания <span class="badge" id="quests-badge" hidden></span></button>
-    <button data-tab="collection" class="game-only">Коллекция</button>
     <button data-tab="stats">Статистика</button>
-    <button data-tab="shop" class="game-only">Магазин</button>
     <button data-tab="settings">Настройки</button>
   </nav>
 
   <main>
-    <!-- ПРУД -->
-    <section id="tab-farm" class="tab">
-      <div class="farm-wrap">
-        <div class="farm-scene weather-sunny" id="farm-scene">
-          <div class="water"></div>
-          <div class="water-murk"></div>
-          <div class="rays"></div>
-          <div class="bubbles" aria-hidden="true">
-            <i style="--x:12%;--s:14px;--t:9s;--d:-2s"></i><i style="--x:28%;--s:9px;--t:7s;--d:-5s"></i>
-            <i style="--x:47%;--s:18px;--t:11s;--d:-8s"></i><i style="--x:63%;--s:10px;--t:8s;--d:-1s"></i>
-            <i style="--x:79%;--s:15px;--t:10s;--d:-6s"></i><i style="--x:91%;--s:8px;--t:6s;--d:-3s"></i>
-          </div>
-          <div class="sand"></div>
-          <div class="rocks-row" id="fence-row"></div>
-          <div class="decor decor-left" id="decor-left"></div>
-          <div class="buildings" id="buildings" aria-hidden="true"></div>
-          <div class="swimmers" id="swimmers"></div>
-          <div class="farm-grid" id="farm-grid"></div>
-          <div class="decor decor-right" id="decor-right"></div>
-          <div class="rain" id="rain"></div>
-        </div>
-        <aside class="farm-side">
-          <div class="card side-state">
-            <div class="state-banner small-banner s-IDLE" id="farm-state">
-              <span class="state-icon" id="farm-state-icon"></span><span id="farm-state-text"></span>
-            </div>
-            <p id="farm-weather" class="weather-line"></p>
-            <p id="farm-hint" class="muted"></p>
-            <button id="farm-start" class="btn primary big">Начать сессию</button>
-          </div>
-          <div class="card">
-            <h3>Чистота воды</h3>
-            <p id="weed-status" class="muted"></p>
-          </div>
-          <div class="card">
-            <h3>Сегодня</h3>
-            <p class="today"><b id="today-focus">0</b> мин фокуса</p>
-            <div class="goal"><div id="today-goal"></div></div>
-            <p class="muted small" id="today-goal-text"></p>
-          </div>
-        </aside>
-      </div>
-    </section>
-
     <!-- СЕССИЯ -->
     <section id="tab-session" class="tab active">
       <div class="session-layout">
@@ -107,16 +57,13 @@
           <div class="state-banner s-IDLE" id="state-banner">
             <span class="state-icon" id="state-banner-icon"></span><span id="state-banner-text"></span>
           </div>
-          <div class="crop-line" id="crop-line"></div>
 
           <div id="start-form" class="start-form">
-            <label class="game-only">Место <select id="start-plot"></select></label>
-            <label class="game-only">Рыбка <select id="start-crop"></select></label>
             <label>Минут <input id="start-length" type="number" min="1" max="240" value="25"></label>
             <button id="start-btn" class="btn primary big">Начать</button>
             <p class="muted small" id="pomo-hint"></p>
             <p class="phone-need" id="phone-need" hidden>Подключи телефон кабелем или поставь на подставку — таймер запустится сам.</p>
-            <button id="start-nophone-btn" class="btn small" title="Время пойдёт в статистику, но рыбки не растут">Начать без телефона (рыбки не растут)</button>
+            <button id="start-nophone-btn" class="btn small" title="Время пойдёт в статистику">Начать без телефона</button>
           </div>
 
           <div id="session-controls" class="controls" hidden>
@@ -195,21 +142,6 @@
       </div>
     </section>
 
-    <!-- ЗАДАНИЯ -->
-    <section id="tab-quests" class="tab">
-      <p class="muted" id="quests-note"></p>
-      <div class="quests" id="quests-list"></div>
-      <h3 class="section-title">Ачивки</h3>
-      <div class="achievements" id="achievements-grid"></div>
-    </section>
-
-    <!-- КОЛЛЕКЦИЯ -->
-    <section id="tab-collection" class="tab">
-      <div class="species" id="species-grid"></div>
-      <h3 class="section-title">Все выпущенные рыбки</h3>
-      <ul class="fish-list" id="fish-list"></ul>
-    </section>
-
     <!-- СТАТИСТИКА -->
     <section id="tab-stats" class="tab">
       <div class="seg" id="stats-range">
@@ -219,7 +151,6 @@
       <div class="stats-cards">
         <div class="card stat"><div class="stat-ico"></div><div class="stat-num" id="st-focus">0</div><div class="stat-label" id="st-focus-label">минут фокуса сегодня</div></div>
         <div class="card stat"><div class="stat-ico"></div><div class="stat-num" id="st-distr">0</div><div class="stat-label">отвлечений</div><div class="stat-sub" id="st-reasons"></div></div>
-        <div class="card stat game-only"><div class="stat-ico"></div><div class="stat-num" id="st-streak">0</div><div class="stat-label">дней подряд с 25+ мин</div></div>
         <div class="card stat"><div class="stat-ico"></div><div class="stat-num" id="st-rest">0</div><div class="stat-label">минут отдыха</div><div class="stat-sub" id="st-rest-sub"></div></div>
         <div class="card stat"><div class="stat-ico"></div><div class="stat-num" id="st-sessions">0</div><div class="stat-label">сессий</div></div>
       </div>
@@ -246,15 +177,6 @@
           <ol id="st-top" class="top-list"></ol>
         </div>
       </div>
-    </section>
-
-    <!-- МАГАЗИН -->
-    <section id="tab-shop" class="tab">
-      <div class="shop-head">
-        <p class="muted">Монеты приносит только выпуск выросших рыбок. Декор — просто для красоты.</p>
-        <span class="chip wallet"><img src="sprites/coin.svg" alt=""> У тебя <b id="shop-coins">0</b></span>
-      </div>
-      <div class="shop" id="shop-grid"></div>
     </section>
 
     <!-- НАСТРОЙКИ -->
@@ -302,17 +224,6 @@
     </label>
     </div>
   </details>
-
-  <dialog id="name-dialog" class="name-dialog">
-    <form method="dialog">
-      <h3>Как назовёшь <span id="name-fish">рыбку</span>?</h3>
-      <input id="name-input" type="text" maxlength="20" autocomplete="off" placeholder="Имя">
-      <div class="name-buttons">
-        <button class="btn primary big" value="ok">Выпустить</button>
-        <button class="btn" value="skip" formnovalidate>Без имени</button>
-      </div>
-    </form>
-  </dialog>
 
   <div id="toasts" class="toasts"></div>
 

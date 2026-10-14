@@ -105,7 +105,7 @@ def test_cannot_weaken_protection_without_password(tmp_path):
 def test_other_settings_stay_free_during_hard_session(tmp_path):
     env = hard_env(tmp_path)
     env.post("/api/session/start", {})
-    assert env.client.put("/api/settings", json={"ui": {"pond_fish_max": 5}}).status_code == 200
+    assert env.client.put("/api/settings", json={"ui": {"theme": "dark"}}).status_code == 200
 
 
 def test_password_cannot_be_changed_during_hard_session(tmp_path):

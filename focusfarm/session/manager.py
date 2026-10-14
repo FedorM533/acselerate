@@ -3,12 +3,11 @@
 Каждую секунду:
 1. читаем монитор активности и датчик телефона;
 2. машина состояний решает, в каком мы состоянии;
-3. игра двигает рост/сорняки;
-4. всё сохраняется в базу, события уходят в шину (а оттуда — в интерфейс
+3. всё сохраняется в базу, события уходят в шину (а оттуда — в интерфейс
    и на подставку).
 
 Демо-режим: «игровое» время идёт в `speed` раз быстрее настоящего. Им
-измеряются пороги и рост. Время простоя клавиатуры (idle_seconds) НЕ
+измеряются пороги. Время простоя клавиатуры (idle_seconds) НЕ
 ускоряем: иначе в демо «кажется, отвлёкся» включалось бы через 6 секунд
 без движения мыши, и показывать было бы неудобно.
 """
@@ -23,16 +22,15 @@ from focusfarm.clock import Clock, RealClock
 from focusfarm.config import speed_of
 from focusfarm.device.output import MockDeviceOutput
 from focusfarm.events import EventBus
-from focusfarm.game.engine import GameEngine, GameError, quality_for
+from focusfarm.errors import AppError
 from focusfarm.phone.hub import PhoneHub
 from focusfarm.reactions import Reactions
 from focusfarm.sensors.phone import MockPhoneSensor
-from focusfarm.session.reward_service import RewardsService, clean_name
 from focusfarm.strict import (
     GRACE_S, LOCKOUT_S, MAX_FAILS, MIN_PASSWORD_LEN, hash_password, verify_password,
 )
 from focusfarm.session.state_machine import (
-    FOCUS, IDLE, MAYBE_DISTRACTED, PAUSED, Inputs, StateMachine,
+    FOCUS, IDLE, PAUSED, Inputs, StateMachine,
 )
 from focusfarm.storage.db import Database
 
@@ -48,18 +46,17 @@ STATE_LABELS = {
     "PAUSED": "Пауза",
     "BREAK": "Перерыв",
 }
-BREAK = "BREAK"          # перерыв Pomodoro: блокировка выключена, рыбки не растут
+BREAK = "BREAK"          # перерыв Pomodoro: блокировка выключена
 
 FORCED_PROCESS = "(панель разработчика)"
 MAX_DT_S = 5  # если компьютер «уснул», не засчитываем пропущенное время разом
-REWARD_EVAL_EVERY_S = 5   # как часто проверяем награды (только вне фокуса)
 EXTENSION_TIMEOUT_S = 90  # сколько тишины от расширения браузера считаем «оно пропало»
 
 
 class SessionManager:
     def __init__(self, settings: dict, db: Database, clock: Clock | None = None,
                  bus: EventBus | None = None, monitor=None, classifier=None,
-                 phone=None, device=None, rng=None, blocker=None, nudge_player=None):
+                 phone=None, device=None, blocker=None, nudge_player=None):
         self.clock = clock or RealClock()
         # Без явного блокировщика ничего не закрываем (тесты, демо).
         self.blocker = blocker or NullBlocker()
@@ -79,11 +76,6 @@ class SessionManager:
         self.device = device or MockDeviceOutput()
         self.lock = threading.RLock()
 
-        self.game = GameEngine(settings.get("game"), rng)
-        self.game.load_dict(db.load_farm())
-        self.rewards = RewardsService(db, self.game, self.clock, self.bus,
-                                      enabled=settings.get("rewards", {}).get("enabled", True))
-        self._last_reward_eval = 0.0
         self.reactions = Reactions(self.device, self.clock, self.bus, settings.get("sound"), nudge_player)
         db.close_unfinished_sessions()
 
@@ -116,7 +108,6 @@ class SessionManager:
             if self.sm:
                 self.sm.th.update(settings["thresholds"])
             self.reactions.set_sound_cfg(settings.get("sound"))
-            self.rewards.enabled = settings.get("rewards", {}).get("enabled", True)
             device = settings.get("device", {})
             if hasattr(self.phone, "set_port"):   # настоящая подставка: порт из настроек
                 self.phone.set_port(device.get("serial_port", ""))
@@ -164,33 +155,24 @@ class SessionManager:
 
     # ---------- жизненный цикл сессии ----------
 
-    def start_session(self, plot=None, crop: str | None = None, length_min: float | None = None,
-                      without_phone: bool = False):
-        """without_phone — тренировка без телефона: время считается в статистике,
-        но рыбки не растут (награды нет)."""
+    def start_session(self, length_min: float | None = None, without_phone: bool = False):
+        """without_phone — тренировка без телефона: время считается в статистике."""
         with self.lock:
             if self.session:
-                raise GameError("Сессия уже идёт")
+                raise AppError("Сессия уже идёт")
             if not without_phone and not self.phone.is_docked():
-                raise GameError("Подключи телефон кабелем или поставь на подставку — "
+                raise AppError("Подключи телефон кабелем или поставь на подставку — "
                                 "без него таймер не запускается.")
             length = float(length_min or self.default_length_min())
             if length <= 0:
-                raise GameError("Длина сессии должна быть больше нуля")
-            if without_phone:
-                pos = self.game.begin_practice()
-                crop_id = None
-            else:
-                pos = self.game.begin_session(tuple(plot) if plot else None, crop, length)
-                crop_id = self.game.plot(*pos).crop_id if pos else None
+                raise AppError("Длина сессии должна быть больше нуля")
             now = self.clock.now()
             self.session = {
-                "id": self.db.start_session(now, length, crop_id, practice=without_phone),
+                "id": self.db.start_session(now, length, practice=without_phone),
                 "start": now,
                 "planned_s": length * 60,
                 "elapsed_s": 0.0,
                 "totals": {},
-                "plot": pos,
                 "no_phone": without_phone,
                 "pomo": self._pomodoro_plan(length),
                 "phase": "work",         # work | break
@@ -201,13 +183,8 @@ class SessionManager:
             }
             self.sm = StateMachine(self.settings["thresholds"], start_state=FOCUS)
             self.paused = self.notebook = False
-            if without_phone:
-                self.message = "Тренировка без телефона: время идёт в статистику, но рыбки не растут."
-            elif not pos:
-                self.message = "Все места заняты готовыми рыбками — выпусти их в пруд, чтобы вывести новых."
-            else:
-                self.message = None
-            self.bus.publish("session_started", {"plot": pos, "crop": crop_id, "length_min": length})
+            self.message = "Тренировка без телефона: время идёт в статистику." if without_phone else None
+            self.bus.publish("session_started", {"length_min": length})
             self._set_state(FOCUS)
             self._save()
             return self.snapshot()
@@ -286,7 +263,7 @@ class SessionManager:
         """Закончить перерыв раньше. Это возврат к работе, а не ослабление защиты: пароль не нужен."""
         with self.lock:
             if not self.on_break():
-                raise GameError("Сейчас не перерыв")
+                raise AppError("Сейчас не перерыв")
             self._end_break(early=True)
             self._save()
             return self.snapshot()
@@ -294,12 +271,10 @@ class SessionManager:
     def end_session(self, reason: str = "manual"):
         with self.lock:
             if not self.session:
-                raise GameError("Сессия не идёт")
+                raise AppError("Сессия не идёт")
             s = self.session
             self.db.update_session(s["id"], s["totals"], end=self.clock.now(), end_reason=reason)
-            self._last_reward_eval = 0.0   # награды за сессию проверим сразу, как только она закончится
             self._set_state(IDLE)
-            self.game.end_session()
             self._save()
             focus_min = round((s["totals"].get("FOCUS", 0) + s["totals"].get("NOTEBOOK", 0)) / 60)
             break_min = self.settings["session"].get("break_min", 5)
@@ -315,13 +290,13 @@ class SessionManager:
 
     def _require_session(self):
         if not self.session:
-            raise GameError("Сессия не идёт")
+            raise AppError("Сессия не идёт")
 
     def pause(self):
         with self.lock:
             self._require_session()
             if self.on_break():
-                raise GameError("Сейчас перерыв: пауза не нужна, отдыхай ☕")
+                raise AppError("Сейчас перерыв: пауза не нужна, отдыхай ☕")
             self.paused = True
             self._update_state()
 
@@ -335,7 +310,7 @@ class SessionManager:
         with self.lock:
             self._require_session()
             if self.on_break():
-                raise GameError("Сейчас перерыв")
+                raise AppError("Сейчас перерыв")
             self.notebook = bool(on)
             self._update_state()
 
@@ -381,18 +356,14 @@ class SessionManager:
             if self.session is None:
                 if just_docked and self.settings["session"].get("auto_start_on_dock", True):
                     self.start_session()
-                self._maybe_evaluate_rewards()
                 return
 
             if self.on_break():           # отдыхаем: ни рост, ни отвлечения, ни телефон не проверяем
                 self._tick_break(dt)
-                self._maybe_evaluate_rewards()
                 return
 
             self._update_state()
             self.reactions.tick(self.speed)   # звуки-«возвращалки» при долгом отвлечении
-            for event in self.game.tick(self.state, dt, self.clock.today()):
-                self.bus.publish(event["type"], event)
 
             s = self.session
             s["totals"][self.state] = s["totals"].get(self.state, 0.0) + dt
@@ -403,18 +374,6 @@ class SessionManager:
             self._check_auto_end()
             if self.session:
                 self._maybe_start_break()
-            self._maybe_evaluate_rewards()
-
-    def _maybe_evaluate_rewards(self):
-        """Награды выдаём и объявляем ТОЛЬКО вне фокуса (между сессиями или на паузе)."""
-        if self.state not in (IDLE, PAUSED, BREAK):
-            return
-        now = self.clock.now()
-        if now - self._last_reward_eval < REWARD_EVAL_EVERY_S:
-            return
-        self._last_reward_eval = now
-        if self.rewards.evaluate():
-            self._save()
 
     def _read_activity(self):
         sample = self.monitor.sample()
@@ -491,7 +450,7 @@ class SessionManager:
         """Правки, которыми можно обойти защиту (правила, привязки, телефоны), закрыты до конца
         строгой сессии. Выйти из неё можно с паролем: после этого правки снова доступны."""
         if self.strict_locked():
-            raise GameError(f"Строгий режим: {what} нельзя менять во время сессии. "
+            raise AppError(f"Строгий режим: {what} нельзя менять во время сессии. "
                             "Дождитесь конца или завершите сессию с паролем.")
 
     def require_unlock(self, password: str | None):
@@ -504,38 +463,38 @@ class SessionManager:
             return
         stored = self.db.get_secret("strict_password")
         if stored is None:
-            raise GameError("Строгий режим: до конца таймера выйти нельзя. "
+            raise AppError("Строгий режим: до конца таймера выйти нельзя. "
                             "Задай пароль в настройках, чтобы иметь запасной выход.")
         now = self.clock.now()
         if now < self._pw_blocked_until:
-            raise GameError(f"Слишком много неверных паролей. Подожди {round(self._pw_blocked_until - now)} с.")
+            raise AppError(f"Слишком много неверных паролей. Подожди {round(self._pw_blocked_until - now)} с.")
         if not password or not verify_password(password, stored):
             self._pw_fails += 1
             if self._pw_fails >= MAX_FAILS:
                 self._pw_fails = 0
                 self._pw_blocked_until = now + LOCKOUT_S
-            raise GameError("Строгий режим: нужен верный пароль")
+            raise AppError("Строгий режим: нужен верный пароль")
         self._pw_fails = 0
 
     def set_password(self, new: str, old: str | None = None):
         new_hash = hash_password(new) if len(new or "") >= MIN_PASSWORD_LEN else None   # считаем вне блокировки
         with self.lock:
             if self.strict_locked():
-                raise GameError("Во время строгой сессии пароль менять нельзя")
+                raise AppError("Во время строгой сессии пароль менять нельзя")
             stored = self.db.get_secret("strict_password")
             if stored is not None and not (old and verify_password(old, stored)):
-                raise GameError("Старый пароль неверный")
+                raise AppError("Старый пароль неверный")
             if new_hash is None:
-                raise GameError(f"Пароль не короче {MIN_PASSWORD_LEN} символов")
+                raise AppError(f"Пароль не короче {MIN_PASSWORD_LEN} символов")
             self.db.set_secret("strict_password", new_hash)
 
     def clear_password(self, old: str | None):
         with self.lock:
             if self.strict_locked():
-                raise GameError("Во время строгой сессии пароль убирать нельзя")
+                raise AppError("Во время строгой сессии пароль убирать нельзя")
             stored = self.db.get_secret("strict_password")
             if stored is not None and not (old and verify_password(old, stored)):
-                raise GameError("Пароль неверный")
+                raise AppError("Пароль неверный")
             self.db.set_secret("strict_password", None)
 
     def extension_lost(self) -> bool:
@@ -631,32 +590,8 @@ class SessionManager:
             self.end_session("time_up")
 
     def _save(self):
-        self.db.save_farm(self.game.to_dict())
         if self.session:
             self.db.update_session(self.session["id"], self.session["totals"])
-
-    # ---------- действия на ферме ----------
-
-    def harvest(self, x: int, y: int, name: str = "") -> dict:
-        with self.lock:
-            result = self.game.harvest(x, y)
-            result["name"] = clean_name(name)
-            self.db.add_fish(result["crop"], result["name"], result["stars"], self.clock.now())
-            self._save()
-            self.bus.publish("harvested", result)
-            return result
-
-    def weed(self, x: int, y: int):
-        with self.lock:
-            self.game.weed(x, y)
-            self._save()
-            self.bus.publish("weeded", {"x": x, "y": y})
-
-    def buy(self, item: str):
-        with self.lock:
-            self.game.buy(item)
-            self._save()
-            self.bus.publish("bought", {"item": item})
 
     # ---------- кнопка на подставке ----------
 
@@ -666,7 +601,7 @@ class SessionManager:
             with self.lock:
                 if name == "PAUSE":
                     if self.strict_locked() and not self.paused:
-                        raise GameError("Строгий режим: паузу можно только с паролем в приложении")
+                        raise AppError("Строгий режим: паузу можно только с паролем в приложении")
                     if not self.session:
                         self.start_session()
                     elif self.paused:
@@ -675,7 +610,7 @@ class SessionManager:
                         self.pause()
                 elif name == "NOTEBOOK" and self.session:
                     self.set_notebook(not self.notebook)
-        except GameError as exc:
+        except AppError as exc:
             log.info("Кнопка %s: %s", name, exc)
 
     # ---------- панель разработчика ----------
@@ -683,13 +618,13 @@ class SessionManager:
     def set_phone_docked(self, docked: bool):
         with self.lock:
             if not hasattr(self.phone, "set_docked"):
-                raise GameError("Датчик телефона не виртуальный")
+                raise AppError("Датчик телефона не виртуальный")
             self.phone.set_docked(bool(docked))
 
     def set_forced_category(self, category: str | None):
         with self.lock:
             if category not in (None, *CATEGORIES):
-                raise GameError(f"Категория должна быть одной из {CATEGORIES}")
+                raise AppError(f"Категория должна быть одной из {CATEGORIES}")
             self.forced_category = category
 
     def usb_view(self) -> dict | None:
@@ -714,8 +649,6 @@ class SessionManager:
                 "phone": {"docked": self.phone.is_docked(), "source": self.phone.source,
                           "usb": self.usb_view()},
                 "device": self._device_view(),
-                "farm": self._farm_view(),
-                "rewards": self.rewards.summary(),
                 "protection": {**self.settings.get("protection", {}),
                                **self.blocker.view(self.clock.now()),
                                "extension_connected": self.extension_connected(),
@@ -738,7 +671,6 @@ class SessionManager:
             "paused": self.paused,
             "notebook": self.notebook,
             "ask_presence": self.sm.ask_presence,
-            "plot": s["plot"],
             "no_phone": s.get("no_phone", False),
             "pomodoro": self._pomodoro_view(s),
         }
@@ -767,41 +699,4 @@ class SessionManager:
             "last_sound": getattr(device, "last_sound", None),
             "error": self.reactions.device_error,
             "status": getattr(device, "status_text", lambda: None)(),
-        }
-
-    def _farm_view(self):
-        g = self.game
-        today = self.clock.today()
-        plots = []
-        for (x, y), p in sorted(g.plots.items()):
-            view = {"x": x, "y": y, "crop": p.crop_id, "stage": g.stage(x, y), "weeds": p.weeds,
-                    "active": self.session is not None and g.active_plot == (x, y)}
-            if p.crop_id:
-                crop = g.crops[p.crop_id]
-                ripe = g.is_ripe(x, y)
-                view.update({
-                    "crop_name": crop.name,
-                    "progress": min(1.0, p.progress_s / crop.grow_s),
-                    "left_s": max(0.0, crop.grow_s - p.progress_s),
-                    "ripe": ripe,
-                    "stars": quality_for(p.quality_hits)[0],
-                    "value": g.harvest_value(x, y)["coins"] if ripe else None,
-                    "thirsty": view["active"] and self.state == MAYBE_DISTRACTED,
-                })
-            plots.append(view)
-        focus_s = g.session_focus_s
-        return {
-            "size": g.size,
-            "coins": g.coins,
-            "streak": g.streak(today),
-            "raining": g.is_raining(today),
-            "today_focus_s": g.days.get(today.isoformat(), 0.0),
-            "can_weed": g.can_weed(),
-            "weed_unlock_left_s": max(0.0, g.cfg["weed_unlock_focus_s"] - focus_s),
-            "plots": plots,
-            "decor": sorted(u.split(":", 1)[1] for u in g.unlocks if u.startswith("decor:")),
-            "buildings": g.buildings(),
-            "crops": [{"id": c.id, "name": c.name, "focus_min": c.focus_min, "coins": c.coins,
-                       "price": c.price, "unlocked": c.id in g.unlocks} for c in g.crops.values()],
-            "shop": g.shop_items(),
         }

@@ -22,7 +22,7 @@ from focusfarm.blocker.apps import AppBlocker
 from focusfarm.config import ConfigError, deep_merge, load_settings
 from focusfarm.device.dock import Dock
 from focusfarm import __version__, nudge_sounds, paths
-from focusfarm.game.engine import GameError
+from focusfarm.errors import AppError
 from focusfarm.phone.lan import LanServer, NoLan
 from focusfarm.phone.qr import qr_svg
 from focusfarm.session.manager import SessionManager
@@ -34,7 +34,7 @@ log = logging.getLogger(__name__)
 WEB_DIR = paths.WEB_DIR
 
 # Какие разделы настроек можно менять из интерфейса.
-EDITABLE_SETTINGS = ("mode", "demo_speed", "thresholds", "session", "sound", "device", "ui", "rewards",
+EDITABLE_SETTINGS = ("mode", "demo_speed", "thresholds", "session", "sound", "device", "ui",
                      "protection", "network", "pomodoro")
 
 
@@ -46,14 +46,12 @@ class SoundPreviewBody(BaseModel):
 
 
 class StartBody(BaseModel):
-    plot: list[int] | None = None
-    crop: str | None = None
     length_min: float | None = None
     without_phone: bool = False
 
 
 # Что можно менять в строгой сессии без пароля: внешний вид и звук.
-SAFE_IN_STRICT = {"ui", "sound", "rewards"}
+SAFE_IN_STRICT = {"ui", "sound"}
 
 
 class NotebookBody(BaseModel):
@@ -67,21 +65,6 @@ class PasswordBody(BaseModel):
 class NewPasswordBody(BaseModel):
     new: str
     old: str | None = None
-
-
-class PlotBody(BaseModel):
-    x: int
-    y: int
-
-
-class HarvestBody(BaseModel):
-    x: int
-    y: int
-    name: str = ""
-
-
-class BuyBody(BaseModel):
-    item: str
 
 
 class PhoneBody(BaseModel):
@@ -161,8 +144,8 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
     app = FastAPI(title="Фокус-пруд", lifespan=lifespan)
     app.state.manager = manager
 
-    @app.exception_handler(GameError)
-    async def game_error(request: Request, exc: GameError):
+    @app.exception_handler(AppError)
+    async def game_error(request: Request, exc: AppError):
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
     @app.exception_handler(ConfigError)
@@ -185,7 +168,7 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
 
     @app.post("/api/session/start")
     def session_start(body: StartBody):
-        return manager.start_session(body.plot, body.crop, body.length_min, body.without_phone)
+        return manager.start_session(body.length_min, body.without_phone)
 
     @app.post("/api/session/pause")
     def session_pause(body: PasswordBody | None = None):
@@ -218,42 +201,6 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
     def session_end(body: PasswordBody | None = None):
         manager.require_unlock(body.password if body else None)
         manager.end_session("manual")
-        return manager.snapshot()
-
-    # ---------- ферма и магазин ----------
-
-    @app.post("/api/farm/harvest")
-    def farm_harvest(body: HarvestBody):
-        return manager.harvest(body.x, body.y, body.name)
-
-    @app.post("/api/farm/weed")
-    def farm_weed(body: PlotBody):
-        manager.weed(body.x, body.y)
-        return manager.snapshot()
-
-    @app.post("/api/shop/buy")
-    def shop_buy(body: BuyBody):
-        manager.buy(body.item)
-        return manager.snapshot()
-
-    # ---------- коллекция, задания и ачивки ----------
-
-    @app.get("/api/collection")
-    def collection():
-        summary = manager.db.collection_summary()
-        species = [{"id": c.id, "name": c.name, "count": summary.get(c.id, {}).get("count", 0),
-                    "best_stars": summary.get(c.id, {}).get("best_stars", 0),
-                    "unlocked": c.id in manager.game.unlocks}
-                   for c in manager.game.crops.values()]
-        return {"fish": manager.db.list_fish(), "species": species}
-
-    @app.get("/api/rewards")
-    def rewards():
-        return manager.rewards.view()
-
-    @app.post("/api/rewards/seen")
-    def rewards_seen():
-        manager.rewards.mark_seen()
         return manager.snapshot()
 
     # ---------- статистика ----------

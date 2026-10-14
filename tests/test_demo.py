@@ -14,10 +14,6 @@ def demo(make_env):
     return make_env(mode="demo", overrides={"demo_speed": 30}, docked=False)
 
 
-def active_plot(env):
-    return next(p for p in env.state()["farm"]["plots"] if p["active"])
-
-
 def test_demo_scenario_x30(demo):
     env = demo
     s = env.state()
@@ -30,27 +26,23 @@ def test_demo_scenario_x30(demo):
     assert env.manager.device.led == "GREEN"
     assert env.state()["session"]["planned_s"] == 120 * 60   # демо-сессия: 4 настоящие минуты
 
-    # 2. Работаем 12 секунд: редис растёт, прополка уже доступна (5 игровых минут).
+    # 2. Работаем 12 секунд = 6 игровых минут.
     env.post("/api/dev/category", {"category": "work"})
     env.tick(12)
-    assert 0.5 < active_plot(env)["progress"] < 1
-    assert env.state()["farm"]["can_weed"]
+    assert env.state()["session"]["totals"]["FOCUS"] >= 300
 
-    # 3. «Открыли YouTube»: жёлтый, через секунду красный, ещё через 2 — сорняк.
+    # 3. «Открыли YouTube»: жёлтый, через секунду красный.
     env.post("/api/dev/category", {"category": "distraction"})
     env.tick(1)
     assert env.manager.device.led in ("YELLOW", "RED")
     env.tick(3)
     assert env.state()["state"] == DISTRACTED and env.manager.device.led == "RED"
-    assert active_plot(env)["weeds"] == 1
 
-    # 4. Вернулись к работе, пропололи.
+    # 4. Вернулись к работе.
     # Гистерезис: первый «хороший» тик запускает отсчёт recover_s, второй — возвращает.
     env.post("/api/dev/category", {"category": "work"})
     env.tick(2)
     assert env.state()["state"] == FOCUS
-    plot = active_plot(env)
-    env.post("/api/farm/weed", {"x": plot["x"], "y": plot["y"]})
 
     # 5. (по желанию) Взяли телефон — мигает красным, вернули — снова фокус.
     env.post("/api/dev/phone", {"docked": False})
@@ -60,12 +52,8 @@ def test_demo_scenario_x30(demo):
     env.tick(2)
     assert env.state()["state"] == FOCUS
 
-    # 6. Дорастили редис и собрали урожай.
+    # 6. Ещё немного работы.
     env.tick(8)
-    plot = active_plot(env)
-    assert plot["ripe"]
-    result = env.post("/api/farm/harvest", {"x": plot["x"], "y": plot["y"]}).json()
-    assert result["coins"] >= 3
 
     # 7. Завершили — статистика показывает фокус и отвлечения.
     env.post("/api/session/end")

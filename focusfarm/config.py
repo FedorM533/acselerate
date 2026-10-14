@@ -67,7 +67,7 @@ def validate_settings(s: dict) -> dict:
         raise ConfigError("network.port должен быть целым числом от 1024 до 65535")
     if lan_port == s.get("server", {}).get("port", 8765):
         raise ConfigError("network.port не должен совпадать с портом интерфейса (server.port)")
-    for section in ("ui", "rewards", "protection"):
+    for section in ("ui", "protection"):
         if not isinstance(s.get(section, {}), dict):
             raise ConfigError(f"{section} должен быть набором настроек")
     protection = s.get("protection", {})
@@ -88,15 +88,6 @@ def validate_settings(s: dict) -> dict:
     ui = s.get("ui", {})
     if ui.get("theme", "system") not in ("light", "dark", "system"):
         raise ConfigError("ui.theme должен быть light, dark или system")
-    if not isinstance(ui.get("game_mode", False), bool):
-        raise ConfigError("ui.game_mode должен быть true или false")
-    if "pond_fish_max" in ui:
-        n = ui["pond_fish_max"]
-        if isinstance(n, bool) or not isinstance(n, int) or not 0 <= n <= 60:
-            raise ConfigError("ui.pond_fish_max должен быть целым числом от 0 до 60")
-    rewards = s.get("rewards", {})
-    if "enabled" in rewards and not isinstance(rewards["enabled"], bool):
-        raise ConfigError("rewards.enabled должен быть true или false")
     source = s.get("device", {}).get("phone_source", "auto")
     if source not in PHONE_SOURCES:
         raise ConfigError(f"device.phone_source должен быть одним из {PHONE_SOURCES}")
@@ -115,10 +106,6 @@ def validate_settings(s: dict) -> dict:
             continue
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not low <= value <= high:
             raise ConfigError(f"pomodoro.{key} должен быть числом от {low} до {high}")
-    for crop_id, crop in s.get("game", {}).get("crops", {}).items():
-        for key in ("focus_min", "coins", "price"):
-            if not isinstance(crop.get(key), (int, float)) or crop[key] < 0:
-                raise ConfigError(f"game.crops.{crop_id}.{key} должен быть числом ≥ 0")
     return s
 
 

@@ -1,9 +1,6 @@
 /* Carpo. Цвета, шрифты, радиусы и отступы берутся из tokens.css (--carpo-*), шрифты Jost и Manrope лежат
-   локально в fonts/ — интернет не нужен. Исключение по цветам — картинка пруда (.farm-scene и спрайты):
-   это иллюстрация, а не оформление интерфейса. Подробности — docs/DESIGN.md. */
-
-/* Игра скрыта, пока не включён «Игровой режим» в настройках. */
-body:not(.game-on) .game-only { display: none !important; }
+   локально в fonts/ — интернет не нужен.
+   Подробности — docs/DESIGN.md. */
 
 :root {
   /* цвета состояний: класс s-XXX кладёт нужный в --c; без красного */
@@ -119,9 +116,6 @@ textarea { font: inherit; padding: 10px 14px; border: 1px solid var(--carpo-bord
 }
 .chip img { width: 22px; height: 22px; }
 .icon-btn { cursor: pointer; font-family: inherit; min-height: var(--carpo-tap); }
-.coins-chip b { min-width: 2ch; display: inline-block; }
-.coins-chip.bump { animation: bump .6s; }
-@keyframes bump { 30% { transform: scale(1.15); background: var(--soft); } }
 .dock-chip .dot, .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--st-idle); }
 .dock-chip.ok .dot, .dot.on { background: var(--st-focus); }
 .dock-chip.virtual .dot { background: var(--st-paused); }
@@ -187,8 +181,6 @@ main { padding: var(--carpo-space-4) var(--carpo-space-5) var(--carpo-space-7); 
   background: color-mix(in srgb, var(--c) 14%, var(--carpo-surface)); border: 1px solid var(--c);
   transition: background 1s, border-color 1s;
 }
-.crop-line { display: flex; align-items: center; gap: 10px; font-size: var(--fs-small); min-height: 48px; color: var(--carpo-text-2); }
-.crop-line img { width: 48px; height: 48px; }
 .controls, .start-form { display: flex; gap: var(--carpo-space-3); justify-content: center; flex-wrap: wrap; align-items: end; margin-top: 6px; }
 .start-form label { display: flex; flex-direction: column; text-align: left; font-size: var(--fs-small); color: var(--carpo-text-2); font-weight: 600; gap: 4px; }
 .presence { background: var(--carpo-paused-bg); color: var(--carpo-ink); border-radius: var(--carpo-radius-md); padding: 12px 18px; }
@@ -217,152 +209,6 @@ main { padding: var(--carpo-space-4) var(--carpo-space-5) var(--carpo-space-7); 
 .cat.distraction { background: var(--warn-bg); color: var(--warn-text); }
 .totals div { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
 .totals .cat { background: color-mix(in srgb, var(--c) 16%, var(--carpo-surface)); }
-
-/* ---------- пруд: картинка остаётся прежней, меняется только окружение ---------- */
-.farm-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: var(--carpo-space-5); align-items: start; }
-.farm-scene {
-  --scene-h: clamp(440px, calc(100vh - 200px), 780px);
-  --ground: 22%;
-  position: relative; overflow: hidden; height: var(--scene-h);
-  border-radius: var(--carpo-radius-xl); border: 8px solid var(--carpo-sage);
-}
-.water { position: absolute; inset: 0; background: linear-gradient(#8FE0F5, #4FB3DE 45%, #2A7BB3); }
-/* Мутная вода при отвлечении: мягко проступает и так же мягко уходит. */
-.water-murk { position: absolute; inset: 0; background: linear-gradient(#B3A468, #8A7C4A); opacity: 0; transition: opacity 1.6s; }
-.weather-cloudy .water-murk { opacity: .25; }
-.weather-gloomy .water-murk { opacity: .55; }
-
-.rays {
-  position: absolute; left: -20%; right: -20%; top: 0; height: 80%; opacity: .35; transition: opacity 1.6s;
-  background: repeating-linear-gradient(105deg, transparent 0 60px, rgba(255, 255, 255, .5) 60px 110px, transparent 110px 190px);
-  mask-image: linear-gradient(#000, transparent); -webkit-mask-image: linear-gradient(#000, transparent);
-  animation: sway-rays 14s ease-in-out infinite alternate;
-}
-@keyframes sway-rays { from { transform: translateX(-30px); } to { transform: translateX(30px); } }
-.weather-gloomy .rays { opacity: .08; }
-
-.bubbles { position: absolute; inset: 0; pointer-events: none; }
-.bubbles i {
-  position: absolute; bottom: -30px; left: var(--x); width: var(--s); height: var(--s); border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #fff, rgba(255, 255, 255, .25) 60%, transparent 70%);
-  border: 1.5px solid rgba(255, 255, 255, .6); animation: rise var(--t) linear infinite; animation-delay: var(--d);
-}
-@keyframes rise { to { transform: translateY(calc(var(--scene-h) * -1.1)) translateX(14px); } }
-
-.sand {
-  position: absolute; left: 0; right: 0; bottom: 0; height: var(--ground);
-  background: linear-gradient(#EAD7A4, #D6BD82); border-top: 4px solid #F3E6BD;
-  border-radius: 60% 60% 0 0 / 14px 14px 0 0; transition: filter 1.6s;
-}
-.weather-gloomy .sand { filter: saturate(.6) brightness(.9); }
-.rocks-row {
-  position: absolute; left: 0; right: 0; bottom: calc(var(--ground) - 14px); height: 54px;
-  background: url(sprites/rocks.svg) repeat-x bottom / 64px 54px; opacity: .95;
-}
-
-.decor { position: absolute; bottom: 6%; z-index: 20; display: flex; gap: 6px; align-items: end; }
-.decor-left { left: 2%; }
-.decor-right { right: 2%; }
-.decor img { width: clamp(80px, 9vw, 130px); height: auto; filter: drop-shadow(0 6px 0 rgba(0, 0, 0, .12)); }
-
-.farm-grid {
-  position: absolute; left: 50%; bottom: 5%; transform: translateX(-50%); z-index: 10;
-  display: grid; grid-template-columns: repeat(var(--n), var(--cell));
-  grid-auto-rows: calc(var(--cell) * .74);
-  column-gap: calc(var(--cell) * .08);
-  padding-top: calc(var(--cell) * .4);
-}
-.plot {
-  position: relative; align-self: end; width: var(--cell); height: var(--cell);
-  border: none; background: none; padding: 0; cursor: pointer; font: inherit;
-}
-.plot .bed { position: absolute; left: 0; bottom: 0; width: 100%; pointer-events: none; }
-.plot.active::before {
-  content: ""; position: absolute; left: -8%; right: -8%; bottom: -6%; height: 42%;
-  background: radial-gradient(ellipse, rgba(255, 245, 157, .95), transparent 70%);
-}
-/* Рыбка плавает туда-сюда над песчаным пятном. */
-.plot .plant {
-  position: absolute; left: 8%; width: 84%; bottom: 16%;
-  animation: swim 6s ease-in-out infinite alternate; animation-delay: var(--d, 0s);
-  pointer-events: none;
-}
-.plot .plant img { width: 100%; display: block; transition: transform 1.6s, filter 1.6s; }
-@keyframes swim {
-  from { transform: translate(-7%, 2%) rotate(-3deg); }
-  to   { transform: translate(7%, -5%) rotate(3deg); }
-}
-.plot .plant.egg { animation: none; bottom: 6%; }
-.weather-gloomy .plot .plant img { filter: saturate(.6) brightness(.95); }
-.plot.thirsty .plant img { filter: saturate(.55); }
-.plot.ripe .plant { animation: hop 1.8s ease-in-out infinite; }
-@keyframes hop { 0%, 55%, 100% { transform: translateY(0); } 25% { transform: translateY(-9%); } 40% { transform: translateY(1%); } }
-
-.plot .weed {
-  position: absolute; right: -6%; bottom: 10%; width: 46%; pointer-events: none; z-index: 2;
-  animation: wiggle 2.8s ease-in-out infinite;
-}
-@keyframes wiggle { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-5px) scale(1.04); } }
-.plot .drop { position: absolute; left: 4%; bottom: 40%; width: 20%; animation: bob 1.2s ease-in-out infinite; pointer-events: none; }
-@keyframes bob { 50% { transform: translateY(-6px); } }
-
-.plot .stars {
-  position: absolute; left: -2%; bottom: 22%; font-size: clamp(13px, calc(var(--cell) * .13), 20px);
-  color: #F5C542; -webkit-text-stroke: 1px #1F3550; letter-spacing: -1px; pointer-events: none;
-}
-.plot .sparkle { position: absolute; color: #FFE27A; font-size: calc(var(--cell) * .16); text-shadow: 0 0 6px #fff; animation: twinkle 1.4s ease-in-out infinite; pointer-events: none; }
-.plot .sparkle.k1 { left: 12%; top: 22%; }
-.plot .sparkle.k2 { right: 14%; top: 34%; animation-delay: .5s; }
-.plot .sparkle.k3 { left: 30%; top: 4%; animation-delay: .9s; }
-@keyframes twinkle { 0%, 100% { opacity: 0; transform: scale(.4); } 50% { opacity: 1; transform: scale(1.1) rotate(20deg); } }
-.plot .harvest {
-  position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); z-index: 3;
-  background: var(--carpo-clay); color: var(--carpo-ink); border-radius: var(--carpo-radius-pill);
-  font-weight: 700; font-size: clamp(13px, calc(var(--cell) * .12), 18px); padding: 2px 12px; white-space: nowrap;
-}
-.plot .bar {
-  position: absolute; left: 14%; right: 14%; bottom: -12px; height: 8px;
-  background: var(--carpo-sage-light); border-radius: var(--carpo-radius-pill); overflow: hidden;
-}
-.plot .bar div { height: 100%; background: var(--carpo-clay); border-radius: var(--carpo-radius-pill); transition: width .9s linear; }
-.plot .hover-tip {
-  position: absolute; left: 50%; top: 32%; transform: translateX(-50%); z-index: 4;
-  background: var(--carpo-surface); color: var(--carpo-text); border-radius: var(--carpo-radius-pill); padding: 3px 12px; font-weight: 600; font-size: var(--fs-small);
-  white-space: nowrap; opacity: 0; transition: opacity .2s; pointer-events: none;
-}
-.plot:hover .hover-tip, .plot:focus-visible .hover-tip { opacity: 1; }
-.plot:focus-visible { outline: 3px solid var(--carpo-cream); outline-offset: 4px; border-radius: var(--carpo-radius-sm); }
-
-/* «Родник» (бонус за серию дней): струйки пузырьков снизу вверх. */
-.rain {
-  position: absolute; inset: 0; pointer-events: none; z-index: 30; opacity: 0; transition: opacity 1.6s;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, .9) 0 2px, transparent 3px);
-  background-size: 46px 70px; animation: spring .9s linear infinite;
-}
-.raining .rain { opacity: .5; }
-@keyframes spring { to { background-position: 0 -70px; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .rays, .bubbles i, .plot .plant, .plot .weed, .plot .drop { animation: none; }
-}
-
-/* вылетающие монеты и «+15 ★★★» */
-.fly-coin { position: fixed; left: 0; top: 0; width: 34px; height: 34px; z-index: 50; pointer-events: none; }
-.float-text {
-  position: fixed; z-index: 50; pointer-events: none; font-weight: 700; font-size: 28px;
-  color: var(--carpo-clay-text); animation: float-up 1.8s ease-out forwards;
-}
-@keyframes float-up { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -90px); } }
-
-.farm-side .card { margin-bottom: var(--carpo-space-4); }
-.side-state { display: flex; flex-direction: column; gap: var(--carpo-space-2); }
-.small-banner { font-size: var(--fs-small); align-self: flex-start; }
-.small-banner .state-icon { width: 24px; height: 24px; }
-.weather-line { font-weight: 600; margin: 0; }
-.farm-side #farm-hint { margin: 0; }
-.today { font-size: var(--carpo-text-lg); margin: 0 0 var(--carpo-space-2); }
-.goal { height: 10px; background: var(--soft); border-radius: var(--carpo-radius-pill); overflow: hidden; }
-.goal div { height: 100%; background: var(--bar-fill); border-radius: var(--carpo-radius-pill); transition: width .9s; }
 
 /* ---------- статистика ---------- */
 .seg { display: inline-flex; border: 1px solid var(--carpo-border); border-radius: var(--carpo-radius-pill); padding: 3px; margin-bottom: var(--carpo-space-4); }
@@ -408,24 +254,6 @@ main { padding: var(--carpo-space-4) var(--carpo-space-5) var(--carpo-space-7); 
 .days-chart .goal-line { stroke: var(--carpo-paused); stroke-width: 2; stroke-dasharray: 6 5; }
 .days-chart text { font-family: inherit; font-size: 15px; fill: var(--carpo-text-3); font-weight: 600; }
 .days-chart .val { fill: var(--carpo-text); font-weight: 700; }
-
-/* ---------- магазин ---------- */
-.shop-head { display: flex; justify-content: space-between; align-items: center; gap: var(--carpo-space-4); flex-wrap: wrap; margin-bottom: var(--carpo-space-2); }
-.shop-head p { margin: 0; }
-.wallet { background: var(--soft); }
-.shop { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: var(--carpo-space-4); }
-.shop-item { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 0; }
-.shop-kind { font-size: var(--carpo-text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--carpo-text-3); background: var(--soft); border-radius: var(--carpo-radius-pill); padding: 2px 12px; }
-.shop-pic { position: relative; width: 120px; height: 120px; display: grid; place-items: center; }
-.shop-pic img.main { width: 110px; height: 110px; }
-.shop-item.locked .shop-pic img.main { filter: brightness(.35) saturate(.3); }
-.shop-pic .lock { position: absolute; width: 48px; right: 4px; bottom: 4px; }
-.shop-item h3 { margin: 0; font-size: var(--carpo-text-lg); font-family: var(--carpo-font-body); font-weight: 700; }
-.shop-item .desc { color: var(--carpo-text-3); font-size: var(--fs-small); min-height: 2.6em; margin: 0; }
-.shop-item .btn { width: 100%; white-space: nowrap; }
-.price-tag { display: inline-flex; align-items: center; gap: 4px; }
-.price-tag img { width: 22px; height: 22px; }
-.owned-tag { color: var(--carpo-primary); font-weight: 700; }
 
 /* ---------- настройки ---------- */
 .settings-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--carpo-space-5); align-items: start; }
@@ -489,7 +317,7 @@ main { padding: var(--carpo-space-4) var(--carpo-space-5) var(--carpo-space-7); 
   .stand { width: 200px; }
 }
 @media (max-width: 1000px) {
-  .farm-wrap, .session-layout, .settings-layout, .stats-row { grid-template-columns: minmax(0, 1fr); }
+  .session-layout, .settings-layout, .stats-row { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 480px) {
   .topbar { padding: var(--carpo-space-3); }
@@ -519,47 +347,6 @@ main { padding: var(--carpo-space-4) var(--carpo-space-5) var(--carpo-space-7); 
 .pair-box p { margin: 0 0 8px; }
 .pair-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; }
 .start-form #start-nophone-btn { grid-column: 1 / -1; justify-self: start; }
-
-/* ---------- здания, плавающие рыбки, задания, коллекция ---------- */
-.buildings { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
-.bld { position: absolute; filter: drop-shadow(0 6px 0 rgba(0, 0, 0, .12)); }
-.bld.house { left: 14%; bottom: 13%; width: clamp(90px, 9vw, 140px); }
-.bld.lighthouse { right: 14%; bottom: 13%; width: clamp(70px, 7vw, 110px); }
-.bld.bridge { left: 10%; top: 5%; width: clamp(160px, 18vw, 260px); opacity: .95; }
-
-.swimmers { position: absolute; inset: 0; z-index: 5; overflow: hidden; pointer-events: none; }
-.swimmer { position: absolute; width: 56px; animation: cruise var(--dur) linear infinite; animation-delay: var(--delay); pointer-events: auto; }
-.swimmer img { width: 100%; display: block; animation: bobfish 3s ease-in-out infinite alternate; transition: filter 1.6s; }
-@keyframes cruise {
-  0% { left: -8%; transform: scaleX(1); } 49.9% { left: 104%; transform: scaleX(1); }
-  50% { left: 104%; transform: scaleX(-1); } 99.9% { left: -8%; transform: scaleX(-1); } 100% { left: -8%; transform: scaleX(1); }
-}
-@keyframes bobfish { to { transform: translateY(8px); } }
-.weather-cloudy .swimmer img { filter: saturate(.8); }
-.weather-gloomy .swimmer img { filter: saturate(.5) brightness(.95); }
-@media (prefers-reduced-motion: reduce) { .swimmer, .swimmer img { animation: none; } .swimmer { left: calc(var(--k) * 6% + 4%); } }
-
-.badge { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: var(--carpo-radius-pill); background: var(--carpo-clay); color: var(--carpo-ink); font-size: var(--carpo-text-xs); font-weight: 700; text-align: center; }
-.section-title { margin: 22px 0 10px; }
-.quests, .achievements, .species { display: grid; gap: var(--carpo-space-4); grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-.quest, .ach, .species-card { background: var(--carpo-surface); border: 1px solid var(--carpo-border); border-radius: var(--carpo-radius-lg); padding: var(--carpo-space-4) var(--carpo-space-5); }
-.quest.done { border-color: var(--carpo-primary); }
-.quest .q-bar { height: 10px; background: var(--soft); border-radius: var(--carpo-radius-pill); overflow: hidden; margin: 8px 0 4px; }
-.quest .q-bar div { height: 100%; background: var(--bar-fill); border-radius: var(--carpo-radius-pill); }
-.ach.locked { opacity: .6; filter: grayscale(.7); }
-.ach h4, .quest h4, .species-card h4 { margin: 0 0 4px; }
-.species-card { text-align: center; }
-.species-card img { width: 96px; height: 96px; }
-.species-card.locked img { filter: brightness(0) opacity(.25); }
-.fish-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
-.fish-list li { background: var(--carpo-surface); border: 1px solid var(--carpo-border); border-radius: var(--carpo-radius-md); padding: 8px 14px; display: flex; gap: 10px; align-items: center; }
-.fish-list img { width: 40px; height: 40px; }
-
-.name-dialog { border: none; background: var(--carpo-surface); color: var(--carpo-text); border-radius: var(--carpo-radius-lg); box-shadow: var(--carpo-shadow-card); padding: var(--carpo-space-5) var(--carpo-space-6); max-width: 420px; }
-.name-dialog::backdrop { background: rgba(31, 42, 37, .5); }
-.name-dialog h3 { margin: 0 0 12px; }
-.name-dialog input { width: 100%; font: inherit; padding: 10px 14px; border: 1px solid var(--carpo-border); border-radius: var(--carpo-radius-sm); background: var(--carpo-surface); color: var(--carpo-text); }
-.name-buttons { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 
 .qr { background: #fff; padding: 8px; border-radius: var(--carpo-radius-md); display: inline-block; }   /* QR всегда на белом: иначе не считывается */
 .qr svg { display: block; width: 220px; height: 220px; max-width: 100%; }

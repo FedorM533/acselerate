@@ -5,8 +5,8 @@
   --dev          режим разработчика (панель с виртуальным телефоном)
   --port N       порт (по умолчанию из settings.yaml)
   --no-browser   не открывать браузер
-  --db PATH      другой файл базы (например, чистый пруд для демо)
-  --fresh        начать с чистого пруда (стирает файл из --db; основную базу не трогает)
+  --db PATH      другой файл базы (например, чистая база для демо)
+  --fresh        начать с чистой базы (стирает файл из --db; основную базу не трогает)
 """
 import argparse
 from pathlib import Path
@@ -35,7 +35,7 @@ def main():
     parser.add_argument("--port", type=int, help="порт сервера")
     parser.add_argument("--no-browser", action="store_true", help="не открывать браузер")
     parser.add_argument("--db", help="путь к файлу базы (по умолчанию data/focusfarm.db)")
-    parser.add_argument("--fresh", action="store_true", help="чистый пруд (только вместе с --db)")
+    parser.add_argument("--fresh", action="store_true", help="чистая база (только вместе с --db)")
     args = parser.parse_args()
     if args.fresh:
         if not args.db or Path(args.db).resolve() == DEFAULT_PATH.resolve():
@@ -60,11 +60,11 @@ def main():
 
     port = args.port or manager.settings.get("server", {}).get("port", 8765)
     url = f"http://{HOST}:{port}/"
-    # Сторож перезапустит программу с теми же флагами, но без --fresh (иначе сотрёт пруд).
+    # Сторож перезапустит программу с теми же флагами, но без --fresh (иначе сотрёт базу).
     relaunch = [a for a in sys.argv[1:] if a not in ("--fresh", "--no-browser")]
     lock = Path(args.db or DEFAULT_PATH).with_suffix(".strict")
     manager.strict_guard = StrictGuard(lock, relaunch, port)
-    # Программу закрыли посреди строгой сессии: продолжаем её на оставшееся время (без рыбки).
+    # Программу закрыли посреди строгой сессии: продолжаем её на оставшееся время.
     left = pending_resume(lock, manager.clock.now())
     if left and manager.settings.get("protection", {}).get("strictness") == "hard":
         manager.start_session(length_min=left, without_phone=True)

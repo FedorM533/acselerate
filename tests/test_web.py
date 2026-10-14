@@ -1,23 +1,13 @@
-"""Интерфейс: файлы на месте, спрайты для всех растений, ничего не грузится из интернета."""
+"""Интерфейс: файлы на месте, ничего не грузится из интернета, старой игры в нём нет."""
 import re
 from pathlib import Path
-
-from focusfarm.game.crops import DEFAULT_CROPS
 
 WEB = Path(__file__).resolve().parent.parent / "focusfarm" / "web"
 
 
 def test_static_files_served(env):
-    for path in ("/", "/app.js", "/style.css", "/sprites/spot.svg", "/sprites/silt.svg"):
+    for path in ("/", "/app.js", "/style.css", "/tokens.css", "/brand/favicon.ico"):
         assert env.client.get(path).status_code == 200, path
-
-
-def test_sprites_for_every_crop_and_stage(env):
-    for crop in DEFAULT_CROPS:
-        for stage in ("adult", "ready"):
-            assert env.client.get(f"/sprites/{crop}_{stage}.svg").status_code == 200
-    for name in ("seed", "sprout", "young", "bubble", "coin", "plants", "rocks", "castle"):
-        assert env.client.get(f"/sprites/{name}.svg").status_code == 200
 
 
 def test_no_external_resources():
@@ -27,18 +17,6 @@ def test_no_external_resources():
         assert not re.search(r"https?://(?!127\.0\.0\.1)", text), file.name
 
 
-def test_all_crop_stages_have_sprites_and_valid_svg():
-    """5 рыбок × 5 стадий — отдельные SVG; все спрайты — корректный XML."""
-    import xml.dom.minidom
-
-    sprites = WEB / "sprites"
-    for crop in DEFAULT_CROPS:
-        for stage in ("seed", "sprout", "young", "adult", "ready"):
-            assert (sprites / f"{crop}_{stage}.svg").exists(), f"{crop}_{stage}"
-    for file in sprites.glob("*.svg"):
-        xml.dom.minidom.parse(str(file))
-
-
 def test_font_is_local_with_license():
     for name in ("jost-latin-300-normal.woff2", "jost-cyrillic-300-normal.woff2", "manrope-latin-600-normal.woff2", "manrope-cyrillic-600-normal.woff2"):
         assert (WEB / "fonts" / name).exists(), name
@@ -46,18 +24,12 @@ def test_font_is_local_with_license():
         assert "Open Font License" in (WEB / "fonts" / name).read_text(encoding="utf-8"), name
 
 
-def test_rewards_ui_pieces_exist(env):
+def test_old_game_is_gone(env):
+    """Пруд переписывается заново: старых экранов и API игры быть не должно."""
     page = env.client.get("/").text
-    for marker in ('id="tab-quests"', 'id="tab-collection"', 'id="name-dialog"', 'id="swimmers"', 'id="buildings"'):
-        assert marker in page, marker
-    for name in ("house", "bridge", "lighthouse"):
-        assert env.client.get(f"/sprites/{name}.svg").status_code == 200
-
-
-def test_ui_keeps_game_quiet_during_work():
-    """Защита на клиенте: награды и «рыбка выросла» не показываются в FOCUS и NOTEBOOK."""
-    js = (WEB / "app.js").read_text(encoding="utf-8")
-    assert 'QUIET_STATES = ["FOCUS", "NOTEBOOK"]' in js
-    assert 'quietToast("Рыбка выросла' in js
-    assert 'e.type === "reward" && document.body.classList.contains("game-on")) quietToast' in js
-    assert "canAnnounce()" in js   # объявляем только в IDLE/PAUSED, не во время «отвлёкся»
+    for marker in ('id="tab-farm"', 'id="tab-shop"', 'id="tab-quests"', 'id="tab-collection"', "game-only"):
+        assert marker not in page, marker
+    for url in ("/api/collection", "/api/rewards"):
+        assert env.client.get(url).status_code == 404, url
+    assert env.client.post("/api/shop/buy", json={"item": "x"}).status_code in (404, 405)
+    assert "farm" not in env.state() and "rewards" not in env.state()
