@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carpo Pond v2 — превью</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0A2A33;--panel:#103A45;--line:#2A5B66;--text:#F3F7F5;--muted:#A9C4C2;--accent:#E8A04A;--accent2:#C9822F;--ok:#9AD6BA}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:Manrope,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{display:flex;gap:28px;justify-content:center;align-items:flex-start;padding:24px 16px 40px;flex-wrap:wrap}
+.phone{position:relative;height:min(86vh,880px);aspect-ratio:1000/1600;border-radius:34px;overflow:hidden;
+  box-shadow:0 30px 80px #0008,0 0 0 10px #071d23,0 0 0 11px #2a5b66;flex:none;max-width:calc(100vw - 32px);background:#06161b}
+@media (max-width:640px){.phone{height:auto;width:100%}}
+canvas#pond{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:manipulation;cursor:pointer}
+.sleep{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#5d7f86;font-size:14px;
+  background:radial-gradient(circle at 50% 40%,#0d2c35,#04121a);opacity:0;pointer-events:none;transition:opacity .6s}
+.sleep.on{opacity:1}
+.loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px}
+.ui{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}
+.top{padding:28px 24px 60px;background:linear-gradient(#04141acc,#04141a00);display:flex;justify-content:space-between;gap:12px}
+.top h1{margin:0;font-size:26px;font-weight:700}.top p{margin:6px 0 0;color:var(--muted);font-size:14px;line-height:1.35}
+.jbtn{pointer-events:auto;align-self:flex-start;border:1px solid #ffffff26;background:#0A2A3399;color:var(--text);border-radius:12px;
+  padding:8px 12px;font:600 13px Manrope,system-ui;cursor:pointer;backdrop-filter:blur(8px);white-space:nowrap}
+.bottom{padding:16px;pointer-events:auto}
+.card{background:#0A2A33cc;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid #ffffff14;border-radius:24px;padding:16px}
+.chips{display:flex;gap:8px;margin-bottom:12px}
+.chip{flex:1;border:1px solid #ffffff22;background:transparent;color:var(--text);border-radius:14px;padding:10px 0;font:600 15px Manrope,system-ui;cursor:pointer}
+.chip.on{background:#ffffff1c;border-color:#ffffff55}
+.hint{font-size:12.5px;color:var(--muted);text-align:center;margin:0 0 10px}
+.btn{width:100%;border:0;border-radius:16px;padding:16px;font:700 17px Manrope,system-ui;cursor:pointer;background:var(--accent);color:#2A1606}
+.btn:hover{background:#F0AE5E}.btn:active{background:var(--accent2)}
+.btn.ghost{background:#ffffff14;color:var(--text)}
+.btnrow{display:flex;gap:8px}.btnrow .btn{padding:14px;font-size:15px}
+.timer{font-size:56px;font-weight:600;text-align:center;letter-spacing:1px;margin:2px 0 4px;font-variant-numeric:tabular-nums}
+.sheet{position:absolute;left:0;right:0;bottom:0;padding:16px;pointer-events:auto;transform:translateY(105%);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.sheet.show{transform:none}.sheet h2{margin:2px 0 12px;font-size:19px;font-weight:700}
+.reasons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.reason{border:1px solid #ffffff22;background:#ffffff0a;color:var(--text);border-radius:14px;padding:12px 10px;font:500 14px Manrope,system-ui;text-align:left;cursor:pointer}
+.reason:hover{background:#ffffff18}
+.msg{color:var(--muted);margin:0 0 14px;font-size:15px;line-height:1.4}
+.jlist{list-style:none;margin:0 0 14px;padding:0;max-height:38vh;overflow:auto;font-size:14px}
+.jlist li{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #ffffff12}.jlist li span:first-child{color:var(--muted);min-width:64px}
+.toast{position:absolute;left:50%;top:18%;transform:translate(-50%,-8px);background:#0A2A33d9;backdrop-filter:blur(10px);border:1px solid #ffffff1f;
+  border-radius:18px;padding:12px 18px;font-size:14.5px;opacity:0;transition:.5s;pointer-events:none;text-align:center;max-width:80%}
+.toast.show{opacity:1;transform:translate(-50%,0)}.toast b{display:block;font-size:12px;color:var(--ok);font-weight:600;margin-bottom:3px}
+.tap{position:absolute;left:50%;top:46%;transform:translateX(-50%);font-size:13px;color:#ffffffb0;pointer-events:none;transition:opacity 1.2s}
+.hidden{display:none!important}
+.dev{width:min(420px,100%);background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px 18px 8px}
+.dev h3{margin:0 0 4px;font-size:16px}.dev .sub{color:var(--muted);font-size:12.5px;margin:0 0 14px;line-height:1.4}
+.row{margin:0 0 14px}.row label{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:6px}.row label b{color:var(--text);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.seg{display:flex;gap:6px}.seg button{flex:1;padding:8px 0;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--text);font:500 13px Manrope,system-ui;cursor:pointer}
+.seg button.on{background:#ffffff1a;border-color:#ffffff55}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 14px}
+.stat{background:#0A2A33;border-radius:12px;padding:10px}.stat div{font-size:11.5px;color:var(--muted)}.stat b{font-size:17px}
+.ul{list-style:none;padding:0;margin:0 0 14px;font-size:13px}
+.ul li{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #ffffff10}.ul li span:last-child{color:var(--muted);white-space:nowrap}
+.ul li.on span:first-child::before{content:"● ";color:var(--ok)}.ul li:not(.on) span:first-child::before{content:"○ ";color:#5d7f86}
+.ul li.mvp span:first-child::after{content:" MVP";font-size:10px;color:var(--accent);margin-left:4px}
+.log{font-size:12px;color:var(--muted);max-height:150px;overflow:auto;margin:0 0 12px}.log div{padding:3px 0;border-bottom:1px dashed #ffffff10}
+.small-btns{display:flex;gap:8px;margin-bottom:14px}.small-btns button{flex:1;padding:9px 0;border-radius:10px;border:1px solid var(--line);background:#ffffff0d;color:var(--text);font:500 13px Manrope,system-ui;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="phone" id="phone">
+    <canvas id="pond"></canvas>
+    <div class="sleep" id="sleep"></div>
+    <div class="loading" id="loading">Наполняем пруд…</div>
+    <div class="tap" id="tapHint"></div>
+    <div class="ui">
+      <div class="top"><div><h1 id="title"></h1><p id="subtitle"></p></div><button class="jbtn" id="jBtn"></button></div>
+      <div class="bottom" id="idleCard"><div class="card">
+        <div class="chips" id="durations"></div><p class="hint" id="noDistr"></p>
+        <button class="btn" id="startBtn"></button></div></div>
+      <div class="bottom hidden" id="runCard"><div class="card">
+        <div class="timer" id="timer">45:00</div><p class="hint">Превью ускорено: 1 секунда = 1 минута</p>
+        <div class="btnrow"><button class="btn ghost" id="hideBtn"></button><button class="btn ghost" id="stopBtn"></button></div></div></div>
+    </div>
+    <div class="sheet" id="reasonSheet"><div class="card"><h2 id="reasonQ"></h2><div class="reasons" id="reasons"></div>
+      <button class="btn ghost" id="skipReason"></button></div></div>
+    <div class="sheet" id="resultSheet"><div class="card"><h2 id="resTitle"></h2><p class="msg" id="resMsg"></p><button class="btn" id="resClose"></button></div></div>
+    <div class="sheet" id="journalSheet"><div class="card"><h2 id="jTitle"></h2><p class="msg" id="jStats"></p><ul class="jlist" id="jList"></ul>
+      <button class="btn ghost" id="jClose"></button></div></div>
+    <div class="toast" id="toast"><b id="toastKicker"></b><span id="toastText"></span></div>
+  </div>
+
+  <div class="dev">
+    <h3>Панель разработчика · v2</h3>
+    <p class="sub">Этого нет в приложении. Правила начисления те же, что в v1. Новое: реалистичные карпы с изгибом тела, живая вода, тени, «след времени», касание воды, журнал. Коснись воды — карпы подплывут.</p>
+    <div class="stats">
+      <div class="stat"><div>Капли</div><b id="sDrops">0</b></div>
+      <div class="stat"><div>Дни</div><b id="sDays">0</b></div>
+      <div class="stat"><div>Стадия</div><b id="sStage" style="font-size:12px"></b></div>
+      <div class="stat"><div>FPS</div><b id="sFps">–</b></div>
+    </div>
+    <div class="row"><label>Добавочные капли <b id="vDrops">0</b></label><input type="range" id="rDrops" min="0" max="6500" step="5" value="0"></div>
+    <div class="row"><label>Добавочные дни фокуса <b id="vDays">0</b></label><input type="range" id="rDays" min="0" max="70" step="1" value="0"></div>
+    <div class="row"><label>Время суток</label><div class="seg" id="todSeg"></div></div>
+    <div class="small-btns"><button id="nextDay">Следующий день →</button><button id="reset">Сбросить всё</button></div>
+    <div class="row"><label>Открытия <b id="vOpen"></b></label></div>
+    <ul class="ul" id="unlockList"></ul>
+    <div class="row"><label>Журнал сессий <b id="vDay"></b></label></div>
+    <div class="log" id="log"><div>Пока пусто — запусти фокус на экране слева</div></div>
+  </div>
+</div>
+
+<script>
+/*__DATA__*/
+/*__ENGINE__*/
+
+// =================================================================== утилиты
+const $ = s => document.querySelector(s);
+const fmt = (s, o) => s.replace(/\{(\w+)\}/g, (_, k) => o[k]);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const ease = t => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+const lerp = (a, b, t) => a + (b - a) * t;
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const DW = CFG.canvas.width, DH = CFG.canvas.height;
+const MOT = VIS.koi, UND = VIS.koi.undulation;
+const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+
+const imgs = {};
+function loadAll() {
+  return Promise.all(Object.entries(IMG).map(([k, src]) => new Promise(res => {
+    const im = new Image(); im.onload = () => { imgs[k] = im; res(); }; im.onerror = () => res(); im.src = src;
+  })));
+}
+
+// спрайты теней: силуэт + размытие, считаются один раз
+const shadowCache = new Map();
+function shadowSprite(name, blurDesign, drawWidth) {
+  const key = name + "|" + blurDesign;
+  if (shadowCache.has(key)) return shadowCache.get(key);
+  const im = imgs[name];
+  const pxPerDesign = im.width / drawWidth;
+  const blur = Math.max(1, blurDesign * pxPerDesign);
+  const pad = Math.ceil(blur * 2.5);
+  const tmp = document.createElement("canvas"); tmp.width = im.width; tmp.height = im.height;
+  const t = tmp.getContext("2d"); t.drawImage(im, 0, 0); t.globalCompositeOperation = "source-in";
+  t.fillStyle = "#01161c"; t.fillRect(0, 0, im.width, im.height);
+  const c = document.createElement("canvas"); c.width = im.width + pad * 2; c.height = im.height + pad * 2;
+  const x = c.getContext("2d"); x.filter = `blur(${blur}px)`; x.drawImage(tmp, pad, pad);
+  const sp = { canvas: c, pad }; shadowCache.set(key, sp); return sp;
+}
+
+// =================================================================== состояние
+const state = {
+  sessions: [], dayIndex: 0, extraDrops: 0, extraDays: 0, unlocked: [], unlockedAt: {},
+  todMode: "auto", planned: 45, running: null, hidden: false,
+  items: new Map(), koi: new Map(), ambient: [], ripples: [], particles: [],
+  ambientKey: null, staticDirty: true,
+};
+const dateFor = i => new Date(2026, 9, 14 + i).toISOString().slice(0, 10);
+const shortDate = s => { const d = new Date(s); return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }); };
+
+function evaluate() {
+  const scored = scoreSessions(state.sessions, CFG.scoring);
+  const drops = scored.drops + state.extraDrops, days = scored.focusDays + state.extraDays;
+  return { scored, drops, days, computed: computeUnlocks(drops, days, CFG.unlocks), stage: currentStage(drops, CFG.stages) };
+}
+
+function todNow() {
+  if (state.todMode !== "auto") return state.todMode;
+  const n = new Date(), m = n.getHours() * 60 + n.getMinutes();
+  const toMin = s => { const [h, mm] = s.split(":").map(Number); return h * 60 + mm; };
+  for (const t of PAL.timeOfDay) { const a = toMin(t.from), b = toMin(t.to); if (a < b ? (m >= a && m < b) : (m >= a || m < b)) return t.id; }
+  return "day";
+}
+
+// =================================================================== сцена
+function buildScene(unlocked) {
+  const placements = new Map(), koi = new Map(), ambient = [];
+  for (const p of CFG.base.placements) placements.set(p.key, { ...p, source: "base" });
+  for (const k of CFG.base.koi) koi.set(k.key, k);
+  const byId = Object.fromEntries(CFG.unlocks.map(u => [u.id, u]));
+  for (const id of [...unlocked].sort((a, b) => byId[a].order - byId[b].order)) {
+    const u = byId[id];
+    for (const p of u.placements || []) placements.set(p.key, { ...p, source: id });
+    for (const r of u.replace || []) { const p = placements.get(r.key); if (p) placements.set(r.key, { ...p, ...r, source: id }); }
+    for (const k of u.koi || []) koi.set(k.key, { ...k, source: id });
+    if (u.ambient) ambient.push({ ...u.ambient, source: id });
+  }
+  return { placements, koi, ambient };
+}
+
+function applyScene(revealIds = new Set(), now = performance.now()) {
+  const { placements, koi, ambient } = buildScene(state.unlocked);
+  for (const [key, p] of placements) {
+    const it = state.items.get(key);
+    if (!it) {
+      state.items.set(key, { ...p, todA: 1, bob: Math.random() * 6.28, bobP: lerp(...VIS.surfaceBob.periodSec, Math.random()),
+        revealStart: revealIds.has(p.source) ? now : null });
+      if (revealIds.has(p.source)) addRipple(p.x * DW, p.y * DH, Math.max(140, p.width * DW * 0.9), now, 1800);
+    } else if (it.asset !== p.asset || it.width !== p.width) {
+      it.prevAsset = it.asset; it.prevWidth = it.width; it.swapStart = now;
+      Object.assign(it, p);
+      if (revealIds.has(p.source)) addRipple(p.x * DW, p.y * DH, Math.max(140, p.width * DW * 0.9), now, 1800);
+    }
+  }
+  for (const key of [...state.items.keys()]) if (!placements.has(key)) state.items.delete(key);
+  for (const [key, k] of koi) if (!state.koi.has(key)) addKoi(key, k, revealIds.has(k.source), now);
+  for (const key of [...state.koi.keys()]) if (!koi.has(key)) state.koi.delete(key);
+  state.ambientList = ambient; state.ambientKey = null;
+  state.staticDirty = true;
+  updateDev();
+}
+
+// =================================================================== карпы
+function randIn(z) { return [lerp(z.x1, z.x2, Math.random()) * DW, lerp(z.y1, z.y2, Math.random()) * DH]; }
+function addKoi(key, k, reveal, now) {
+  const z = CFG.canvas.swimZone;
+  let [x, y] = randIn(z), a = Math.random() * Math.PI * 2;
+  if (reveal && VIS.reveal.koiEntersFromEdge) {                 // новый карп приплывает из-за края
+    const side = Math.random() < 0.5 ? -1 : 1;
+    x = side < 0 ? -120 : DW + 120; y = lerp(0.3, 0.6, Math.random()) * DH; a = side < 0 ? 0 : Math.PI;
+  }
+  const f = { key, asset: k.asset, len: k.length * DH, x, y, a, omega: 0, speed: 0, cruise: lerp(0.85, 1.15, Math.random()),
+    phase: Math.random() * 6, slowUntil: 0, attractUntil: 0, revealStart: reveal ? now : null };
+  [f.tx, f.ty] = randIn(z);
+  if (reveal) { [f.tx, f.ty] = [DW / 2, DH * 0.45]; f.attractUntil = now + 4000; }
+  state.koi.set(key, f);
+}
+
+function stepKoi(f, dt, now, fishes) {
+  const z = CFG.canvas.swimZone;
+  const calm = state.running ? MOT.sessionCalm.speedFactor : 1;
+  const slow = (reduceMotion ? 1 / 3 : 1) * calm;
+  let desired = Math.atan2(f.ty - f.y, f.tx - f.x);
+  for (const o of fishes) if (o !== f) {
+    const dx = f.x - o.x, dy = f.y - o.y, d = Math.hypot(dx, dy);
+    if (d < 200 && d > 0) desired = Math.atan2(Math.sin(desired) + dy / d * 0.8, Math.cos(desired) + dx / d * 0.8);
+  }
+  const diff = ((desired - f.a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+  const maxTurn = MOT.turnRateDegPerSec * Math.PI / 180 * slow * (now < f.attractUntil ? 1.6 : 1);
+  const turn = clamp(diff, -maxTurn * dt, maxTurn * dt);
+  f.a += turn;
+  f.omega = lerp(f.omega, dt > 0 ? turn / dt : 0, Math.min(1, dt * 4));
+  if (now > f.slowUntil && now > f.attractUntil && Math.random() < dt * 0.04) f.slowUntil = now + 2500 + Math.random() * 3500;
+  const boost = now < f.attractUntil ? MOT.tapAttraction.speedBoost : 1;
+  const dist = Math.hypot(f.tx - f.x, f.ty - f.y);
+  let target = MOT.speedCanvasPerSec * DH * f.cruise * slow * boost * (now < f.slowUntil ? 0.3 : 1);
+  if (now < f.attractUntil && dist < 160) target *= 0.25;      // у точки касания — почти замирает
+  f.speed = lerp(f.speed, target, Math.min(1, dt * 0.9));
+  f.x += Math.cos(f.a) * f.speed * dt; f.y += Math.sin(f.a) * f.speed * dt;
+  if (now > f.attractUntil && dist < 90) [f.tx, f.ty] = randIn(z);
+  const base = MOT.speedCanvasPerSec * DH;
+  f.phase += dt * Math.PI * 2 * UND.hz * (UND.idleAmplitudeFactor + f.speed / base);
+}
+
+function drawKoi(ctx, f, now, shadow) {
+  const im = imgs[shadow ? "koi_shadow" : f.asset]; if (!im) return;
+  const L = f.len, W = L * im.width / im.height;
+  const alpha = f.revealStart ? ease((now - f.revealStart) / VIS.reveal.durationMs) : 1;
+  const base = MOT.speedCanvasPerSec * DH;
+  const amp = UND.amplitude * W * (UND.idleAmplitudeFactor + (1 - UND.idleAmplitudeFactor) * clamp(f.speed / base, 0, 1.5)) * (reduceMotion ? 0.4 : 1);
+  ctx.save();
+  if (shadow) {                                   // тень размыта — изгиб не нужен, рисуем одним куском
+    const sh = MOT.shadow;
+    ctx.translate(f.x + sh.offset[0], f.y + sh.offset[1]); ctx.rotate(f.a + Math.PI / 2); ctx.scale(sh.scale, sh.scale);
+    ctx.globalAlpha = sh.opacity * alpha * state.shadowK;
+    ctx.drawImage(im, -W / 2, -L / 2, W, L); ctx.restore(); return;
+  }
+  // Изгиб: полосы собираются в отдельном буфере по ЦЕЛЫМ пикселям — без щелей и без двойного наложения
+  // полупрозрачных плавников. Потом буфер рисуется повернутым одним вызовом.
+  const pad = W * 0.6, bw = Math.ceil((W + pad * 2) * k), bh = Math.ceil(L * k);
+  if (!f.buf) { f.buf = document.createElement("canvas"); f.bctx = f.buf.getContext("2d"); }
+  if (f.buf.width !== bw || f.buf.height !== bh) { f.buf.width = bw; f.buf.height = bh; }
+  const b = f.bctx; b.clearRect(0, 0, bw, bh);
+  const N = UND.strips;
+  for (let i = 0; i < N; i++) {
+    const y0 = Math.round(i * bh / N), y1 = Math.round((i + 1) * bh / N);
+    const v = (i + 0.5) / N;
+    const env = 0.08 + 0.92 * Math.pow(Math.max(0, (v - 0.2) / 0.8), 1.6);
+    const off = amp * env * Math.sin(f.phase - v * Math.PI * 2 * UND.waves) - UND.turnBend * f.omega * v * v * L;
+    b.drawImage(im, 0, y0 / bh * im.height, im.width, (y1 - y0) / bh * im.height, (pad + off) * k, y0, W * k, y1 - y0);
+  }
+  ctx.translate(f.x, f.y); ctx.rotate(f.a + Math.PI / 2); ctx.globalAlpha = alpha;
+  ctx.drawImage(f.buf, -(W / 2 + pad), -L / 2, bw / k, bh / k);
+  ctx.restore();
+}
+
+// =================================================================== декор
+function drawItem(ctx, it, now, pass) {
+  const im = imgs[it.asset]; if (!im) return;
+  const W = it.width * DW, H = W * im.height / im.width;
+  let s = 1, a = it.todA, rot = (it.rotation || 0) * Math.PI / 180;
+  if (it.revealStart) { const e = ease((now - it.revealStart) / VIS.reveal.durationMs); s = lerp(VIS.reveal.fromScale, 1, e); a *= e; }
+  if (it.layer === "surface" && !reduceMotion) {
+    const ph = now / 1000 / it.bobP * Math.PI * 2 + it.bob;
+    rot += Math.sin(ph) * VIS.surfaceBob.rotationDeg * Math.PI / 180; s *= 1 + Math.sin(ph * 0.7) * VIS.surfaceBob.scale;
+  }
+  const swapT = it.swapStart ? clamp((now - it.swapStart) / 1200, 0, 1) : 1;
+  const layers = swapT < 1 && imgs[it.prevAsset] ? [[it.prevAsset, it.prevWidth, 1 - swapT], [it.asset, it.width, swapT]] : [[it.asset, it.width, 1]];
+  for (const [asset, width, k] of layers) {
+    const img = imgs[asset]; const w = width * DW, h = w * img.height / img.width;
+    ctx.save();
+    if (pass === "shadow") {
+      const cfg = VIS.decorShadows[it.layer]; if (!cfg) { ctx.restore(); continue; }
+      const sp = shadowSprite(asset, cfg.blur, w), r = w / img.width;
+      ctx.translate(it.x * DW + cfg.offset[0], it.y * DH + cfg.offset[1]); ctx.rotate(rot); ctx.scale(s, s);
+      ctx.globalAlpha = cfg.opacity * a * k * state.shadowK;
+      ctx.drawImage(sp.canvas, -w / 2 - sp.pad * r, -h / 2 - sp.pad * r, sp.canvas.width * r, sp.canvas.height * r);
+    } else {
+      ctx.translate(it.x * DW, it.y * DH); ctx.rotate(rot); ctx.scale(s, s); ctx.globalAlpha = a * k;
+      if (it.layer === "glow") ctx.globalCompositeOperation = "lighter";
+      ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    }
+    ctx.restore();
+  }
+}
+const isAnimating = (it, now) => (it.revealStart && now - it.revealStart < VIS.reveal.durationMs) || (it.swapStart && now - it.swapStart < 1200);
+
+// =================================================================== эффекты
+function addRipple(x, y, r, now, dur = 1800, strength = 1) { state.ripples.push({ x, y, r, start: now, dur, strength }); }
+function drawRipples(ctx, now) {
+  state.ripples = state.ripples.filter(rp => now - rp.start < rp.dur);
+  for (const rp of state.ripples) {
+    const t = (now - rp.start) / rp.dur, e = ease(t);
+    for (let k = 0; k < 2; k++) {
+      const rr = rp.r * lerp(0.15, 1, e) * (1 - k * 0.22);
+      ctx.beginPath(); ctx.arc(rp.x, rp.y, rr, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(235,255,250,${(1 - t) * 0.55 * rp.strength * (1 - k * 0.45)})`;
+      ctx.lineWidth = lerp(4, 1, t); ctx.stroke();
+    }
+  }
+}
+function glowDot(ctx, x, y, r, color, a) {
+  const [R, G, B] = hexRgb(color);
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(0.18, `rgba(${R},${G},${B},${a * 0.9})`); g.addColorStop(1, `rgba(${R},${G},${B},0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+}
+function timeTrail(base, golden, now) {                           // «след времени»
+  const tt = VIS.timeTrail;
+  const n = clamp(Math.round(base / tt.perBaseDrops), base > 0 ? 1 : 0, tt.maxBaseParticles);
+  const z = CFG.canvas.swimZone;
+  for (let i = 0; i < n + golden; i++) {
+    const isG = i >= n;
+    const [tx, ty] = randIn({ x1: z.x1 + 0.05, x2: z.x2 - 0.05, y1: 0.3, y2: 0.62 });
+    state.particles.push({ x0: DW / 2 + (Math.random() - 0.5) * 300, y0: DH * 0.86, cx: lerp(DW / 2, tx, 0.3) + (Math.random() - 0.5) * 400,
+      cy: DH * 0.45, x1: tx, y1: ty, start: now + i * tt.staggerMs, color: isG ? tt.goldenColor : tt.baseColor,
+      size: isG ? 26 : 18, rippled: false });
+  }
+  return (n + golden) * tt.staggerMs + tt.flightMs + tt.sinkMs;
+}
+function drawParticles(ctx, now) {
+  const tt = VIS.timeTrail;
+  state.particles = state.particles.filter(p => now - p.start < tt.flightMs + tt.sinkMs);
+  for (const p of state.particles) {
+    const t = now - p.start; if (t < 0) continue;
+    if (t < tt.flightMs) {
+      const u = ease(t / tt.flightMs), x = (1 - u) ** 2 * p.x0 + 2 * (1 - u) * u * p.cx + u * u * p.x1,
+        y = (1 - u) ** 2 * p.y0 + 2 * (1 - u) * u * p.cy + u * u * p.y1;
+      glowDot(ctx, x, y, p.size * (1 + 0.15 * Math.sin(t / 90)), p.color, 0.95);
+    } else {
+      if (!p.rippled) { addRipple(p.x1, p.y1, 70, now, 1400, 0.8); p.rippled = true; }
+      const u = (t - tt.flightMs) / tt.sinkMs;
+      glowDot(ctx, p.x1, p.y1, p.size * (1 - 0.7 * u), p.color, 0.9 * (1 - u));
+    }
+  }
+}
+function completionWave(now) {
+  const cw = VIS.completionWave;
+  for (let i = 0; i < cw.ringCount; i++) addRipple(DW / 2, DH * 0.45, 520 + i * 90, now + i * 380, cw.durationMs, 1);
+  for (const f of state.koi.values()) {
+    const a = Math.random() * 6.28; f.tx = DW / 2 + Math.cos(a) * 150; f.ty = DH * 0.45 + Math.sin(a) * 150; f.attractUntil = now + cw.gatherMs;
+  }
+  return cw.durationMs;
+}
+
+// атмосфера: светлячки и лепестки
+function syncAmbient(tod) {
+  const want = (state.ambientList || []).filter(a => !a.timeOfDay || a.timeOfDay.includes(tod));
+  const key = want.map(a => a.type).join(",") + (reduceMotion ? "r" : "");
+  if (state.ambientKey === key) return; state.ambientKey = key; state.ambient = [];
+  if (reduceMotion) return;
+  for (const a of want) for (let i = 0; i < a.count; i++)
+    state.ambient.push({ type: a.type, asset: a.asset, size: a.size * DW, x: Math.random() * DW, y: Math.random() * DH, t: Math.random() * 10, rot: Math.random() * 360, i });
+}
+function drawAmbient(ctx, dt) {
+  for (const p of state.ambient) {
+    p.t += dt;
+    if (p.type === "fireflies") {
+      p.x += Math.sin(p.t * 0.5 + p.i) * 6 * dt; p.y += Math.cos(p.t * 0.4 + p.i * 2) * 8 * dt;
+      glowDot(ctx, p.x, p.y, p.size * 0.5, "#E9FF9E", 0.3 + 0.6 * Math.max(0, Math.sin(p.t * 1.3 + p.i)));
+    } else {
+      p.x += 12 * dt; p.y += 13 * dt; p.rot += 25 * dt;
+      if (p.x > DW + 40 || p.y > DH + 40) { p.x = -30; p.y = Math.random() * DH * 0.8; }
+      const im = imgs[p.asset]; if (!im) continue;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot * Math.PI / 180);
+      const w = p.size, h = w * im.height / im.width; ctx.globalAlpha = 0.9; ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore();
+    }
+  }
+}
+
+// =================================================================== рендер
+const cv = $("#pond"), ctx = cv.getContext("2d");
+const stat = document.createElement("canvas"), sctx = stat.getContext("2d");
+let k = 1;
+function resize() {
+  const r = cv.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, VIS.performance.maxDevicePixelRatio);
+  cv.width = stat.width = Math.round(r.width * dpr); cv.height = stat.height = Math.round(r.height * dpr);
+  k = cv.width / DW; state.staticDirty = true;
+}
+const view = { tod: null, waterFrom: null, waterStart: 0, tint: [255, 255, 255, 0], caus: 1, shadowK: 1 };
+state.shadowK = 1;
+
+function drawStatic(target, now, dynamicOnly) {
+  for (const layer of ["shore", "overhang"]) {
+    const items = [...state.items.values()].filter(i => i.layer === layer);
+    for (const it of items) drawItem(target, it, now, "shadow");
+    for (const it of items) drawItem(target, it, now, "main");
+  }
+}
+
+let last = performance.now(), lastDraw = 0, frames = 0, fpsT = performance.now(), nextKiss = performance.now() + 6000, rafId = null;
+function frame(now) {
+  rafId = requestAnimationFrame(frame);
+  if (state.hidden || document.hidden) { last = now; return; }
+  if (now - lastDraw < 1000 / VIS.performance.targetFps - 2) return;
+  const dt = Math.min(0.06, (now - last) / 1000); last = now; lastDraw = now;
+  frames++; if (now - fpsT > 1000) { $("#sFps").textContent = frames; frames = 0; fpsT = now; }
+
+  // время суток: плавные переходы
+  const tod = todNow();
+  if (tod !== view.tod) { view.waterFrom = view.tod; view.waterStart = now; view.tod = tod; state.staticDirty = true; syncAmbient(tod); }
+  const ov = PAL.overlay[tod], target = [...hexRgb(ov.color), ov.opacity];
+  view.tint = view.tint.map((v, i) => lerp(v, target[i], Math.min(1, dt * 1.5)));
+  view.caus = lerp(view.caus, VIS.caustics.todAlpha[tod], Math.min(1, dt * 1.5));
+  state.shadowK = lerp(state.shadowK, tod === "night" ? 0.45 : tod === "dusk" ? 0.8 : 1, Math.min(1, dt * 1.5));
+  for (const it of state.items.values()) it.todA = lerp(it.todA, !it.timeOfDay || it.timeOfDay.includes(tod) ? 1 : 0, Math.min(1, dt * 1.5));
+
+  const fishes = [...state.koi.values()];
+  for (const f of fishes) stepKoi(f, dt, now, fishes);
+  if (now > nextKiss && fishes.length && !reduceMotion) {
+    const f = fishes[Math.floor(Math.random() * fishes.length)];
+    addRipple(f.x + Math.cos(f.a) * f.len * 0.42, f.y + Math.sin(f.a) * f.len * 0.42, 70, now, 1600, 0.7);
+    nextKiss = now + lerp(...MOT.surfaceKissEverySec, Math.random()) * 1000;
+  }
+
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  // 1. вода (с перетеканием между временами суток)
+  const wt = view.waterFrom ? clamp((now - view.waterStart) / 1600, 0, 1) : 1;
+  if (wt < 1 && imgs["water_" + view.waterFrom]) { ctx.globalAlpha = 1; ctx.drawImage(imgs["water_" + view.waterFrom], 0, 0, DW, DH); }
+  ctx.globalAlpha = wt; ctx.drawImage(imgs["water_" + tod], 0, 0, DW, DH); ctx.globalAlpha = 1;
+  // 2. каустика: два слоя дрейфуют навстречу
+  if (!reduceMotion) {
+    const t = now / 1000; ctx.globalCompositeOperation = "screen";
+    VIS.caustics.layers.forEach((L, i) => {
+      const im = imgs[L.asset.split("/").pop()]; if (!im) return;
+      const P = L.swayPeriodSec, w = DW * L.scale, h = DH * L.scale;
+      const dx = L.swayAmplitudePx * Math.sin(t / P * 6.283 + i) + L.driftPxPerSec[0] * P / 4 * Math.sin(t / (P * 3) * 6.283);
+      const dy = L.swayAmplitudePx * Math.cos(t / (P * 1.3) * 6.283 + i) + L.driftPxPerSec[1] * P / 4 * Math.sin(t / (P * 2.6) * 6.283);
+      ctx.globalAlpha = L.alpha * view.caus * (state.running ? 0.8 : 1);
+      ctx.drawImage(im, (DW - w) / 2 + dx, (DH - h) / 2 + dy, w, h);
+    });
+    ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
+  }
+  // 3. тени карпов на дне, 4. карпы
+  for (const f of fishes) drawKoi(ctx, f, now, true);
+  for (const f of fishes) drawKoi(ctx, f, now, false);
+  // 5. кувшинки и лотосы (покачиваются — рисуем каждый кадр)
+  const surface = [...state.items.values()].filter(i => i.layer === "surface");
+  for (const it of surface) drawItem(ctx, it, now, "shadow");
+  for (const it of surface) drawItem(ctx, it, now, "main");
+  // 6. берег и нависающие ветки — из кэша, если ничего не анимируется
+  const staticAnim = [...state.items.values()].some(it => (it.layer === "shore" || it.layer === "overhang") && isAnimating(it, now));
+  if (staticAnim) { drawStatic(ctx, now); state.staticDirty = true; }
+  else {
+    if (state.staticDirty) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0); sctx.clearRect(0, 0, stat.width, stat.height);
+      sctx.setTransform(k, 0, 0, k, 0, 0); drawStatic(sctx, now); state.staticDirty = false;
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(stat, 0, 0); ctx.setTransform(k, 0, 0, k, 0, 0);
+  }
+  // 7. тонировка времени суток
+  const [r, g, b, a] = view.tint;
+  if (a > 0.005) { ctx.globalCompositeOperation = "multiply"; ctx.globalAlpha = a; ctx.fillStyle = `rgb(${r | 0},${g | 0},${b | 0})`;
+    ctx.fillRect(0, 0, DW, DH); ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1; }
+  // 8. спокойная виньетка во время сессии
+  if (state.running) {
+    const vg = ctx.createRadialGradient(DW / 2, DH * 0.45, DH * 0.2, DW / 2, DH * 0.45, DH * 0.75);
+    vg.addColorStop(0, "rgba(2,14,20,0)"); vg.addColorStop(1, `rgba(2,14,20,${MOT.sessionCalm.vignetteOpacity})`);
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, DW, DH);
+  }
+  // 9. свечение, атмосфера, эффекты
+  for (const it of state.items.values()) if (it.layer === "glow") drawItem(ctx, it, now, "main");
+  drawAmbient(ctx, dt);
+  drawRipples(ctx, now);
+  drawParticles(ctx, now);
+}
+
+// =================================================================== касание воды
+cv.addEventListener("pointerdown", e => {
+  if (state.running && MOT.tapAttraction.onlyWhenIdle) return;
+  const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * DW, y = (e.clientY - r.top) / r.height * DH;
+  const now = performance.now(); addRipple(x, y, 120, now, 1700, 0.9);
+  if (!MOT.tapAttraction.enabled) return;
+  const near = [...state.koi.values()].sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)).slice(0, MOT.tapAttraction.maxKoi);
+  const z = CFG.canvas.swimZone;
+  for (const f of near) { f.tx = clamp(x, z.x1 * DW, z.x2 * DW); f.ty = clamp(y, z.y1 * DH, z.y2 * DH); f.attractUntil = now + MOT.tapAttraction.durationMs; }
+  $("#tapHint").style.opacity = 0;
+});
+
+// =================================================================== сессии
+function startSession() {
+  state.running = { planned: state.planned, started: performance.now() };
+  $("#idleCard").classList.add("hidden"); $("#runCard").classList.remove("hidden");
+  $("#title").textContent = STR["session.running"]; $("#subtitle").textContent = ""; $("#jBtn").classList.add("hidden");
+  state.timer = setInterval(updateTimer, 100); updateTimer();
+}
+const focusedSeconds = () => Math.floor((performance.now() - state.running.started) / 1000 * 60);
+function updateTimer() {
+  const left = Math.max(0, state.running.planned * 60 - focusedSeconds());
+  $("#timer").textContent = `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`;
+  if (left <= 0) finish("completed", null);
+}
+function setHidden(h) { state.hidden = h; $("#sleep").classList.toggle("on", h); $("#hideBtn").textContent = h ? STR["session.showPond"] : STR["session.hidePond"]; }
+function finish(endReason, reasonCode) {
+  clearInterval(state.timer);
+  const fs = endReason === "completed" ? state.running.planned * 60 : state.pausedAt;
+  const id = "p" + String(state.sessions.length + 1).padStart(3, "0");
+  state.sessions.push({ id, endedAt: Date.now(), localDate: dateFor(state.dayIndex), plannedMinutes: state.running.planned,
+    focusedSeconds: fs, endReason, reasonCode });
+  state.running = null; setHidden(false);
+  const res = evaluate().scored.sessions.find(s => s.id === id); state.lastResult = res;
+  const minutes = Math.floor(fs / 60);
+  $("#reasonSheet").classList.remove("show");
+  $("#resTitle").textContent = endReason === "completed" ? STR["complete.title"] : "Сессия завершена раньше";
+  $("#resMsg").textContent = res.status === "too_short" ? STR["interrupt.tooShort"] : endReason === "completed" ? fmt(STR["complete.saved"], { minutes }) :
+    reasonCode ? fmt(STR["interrupt.savedWithReason"], { minutes }) : fmt(STR["interrupt.saved"], { minutes });
+  $("#resClose").textContent = endReason === "completed" ? STR["complete.close"] : STR["interrupt.close"];
+  $("#resultSheet").classList.add("show");
+  logSession(res, minutes, reasonCode);
+}
+function closeResult() {
+  $("#resultSheet").classList.remove("show"); $("#runCard").classList.add("hidden"); $("#idleCard").classList.remove("hidden");
+  $("#jBtn").classList.remove("hidden"); setIdleTexts();
+  const now = performance.now(), res = state.lastResult;
+  let wait = 600;
+  if (res.status === "completed") wait = completionWave(now) * 0.6;
+  else if (res.base > 0) { wait = timeTrail(res.base, res.bonus > 0 ? VIS.timeTrail.goldenForReasonBonus : 0, now); toast("", STR["trail.saved"]); }
+  const ev = evaluate(), fresh = ev.computed.filter(id => !state.unlocked.includes(id));
+  setTimeout(() => {
+    for (const id of fresh) state.unlockedAt[id] = dateFor(state.dayIndex);
+    state.unlocked = mergeUnlocked(state.unlocked, ev.computed);
+    fresh.forEach((id, i) => setTimeout(() => {
+      const u = CFG.unlocks.find(x => x.id === id);
+      applyScene(new Set([id]), performance.now()); toast(STR["reveal.newTitle"], u.reveal);
+    }, i * VIS.reveal.gapMs));
+    if (!fresh.length) { applyScene(); if (res.status === "completed") toast("", STR["complete.nothingNew"]); }
+  }, wait);
+}
+let toastTimer;
+function toast(kicker, text) {
+  $("#toastKicker").textContent = kicker; $("#toastKicker").style.display = kicker ? "" : "none";
+  $("#toastText").textContent = text; $("#toast").classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $("#toast").classList.remove("show"), 2600);
+}
+function logSession(r, minutes, reason) {
+  const log = $("#log"); if (!state.logged) { log.innerHTML = ""; state.logged = true; }
+  const names = { completed: "завершена", interrupted_with_reason: "прервана · " + reason, interrupted_no_reason: "прервана без причины", too_short: "слишком короткая" };
+  const d = document.createElement("div");
+  d.textContent = `${dateFor(state.dayIndex)} · ${minutes} мин · ${names[r.status]} → +${r.base}${r.bonus ? " +" + r.bonus + " бонус" : ""}`;
+  log.prepend(d);
+}
+function openJournal() {
+  const ev = evaluate();
+  const totalMin = ev.scored.sessions.reduce((s, x) => s + x.base, 0) + state.extraDrops;
+  $("#jTitle").textContent = STR["journal.title"];
+  $("#jStats").innerHTML = fmt(STR["journal.total"], { hours: Math.floor(totalMin / 60), minutes: totalMin % 60 }) + "<br>" + fmt(STR["journal.days"], { days: ev.days });
+  const items = CFG.unlocks.filter(u => state.unlocked.includes(u.id));
+  $("#jList").innerHTML = items.length ? items.map(u => `<li><span>${shortDate(state.unlockedAt[u.id] || dateFor(0))}</span><span>${u.title}</span></li>`).join("")
+    : `<li><span></span><span>${STR["journal.empty"]}</span></li>`;
+  $("#journalSheet").classList.add("show");
+}
+
+// =================================================================== панель
+function updateDev() {
+  const ev = evaluate();
+  $("#sDrops").textContent = ev.drops; $("#sDays").textContent = ev.days;
+  $("#sStage").textContent = CFG.stages.find(s => s.id === ev.stage).title;
+  $("#vOpen").textContent = `${state.unlocked.length} / ${CFG.unlocks.length}`; $("#vDay").textContent = dateFor(state.dayIndex);
+  $("#unlockList").innerHTML = CFG.unlocks.map(u => `<li class="${state.unlocked.includes(u.id) ? "on" : ""} ${u.mvp ? "mvp" : ""}"><span>${u.title}</span>` +
+    `<span>${u.requires.drops} кап.${u.requires.focusDays ? " · " + u.requires.focusDays + " дн." : ""}</span></li>`).join("");
+}
+function setIdleTexts() { $("#title").textContent = STR["pond.title"]; $("#subtitle").textContent = STR["pond.subtitle"]; }
+
+async function init() {
+  setIdleTexts();
+  $("#jBtn").textContent = STR["journal.button"]; $("#jClose").textContent = STR["journal.close"];
+  $("#noDistr").textContent = STR["pond.noDistractions"]; $("#startBtn").textContent = STR["pond.start"];
+  $("#stopBtn").textContent = STR["session.stop"]; $("#hideBtn").textContent = STR["session.hidePond"];
+  $("#sleep").textContent = STR["session.hiddenHint"]; $("#tapHint").textContent = STR["pond.tapHint"];
+  $("#reasonQ").textContent = REASONS.question; $("#skipReason").textContent = REASONS.skipLabel;
+  $("#durations").innerHTML = [25, 45, 60].map(m => `<button class="chip ${m === state.planned ? "on" : ""}" data-m="${m}">${m} мин</button>`).join("");
+  $("#durations").onclick = e => { const b = e.target.closest(".chip"); if (!b) return; state.planned = +b.dataset.m;
+    document.querySelectorAll(".chip").forEach(c => c.classList.toggle("on", c === b)); };
+  $("#reasons").innerHTML = REASONS.reasons.map(r => `<button class="reason" data-c="${r.code}">${r.emoji}&nbsp; ${r.label}</button>`).join("");
+  $("#reasons").onclick = e => { const b = e.target.closest(".reason"); if (b) finish("interrupted", b.dataset.c); };
+  $("#skipReason").onclick = () => finish("interrupted", null);
+  $("#startBtn").onclick = startSession;
+  $("#stopBtn").onclick = () => { clearInterval(state.timer); state.pausedAt = focusedSeconds(); $("#reasonSheet").classList.add("show"); };
+  $("#hideBtn").onclick = () => setHidden(!state.hidden);
+  $("#resClose").onclick = closeResult; $("#jBtn").onclick = openJournal;
+  $("#jClose").onclick = () => $("#journalSheet").classList.remove("show");
+  const todNames = { auto: "Авто", day: "День", dusk: "Вечер", night: "Ночь" };
+  $("#todSeg").innerHTML = Object.entries(todNames).map(([k, v]) => `<button data-t="${k}" class="${k === state.todMode ? "on" : ""}">${v}</button>`).join("");
+  $("#todSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; state.todMode = b.dataset.t;
+    document.querySelectorAll("#todSeg button").forEach(x => x.classList.toggle("on", x === b)); };
+  const sliderChanged = () => {
+    state.extraDrops = +$("#rDrops").value; state.extraDays = +$("#rDays").value;
+    $("#vDrops").textContent = state.extraDrops; $("#vDays").textContent = state.extraDays;
+    const ev = evaluate(), fresh = new Set(ev.computed.filter(id => !state.unlocked.includes(id)));
+    for (const id of fresh) state.unlockedAt[id] = dateFor(state.dayIndex);
+    state.unlocked = ev.computed; applyScene(fresh);
+  };
+  $("#rDrops").oninput = sliderChanged; $("#rDays").oninput = sliderChanged;
+  $("#nextDay").onclick = () => { state.dayIndex++; updateDev(); toast("", "Наступил " + dateFor(state.dayIndex)); };
+  $("#reset").onclick = () => location.reload();
+  const q = new URLSearchParams(location.search);
+  if (q.has("drops")) $("#rDrops").value = q.get("drops");
+  if (q.has("days")) $("#rDays").value = q.get("days");
+  if (q.has("tod")) { state.todMode = q.get("tod"); document.querySelectorAll("#todSeg button").forEach(x => x.classList.toggle("on", x.dataset.t === state.todMode)); }
+  await loadAll();
+  $("#loading").remove();
+  resize(); addEventListener("resize", resize);
+  sliderChanged();
+  setTimeout(() => $("#tapHint").style.opacity = 0, 6000);
+  rafId = requestAnimationFrame(frame);
+}
+init();
+</script>
+</body>
+</html>

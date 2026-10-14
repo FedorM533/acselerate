@@ -1,0 +1,31 @@
+{
+  "pond.title": "Твой пруд",
+  "pond.subtitle": "Поставь время и возвращайся к своим делам",
+  "pond.start": "Начать фокус",
+  "pond.noDistractions": "Без отвлечений",
+  "pond.minutesSuffix": "минут",
+
+  "session.running": "Пруд подождёт. Ты — в фокусе",
+  "session.remaining": "Осталось {minutes} мин",
+  "session.stop": "Завершить",
+  "session.hidePond": "Скрыть пруд",
+
+  "complete.title": "Сессия завершена",
+  "complete.saved": "{minutes} мин теперь живут в пруду",
+  "complete.nothingNew": "Пруд стал чуть живее",
+  "complete.close": "Закрыть",
+
+  "interrupt.saved": "{minutes} мин сохранены в пруду",
+  "interrupt.savedWithReason": "{minutes} мин сохранены. Спасибо, что отметил(а) причину",
+  "interrupt.tooShort": "Сессия была совсем короткой — ничего страшного, пруд на месте",
+  "interrupt.close": "Вернуться к делам",
+
+  "reveal.newTitle": "В пруду что-то новое",
+
+  "return.afterBreak": "Пруд на месте. Можно начать с короткой сессии",
+  "stats.title": "Время у пруда",
+  "stats.total": "Всего в фокусе: {hours} ч {minutes} мин",
+  "stats.days": "Дней у пруда: {days}",
+
+  "_rules": "Не использовать слова «серия», «пропустил», «потерял», «штраф», «XP», «очки». Карп никогда не «грустит» и не «голодает». Никаких push-уведомлений про пруд."
+}

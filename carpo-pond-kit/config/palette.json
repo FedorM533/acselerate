@@ -1,0 +1,37 @@
+{
+  "_comment": "Время суток и UI-цвета. Время суток — по локальным часам устройства. Переход между фонами воды — плавный crossfade 20–30 минут реального времени (или 1.5 с при открытии экрана, если фаза уже сменилась).",
+  "timeOfDay": [
+    { "id": "night", "from": "21:30", "to": "05:00", "water": "water_night" },
+    { "id": "dusk",  "from": "05:00", "to": "07:30", "water": "water_dusk" },
+    { "id": "day",   "from": "07:30", "to": "18:30", "water": "water_day" },
+    { "id": "dusk",  "from": "18:30", "to": "21:30", "water": "water_dusk" }
+  ],
+  "overlay": {
+    "_comment": "Затемнение/тонировка ВСЕХ объектов пруда поверх (multiply) — чтобы камни и растения не светились ночью",
+    "day":   { "color": "#FFFFFF", "opacity": 0.0 },
+    "dusk":  { "color": "#6A5276", "opacity": 0.28 },
+    "night": { "color": "#0B1830", "opacity": 0.6 }
+  },
+  "ui": {
+    "background": "#0D3540",
+    "surface": "#134652",
+    "textPrimary": "#F3F7F5",
+    "textSecondary": "#A9C4C2",
+    "accent": "#E8A04A",
+    "accentPressed": "#C9822F",
+    "koiRed": "#D53D29",
+    "positive": "#9AD6BA",
+    "fontNote": "Любой мягкий гротеск: Inter / Manrope / системный. Заголовки — 500–600, без капса."
+  },
+  "motion": {
+    "koiSpeedCanvasPerSec": 0.035,
+    "koiTurnRateDegPerSec": 40,
+    "tailWagDeg": 14,
+    "tailWagHz": 1.1,
+    "rippleDurationMs": 1800,
+    "revealDurationMs": 1400,
+    "causticsDriftPxPerSec": 6,
+    "targetFps": 30,
+    "reduceMotion": "Если в системе включено «Уменьшить движение»: карпы плавают в 3 раза медленнее, без каустики и частиц, появление — простой fade."
+  }
+}

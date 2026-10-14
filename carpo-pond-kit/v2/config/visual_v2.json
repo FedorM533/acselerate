@@ -1,0 +1,67 @@
+{
+  "_comment": "Параметры визуала и анимации v2. Все расстояния — в единицах дизайн-холста 1000x1600. Правила начисления общие с v1: ../../config/progression.json.",
+
+  "assets": {
+    "_comment": "Какие файлы v2 брать вместо v1. Ключи — id ассета из progression.json; если ассета нет в v2, используется v1.",
+    "folder": "v2/assets",
+    "preferScale": "2x",
+    "water": { "day": "full/water_day", "dusk": "full/water_dusk", "night": "full/water_night" }
+  },
+
+  "koi": {
+    "speedCanvasPerSec": 0.035,
+    "turnRateDegPerSec": 40,
+    "undulation": {
+      "_comment": "Изгиб тела: картинку карпа рисуем горизонтальными полосами и сдвигаем каждую вбок. offset(v) = amplitude*ширинаКарпа*env(v)*sin(phase - v*2π*waves) - turnBend*ω*v²*длина, где v = 0 у носа, 1 у кончика хвоста, env(v) = 0.08 + 0.92*max(0,(v-0.2)/0.8)^1.6, ω — угловая скорость поворота (рад/с).",
+      "strips": 36,
+      "amplitude": 0.16,
+      "waves": 0.85,
+      "hz": 1.1,
+      "turnBend": 0.09,
+      "idleAmplitudeFactor": 0.35
+    },
+    "shadow": { "asset": "koi_shadow", "offset": [22, 38], "scale": 0.97, "opacity": 0.9, "_comment": "Тень лежит на дне — смещение больше, чем у v1, и одинаковое в мировых координатах (свет сверху-слева)" },
+    "tapAttraction": { "enabled": true, "maxKoi": 2, "durationMs": 5500, "speedBoost": 1.35, "onlyWhenIdle": true },
+    "sessionCalm": { "speedFactor": 0.6, "vignetteOpacity": 0.28 },
+    "surfaceKissEverySec": [7, 16]
+  },
+
+  "caustics": {
+    "_comment": "Два слоя бликов на дне дрейфуют в разные стороны — интерференция даёт живое мерцание. Режим наложения screen (или lighter).",
+    "layers": [
+      { "asset": "full/caustics_a", "alpha": 0.55, "scale": 1.12, "driftPxPerSec": [5.0, 3.2], "swayAmplitudePx": 26, "swayPeriodSec": 23 },
+      { "asset": "full/caustics_b", "alpha": 0.38, "scale": 1.18, "driftPxPerSec": [-4.1, -5.6], "swayAmplitudePx": 34, "swayPeriodSec": 17 }
+    ],
+    "todAlpha": { "day": 1.0, "dusk": 0.55, "night": 0.22 }
+  },
+
+  "decorShadows": {
+    "_comment": "Тень предмета = его силуэт, размытый и смещённый. Считать спрайт тени один раз при загрузке, а не каждый кадр.",
+    "surface":  { "offset": [12, 20], "blur": 10, "opacity": 0.38 },
+    "shore":    { "offset": [9, 14],  "blur": 8,  "opacity": 0.42 },
+    "overhang": { "offset": [34, 56], "blur": 22, "opacity": 0.28 }
+  },
+
+  "surfaceBob": { "_comment": "Кувшинки и лотосы чуть покачиваются", "rotationDeg": 2.2, "scale": 0.012, "periodSec": [8, 13] },
+
+  "timeTrail": {
+    "_comment": "«След времени»: после сессии частицы света поднимаются из-под карточки и опускаются в воду. Обычные — за минуты, золотые — бонус за указанную причину. Чисто визуально, на начисление не влияет.",
+    "perBaseDrops": 5, "maxBaseParticles": 8,
+    "goldenForReasonBonus": 3,
+    "baseColor": "#DFFAF4", "goldenColor": "#FFE29A",
+    "flightMs": 1600, "sinkMs": 900, "staggerMs": 140
+  },
+
+  "completionWave": { "_comment": "Сессия завершена: широкая волна от центра, карпы на 3 с подплывают к центру", "ringCount": 3, "durationMs": 2400, "gatherMs": 3000 },
+
+  "reveal": { "durationMs": 1400, "fromScale": 0.72, "gapMs": 2200, "koiEntersFromEdge": true },
+
+  "performance": {
+    "_comment": "Обязательные оптимизации",
+    "maxDevicePixelRatio": 2,
+    "targetFps": 30,
+    "cacheStaticLayers": "shore + overhang рисовать в отдельный буфер и перерисовывать только при изменении сцены или времени суток",
+    "pauseWhenHidden": true,
+    "hidePondDuringSession": "кнопка «Скрыть пруд» полностью останавливает отрисовку"
+  }
+}

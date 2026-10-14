@@ -1,0 +1,89 @@
+/* Carpo — дизайн-токены. Подключать после fonts/fonts.css. */
+:root {
+  /* Бренд */
+  --carpo-green: #2E4A3F;        /* спокойствие и фокус: основные кнопки, тёмные блоки */
+  --carpo-green-hover: #1E3329;
+  --carpo-green-deep: #1C2E26;   /* фон тёмной темы */
+  --carpo-clay: #D97A5A;         /* рост и энергия: прогресс рыбки, акцентная кнопка (текст на ней тёмный) */
+  --carpo-clay-hover: #E48E70;
+  --carpo-clay-text: #B85E40;    /* терракота для крупных цифр на светлом (>= 24px) */
+  --carpo-sage: #C9D6CC;         /* гармония: подложки, круг «пруда» */
+  --carpo-sage-light: #E6EDE8;
+  --carpo-cream: #F6F2EB;        /* чистота: основной фон */
+  --carpo-cream-deep: #EDE7DC;   /* фон второстепенных секций */
+  --carpo-paper: #FBF9F5;        /* фон карточек на кремовом */
+
+  /* Текст (контраст на --carpo-cream ≥ 4.5:1) */
+  --carpo-ink: #1F2A25;
+  --carpo-ink-2: #3F5249;
+  --carpo-ink-3: #5B6F66;
+  --carpo-on-green: #F6F2EB;
+  --carpo-on-green-2: #DCE5DF;
+
+  /* Линии */
+  --carpo-line: #D8D0C2;
+  --carpo-line-soft: #E3DED4;
+  --carpo-line-on-green: #5E7A6D;
+
+  /* Статусы */
+  --carpo-focus: #2E4A3F;        /* в фокусе */
+  --carpo-paused: #8A6A3B;       /* рост на паузе (текст) */
+  --carpo-paused-bg: #F3E7D3;
+  --carpo-warning-bg: #F6E3DA;   /* «в разработке», предупреждения */
+  --carpo-warning-text: #8A3F25;
+
+  /* Типографика */
+  --carpo-font-display: 'Jost', system-ui, sans-serif;   /* заголовки, таймер, wordmark «Carpo» */
+  --carpo-font-body: 'Manrope', system-ui, sans-serif;   /* текст, кнопки, подписи */
+  --carpo-text-xs: 13px;
+  --carpo-text-sm: 15px;
+  --carpo-text-md: 17px;
+  --carpo-text-lg: 19px;
+  --carpo-h3: 22px;
+  --carpo-h2: clamp(32px, 4vw, 48px);
+  --carpo-h1: clamp(40px, 6vw, 76px);
+  --carpo-timer: 64px;           /* Jost 200 */
+  --carpo-leading: 1.6;
+  --carpo-leading-tight: 1.1;
+
+  /* Форма */
+  --carpo-radius-sm: 10px;
+  --carpo-radius-md: 16px;
+  --carpo-radius-lg: 24px;
+  --carpo-radius-xl: 32px;
+  --carpo-radius-pill: 999px;
+  --carpo-space-1: 4px;
+  --carpo-space-2: 8px;
+  --carpo-space-3: 12px;
+  --carpo-space-4: 16px;
+  --carpo-space-5: 24px;
+  --carpo-space-6: 32px;
+  --carpo-space-7: 48px;
+  --carpo-space-8: 64px;
+  --carpo-shadow-card: 0 24px 48px rgba(31, 42, 37, 0.14);
+  --carpo-tap: 44px;             /* минимальный размер кликабельного элемента */
+
+  /* Текущая тема (светлая по умолчанию) */
+  --carpo-bg: var(--carpo-cream);
+  --carpo-surface: var(--carpo-paper);
+  --carpo-surface-2: var(--carpo-cream-deep);
+  --carpo-text: var(--carpo-ink);
+  --carpo-text-2: var(--carpo-ink-2);
+  --carpo-text-3: var(--carpo-ink-3);
+  --carpo-border: var(--carpo-line);
+  --carpo-primary: var(--carpo-green);
+  --carpo-on-primary: var(--carpo-on-green);
+}
+
+/* Тёмная тема («Тёмная вода»): включать классом на <html> или по системной настройке */
+:root[data-theme="dark"] {
+  --carpo-bg: #1C2E26;
+  --carpo-surface: #24392F;
+  --carpo-surface-2: #2A4237;
+  --carpo-text: #F6F2EB;
+  --carpo-text-2: #D4DDD7;
+  --carpo-text-3: #A9B8AF;
+  --carpo-border: #344E43;
+  --carpo-primary: var(--carpo-clay);
+  --carpo-on-primary: #1C2E26;
+}

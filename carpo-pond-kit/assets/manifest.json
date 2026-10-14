@@ -1,0 +1,784 @@
+{
+ "_comment": "Все ассеты — вид сверху. Размеры viewBox — исходные единицы SVG. PNG 1x = размер viewBox; water_* и caustics в png/full экспортированы в 2x (2000x3200), иконки — 1024x1024.",
+ "assets": [
+  {
+   "id": "koi_kohaku",
+   "svg": "svg/koi_kohaku.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_kohaku.png",
+    "2x": "png/2x/koi_kohaku.png",
+    "3x": "png/3x/koi_kohaku.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ],
+   "parts": {
+    "body": "koi_kohaku_body",
+    "tail": "koi_kohaku_tail"
+   },
+   "svgTailGroupId": "tail"
+  },
+  {
+   "id": "koi_kohaku_body",
+   "svg": "svg/koi_kohaku_body.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_kohaku_body.png",
+    "2x": "png/2x/koi_kohaku_body.png",
+    "3x": "png/3x/koi_kohaku_body.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ]
+  },
+  {
+   "id": "koi_kohaku_tail",
+   "svg": "svg/koi_kohaku_tail.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_kohaku_tail.png",
+    "2x": "png/2x/koi_kohaku_tail.png",
+    "3x": "png/3x/koi_kohaku_tail.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ]
+  },
+  {
+   "id": "koi_tancho",
+   "svg": "svg/koi_tancho.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_tancho.png",
+    "2x": "png/2x/koi_tancho.png",
+    "3x": "png/3x/koi_tancho.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ],
+   "parts": {
+    "body": "koi_tancho_body",
+    "tail": "koi_tancho_tail"
+   },
+   "svgTailGroupId": "tail"
+  },
+  {
+   "id": "koi_tancho_body",
+   "svg": "svg/koi_tancho_body.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_tancho_body.png",
+    "2x": "png/2x/koi_tancho_body.png",
+    "3x": "png/3x/koi_tancho_body.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ]
+  },
+  {
+   "id": "koi_tancho_tail",
+   "svg": "svg/koi_tancho_tail.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_tancho_tail.png",
+    "2x": "png/2x/koi_tancho_tail.png",
+    "3x": "png/3x/koi_tancho_tail.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ]
+  },
+  {
+   "id": "koi_sanke",
+   "svg": "svg/koi_sanke.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_sanke.png",
+    "2x": "png/2x/koi_sanke.png",
+    "3x": "png/3x/koi_sanke.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ],
+   "parts": {
+    "body": "koi_sanke_body",
+    "tail": "koi_sanke_tail"
+   },
+   "svgTailGroupId": "tail"
+  },
+  {
+   "id": "koi_sanke_body",
+   "svg": "svg/koi_sanke_body.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_sanke_body.png",
+    "2x": "png/2x/koi_sanke_body.png",
+    "3x": "png/3x/koi_sanke_body.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ]
+  },
+  {
+   "id": "koi_sanke_tail",
+   "svg": "svg/koi_sanke_tail.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_sanke_tail.png",
+    "2x": "png/2x/koi_sanke_tail.png",
+    "3x": "png/3x/koi_sanke_tail.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ]
+  },
+  {
+   "id": "koi_ogon",
+   "svg": "svg/koi_ogon.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_ogon.png",
+    "2x": "png/2x/koi_ogon.png",
+    "3x": "png/3x/koi_ogon.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ],
+   "parts": {
+    "body": "koi_ogon_body",
+    "tail": "koi_ogon_tail"
+   },
+   "svgTailGroupId": "tail"
+  },
+  {
+   "id": "koi_ogon_body",
+   "svg": "svg/koi_ogon_body.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_ogon_body.png",
+    "2x": "png/2x/koi_ogon_body.png",
+    "3x": "png/3x/koi_ogon_body.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ]
+  },
+  {
+   "id": "koi_ogon_tail",
+   "svg": "svg/koi_ogon_tail.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_ogon_tail.png",
+    "2x": "png/2x/koi_ogon_tail.png",
+    "3x": "png/3x/koi_ogon_tail.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ]
+  },
+  {
+   "id": "koi_platinum",
+   "svg": "svg/koi_platinum.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_platinum.png",
+    "2x": "png/2x/koi_platinum.png",
+    "3x": "png/3x/koi_platinum.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ],
+   "parts": {
+    "body": "koi_platinum_body",
+    "tail": "koi_platinum_tail"
+   },
+   "svgTailGroupId": "tail"
+  },
+  {
+   "id": "koi_platinum_body",
+   "svg": "svg/koi_platinum_body.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_platinum_body.png",
+    "2x": "png/2x/koi_platinum_body.png",
+    "3x": "png/3x/koi_platinum_body.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ]
+  },
+  {
+   "id": "koi_platinum_tail",
+   "svg": "svg/koi_platinum_tail.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_platinum_tail.png",
+    "2x": "png/2x/koi_platinum_tail.png",
+    "3x": "png/3x/koi_platinum_tail.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ]
+  },
+  {
+   "id": "koi_asagi",
+   "svg": "svg/koi_asagi.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_asagi.png",
+    "2x": "png/2x/koi_asagi.png",
+    "3x": "png/3x/koi_asagi.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ],
+   "parts": {
+    "body": "koi_asagi_body",
+    "tail": "koi_asagi_tail"
+   },
+   "svgTailGroupId": "tail"
+  },
+  {
+   "id": "koi_asagi_body",
+   "svg": "svg/koi_asagi_body.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_asagi_body.png",
+    "2x": "png/2x/koi_asagi_body.png",
+    "3x": "png/3x/koi_asagi_body.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ]
+  },
+  {
+   "id": "koi_asagi_tail",
+   "svg": "svg/koi_asagi_tail.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_asagi_tail.png",
+    "2x": "png/2x/koi_asagi_tail.png",
+    "3x": "png/3x/koi_asagi_tail.png"
+   },
+   "headDirection": "up (-Y); при движении поворачивать на atan2(vy, vx) + 90°",
+   "tailPivot": [
+    60,
+    208
+   ]
+  },
+  {
+   "id": "koi_shadow",
+   "svg": "svg/koi_shadow.svg",
+   "viewBox": [
+    120,
+    280
+   ],
+   "kind": "koi",
+   "png": {
+    "1x": "png/1x/koi_shadow.png",
+    "2x": "png/2x/koi_shadow.png",
+    "3x": "png/3x/koi_shadow.png"
+   },
+   "usage": "рисовать под каждым карпом, смещение (+6, +10) в пикселях холста, тот же поворот"
+  },
+  {
+   "id": "lily_pad_a",
+   "svg": "svg/lily_pad_a.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "surface",
+   "png": {
+    "1x": "png/1x/lily_pad_a.png",
+    "2x": "png/2x/lily_pad_a.png",
+    "3x": "png/3x/lily_pad_a.png"
+   }
+  },
+  {
+   "id": "lily_pad_b",
+   "svg": "svg/lily_pad_b.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "surface",
+   "png": {
+    "1x": "png/1x/lily_pad_b.png",
+    "2x": "png/2x/lily_pad_b.png",
+    "3x": "png/3x/lily_pad_b.png"
+   }
+  },
+  {
+   "id": "lily_pad_curled",
+   "svg": "svg/lily_pad_curled.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "surface",
+   "png": {
+    "1x": "png/1x/lily_pad_curled.png",
+    "2x": "png/2x/lily_pad_curled.png",
+    "3x": "png/3x/lily_pad_curled.png"
+   }
+  },
+  {
+   "id": "lotus_pink",
+   "svg": "svg/lotus_pink.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "surface",
+   "png": {
+    "1x": "png/1x/lotus_pink.png",
+    "2x": "png/2x/lotus_pink.png",
+    "3x": "png/3x/lotus_pink.png"
+   }
+  },
+  {
+   "id": "lotus_white",
+   "svg": "svg/lotus_white.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "surface",
+   "png": {
+    "1x": "png/1x/lotus_white.png",
+    "2x": "png/2x/lotus_white.png",
+    "3x": "png/3x/lotus_white.png"
+   }
+  },
+  {
+   "id": "lotus_bud",
+   "svg": "svg/lotus_bud.svg",
+   "viewBox": [
+    100,
+    100
+   ],
+   "kind": "surface",
+   "png": {
+    "1x": "png/1x/lotus_bud.png",
+    "2x": "png/2x/lotus_bud.png",
+    "3x": "png/3x/lotus_bud.png"
+   }
+  },
+  {
+   "id": "stone_a",
+   "svg": "svg/stone_a.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "shore",
+   "png": {
+    "1x": "png/1x/stone_a.png",
+    "2x": "png/2x/stone_a.png",
+    "3x": "png/3x/stone_a.png"
+   }
+  },
+  {
+   "id": "stone_a_mossy",
+   "svg": "svg/stone_a_mossy.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "shore",
+   "png": {
+    "1x": "png/1x/stone_a_mossy.png",
+    "2x": "png/2x/stone_a_mossy.png",
+    "3x": "png/3x/stone_a_mossy.png"
+   }
+  },
+  {
+   "id": "stone_b",
+   "svg": "svg/stone_b.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "shore",
+   "png": {
+    "1x": "png/1x/stone_b.png",
+    "2x": "png/2x/stone_b.png",
+    "3x": "png/3x/stone_b.png"
+   }
+  },
+  {
+   "id": "stone_b_mossy",
+   "svg": "svg/stone_b_mossy.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "shore",
+   "png": {
+    "1x": "png/1x/stone_b_mossy.png",
+    "2x": "png/2x/stone_b_mossy.png",
+    "3x": "png/3x/stone_b_mossy.png"
+   }
+  },
+  {
+   "id": "stone_c",
+   "svg": "svg/stone_c.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "shore",
+   "png": {
+    "1x": "png/1x/stone_c.png",
+    "2x": "png/2x/stone_c.png",
+    "3x": "png/3x/stone_c.png"
+   }
+  },
+  {
+   "id": "stone_c_mossy",
+   "svg": "svg/stone_c_mossy.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "shore",
+   "png": {
+    "1x": "png/1x/stone_c_mossy.png",
+    "2x": "png/2x/stone_c_mossy.png",
+    "3x": "png/3x/stone_c_mossy.png"
+   }
+  },
+  {
+   "id": "reeds",
+   "svg": "svg/reeds.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "shore",
+   "png": {
+    "1x": "png/1x/reeds.png",
+    "2x": "png/2x/reeds.png",
+    "3x": "png/3x/reeds.png"
+   }
+  },
+  {
+   "id": "fern",
+   "svg": "svg/fern.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "shore",
+   "png": {
+    "1x": "png/1x/fern.png",
+    "2x": "png/2x/fern.png",
+    "3x": "png/3x/fern.png"
+   }
+  },
+  {
+   "id": "driftwood",
+   "svg": "svg/driftwood.svg",
+   "viewBox": [
+    300,
+    120
+   ],
+   "kind": "shore",
+   "png": {
+    "1x": "png/1x/driftwood.png",
+    "2x": "png/2x/driftwood.png",
+    "3x": "png/3x/driftwood.png"
+   }
+  },
+  {
+   "id": "stone_lantern",
+   "svg": "svg/stone_lantern.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "shore",
+   "png": {
+    "1x": "png/1x/stone_lantern.png",
+    "2x": "png/2x/stone_lantern.png",
+    "3x": "png/3x/stone_lantern.png"
+   }
+  },
+  {
+   "id": "lantern_glow",
+   "svg": "svg/lantern_glow.svg",
+   "viewBox": [
+    400,
+    400
+   ],
+   "kind": "glow",
+   "png": {
+    "1x": "png/1x/lantern_glow.png",
+    "2x": "png/2x/lantern_glow.png",
+    "3x": "png/3x/lantern_glow.png"
+   }
+  },
+  {
+   "id": "sakura_branch",
+   "svg": "svg/sakura_branch.svg",
+   "viewBox": [
+    400,
+    400
+   ],
+   "kind": "overhang",
+   "png": {
+    "1x": "png/1x/sakura_branch.png",
+    "2x": "png/2x/sakura_branch.png",
+    "3x": "png/3x/sakura_branch.png"
+   }
+  },
+  {
+   "id": "sakura_petal",
+   "svg": "svg/sakura_petal.svg",
+   "viewBox": [
+    40,
+    40
+   ],
+   "kind": "ambient",
+   "png": {
+    "1x": "png/1x/sakura_petal.png",
+    "2x": "png/2x/sakura_petal.png",
+    "3x": "png/3x/sakura_petal.png"
+   }
+  },
+  {
+   "id": "ripple",
+   "svg": "svg/ripple.svg",
+   "viewBox": [
+    200,
+    200
+   ],
+   "kind": "fx",
+   "png": {
+    "1x": "png/1x/ripple.png",
+    "2x": "png/2x/ripple.png",
+    "3x": "png/3x/ripple.png"
+   }
+  },
+  {
+   "id": "light_particle",
+   "svg": "svg/light_particle.svg",
+   "viewBox": [
+    64,
+    64
+   ],
+   "kind": "fx",
+   "png": {
+    "1x": "png/1x/light_particle.png",
+    "2x": "png/2x/light_particle.png",
+    "3x": "png/3x/light_particle.png"
+   }
+  },
+  {
+   "id": "firefly",
+   "svg": "svg/firefly.svg",
+   "viewBox": [
+    64,
+    64
+   ],
+   "kind": "ambient",
+   "png": {
+    "1x": "png/1x/firefly.png",
+    "2x": "png/2x/firefly.png",
+    "3x": "png/3x/firefly.png"
+   }
+  },
+  {
+   "id": "water_day",
+   "svg": "svg/water_day.svg",
+   "viewBox": [
+    1000,
+    1600
+   ],
+   "kind": "water",
+   "png": {
+    "full": "png/full/water_day.png"
+   }
+  },
+  {
+   "id": "water_dusk",
+   "svg": "svg/water_dusk.svg",
+   "viewBox": [
+    1000,
+    1600
+   ],
+   "kind": "water",
+   "png": {
+    "full": "png/full/water_dusk.png"
+   }
+  },
+  {
+   "id": "water_night",
+   "svg": "svg/water_night.svg",
+   "viewBox": [
+    1000,
+    1600
+   ],
+   "kind": "water",
+   "png": {
+    "full": "png/full/water_night.png"
+   }
+  },
+  {
+   "id": "caustics",
+   "svg": "svg/caustics.svg",
+   "viewBox": [
+    1000,
+    1600
+   ],
+   "kind": "caustics",
+   "png": {
+    "full": "png/full/caustics.png"
+   }
+  },
+  {
+   "id": "app_icon",
+   "svg": "svg/app_icon.svg",
+   "viewBox": [
+    1024,
+    1024
+   ],
+   "kind": "icon",
+   "png": {
+    "full": "png/full/app_icon.png"
+   }
+  },
+  {
+   "id": "app_icon_foreground",
+   "svg": "svg/app_icon_foreground.svg",
+   "viewBox": [
+    1024,
+    1024
+   ],
+   "kind": "icon",
+   "png": {
+    "full": "png/full/app_icon_foreground.png"
+   }
+  },
+  {
+   "id": "app_icon_background",
+   "svg": "svg/app_icon_background.svg",
+   "viewBox": [
+    1024,
+    1024
+   ],
+   "kind": "icon",
+   "png": {
+    "full": "png/full/app_icon_background.png"
+   }
+  }
+ ]
+}

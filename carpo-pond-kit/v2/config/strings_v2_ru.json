@@ -1,0 +1,14 @@
+{
+  "_comment": "Новые и изменённые тексты v2. Остальные — из ../../config/strings_ru.json.",
+  "journal.button": "Журнал",
+  "journal.title": "Журнал пруда",
+  "journal.total": "В фокусе всего: {hours} ч {minutes} мин",
+  "journal.days": "Дней у пруда: {days}",
+  "journal.empty": "Пока пруд только начинается. Первая кувшинка появится совсем скоро",
+  "journal.close": "Закрыть",
+  "trail.saved": "Время осталось в пруду светом",
+  "session.hidePond": "Скрыть пруд",
+  "session.showPond": "Показать пруд",
+  "session.hiddenHint": "Пруд спит, чтобы не тратить батарею",
+  "pond.tapHint": "Можно коснуться воды"
+}

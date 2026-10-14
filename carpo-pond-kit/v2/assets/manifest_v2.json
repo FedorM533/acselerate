@@ -1,0 +1,515 @@
+{
+ "_comment": "Ассеты v2 (растр). 3x = 3 пикселя на единицу дизайна v1; вода — 1.5x холста 1000x1600. Для каждого файла есть .webp (меньше размер, та же картинка).",
+ "assets": [
+  {
+   "id": "koi_kohaku",
+   "kind": "koi",
+   "files": {
+    "3x": "3x/koi_kohaku.png",
+    "3x_webp": "3x/koi_kohaku.webp",
+    "2x": "2x/koi_kohaku.png",
+    "2x_webp": "2x/koi_kohaku.webp"
+   },
+   "size": [
+    480,
+    1120
+   ],
+   "headDirection": "up (-Y)",
+   "designSize": [
+    120,
+    280
+   ],
+   "deform": "рисовать полосами с боковым смещением — см. visual_v2.json → koi.undulation"
+  },
+  {
+   "id": "koi_ogon",
+   "kind": "koi",
+   "files": {
+    "3x": "3x/koi_ogon.png",
+    "3x_webp": "3x/koi_ogon.webp",
+    "2x": "2x/koi_ogon.png",
+    "2x_webp": "2x/koi_ogon.webp"
+   },
+   "size": [
+    480,
+    1120
+   ],
+   "headDirection": "up (-Y)",
+   "designSize": [
+    120,
+    280
+   ],
+   "deform": "рисовать полосами с боковым смещением — см. visual_v2.json → koi.undulation"
+  },
+  {
+   "id": "koi_tancho",
+   "kind": "koi",
+   "files": {
+    "3x": "3x/koi_tancho.png",
+    "3x_webp": "3x/koi_tancho.webp",
+    "2x": "2x/koi_tancho.png",
+    "2x_webp": "2x/koi_tancho.webp"
+   },
+   "size": [
+    480,
+    1120
+   ],
+   "headDirection": "up (-Y)",
+   "designSize": [
+    120,
+    280
+   ],
+   "deform": "рисовать полосами с боковым смещением — см. visual_v2.json → koi.undulation"
+  },
+  {
+   "id": "koi_sanke",
+   "kind": "koi",
+   "files": {
+    "3x": "3x/koi_sanke.png",
+    "3x_webp": "3x/koi_sanke.webp",
+    "2x": "2x/koi_sanke.png",
+    "2x_webp": "2x/koi_sanke.webp"
+   },
+   "size": [
+    480,
+    1120
+   ],
+   "headDirection": "up (-Y)",
+   "designSize": [
+    120,
+    280
+   ],
+   "deform": "рисовать полосами с боковым смещением — см. visual_v2.json → koi.undulation"
+  },
+  {
+   "id": "koi_asagi",
+   "kind": "koi",
+   "files": {
+    "3x": "3x/koi_asagi.png",
+    "3x_webp": "3x/koi_asagi.webp",
+    "2x": "2x/koi_asagi.png",
+    "2x_webp": "2x/koi_asagi.webp"
+   },
+   "size": [
+    480,
+    1120
+   ],
+   "headDirection": "up (-Y)",
+   "designSize": [
+    120,
+    280
+   ],
+   "deform": "рисовать полосами с боковым смещением — см. visual_v2.json → koi.undulation"
+  },
+  {
+   "id": "koi_platinum",
+   "kind": "koi",
+   "files": {
+    "3x": "3x/koi_platinum.png",
+    "3x_webp": "3x/koi_platinum.webp",
+    "2x": "2x/koi_platinum.png",
+    "2x_webp": "2x/koi_platinum.webp"
+   },
+   "size": [
+    480,
+    1120
+   ],
+   "headDirection": "up (-Y)",
+   "designSize": [
+    120,
+    280
+   ],
+   "deform": "рисовать полосами с боковым смещением — см. visual_v2.json → koi.undulation"
+  },
+  {
+   "id": "koi_shadow",
+   "kind": "koiShadow",
+   "files": {
+    "3x": "3x/koi_shadow.png",
+    "3x_webp": "3x/koi_shadow.webp",
+    "2x": "2x/koi_shadow.png",
+    "2x_webp": "2x/koi_shadow.webp"
+   },
+   "size": [
+    480,
+    1120
+   ],
+   "usage": "рисовать под каждым карпом на «дне»: смещение и масштаб — visual_v2.json → koi.shadow"
+  },
+  {
+   "id": "water_day",
+   "kind": "water",
+   "files": {
+    "full": "full/water_day.jpg",
+    "full_webp": "full/water_day.webp"
+   },
+   "size": [
+    1500,
+    2400
+   ],
+   "note": "фон без каустики, вид сверху, холст 1000x1600 * 1.5"
+  },
+  {
+   "id": "water_dusk",
+   "kind": "water",
+   "files": {
+    "full": "full/water_dusk.jpg",
+    "full_webp": "full/water_dusk.webp"
+   },
+   "size": [
+    1500,
+    2400
+   ],
+   "note": "фон без каустики, вид сверху, холст 1000x1600 * 1.5"
+  },
+  {
+   "id": "water_night",
+   "kind": "water",
+   "files": {
+    "full": "full/water_night.jpg",
+    "full_webp": "full/water_night.webp"
+   },
+   "size": [
+    1500,
+    2400
+   ],
+   "note": "фон без каустики, вид сверху, холст 1000x1600 * 1.5"
+  },
+  {
+   "id": "caustics_a",
+   "kind": "caustics",
+   "files": {
+    "full": "full/caustics_a.png",
+    "full_webp": "full/caustics_a.webp"
+   },
+   "size": [
+    1500,
+    2400
+   ],
+   "blend": "screen / lighter",
+   "note": "крупный слой, дрейфует медленно"
+  },
+  {
+   "id": "caustics_b",
+   "kind": "caustics",
+   "files": {
+    "full": "full/caustics_b.png",
+    "full_webp": "full/caustics_b.webp"
+   },
+   "size": [
+    1500,
+    2400
+   ],
+   "blend": "screen / lighter",
+   "note": "мелкий слой, дрейфует навстречу слою A"
+  },
+  {
+   "id": "stone_a",
+   "kind": "shore",
+   "files": {
+    "3x": "3x/stone_a.png",
+    "3x_webp": "3x/stone_a.webp",
+    "2x": "2x/stone_a.png",
+    "2x_webp": "2x/stone_a.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "stone_b",
+   "kind": "shore",
+   "files": {
+    "3x": "3x/stone_b.png",
+    "3x_webp": "3x/stone_b.webp",
+    "2x": "2x/stone_b.png",
+    "2x_webp": "2x/stone_b.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "stone_c",
+   "kind": "shore",
+   "files": {
+    "3x": "3x/stone_c.png",
+    "3x_webp": "3x/stone_c.webp",
+    "2x": "2x/stone_c.png",
+    "2x_webp": "2x/stone_c.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "stone_a_mossy",
+   "kind": "shore",
+   "files": {
+    "3x": "3x/stone_a_mossy.png",
+    "3x_webp": "3x/stone_a_mossy.webp",
+    "2x": "2x/stone_a_mossy.png",
+    "2x_webp": "2x/stone_a_mossy.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "stone_b_mossy",
+   "kind": "shore",
+   "files": {
+    "3x": "3x/stone_b_mossy.png",
+    "3x_webp": "3x/stone_b_mossy.webp",
+    "2x": "2x/stone_b_mossy.png",
+    "2x_webp": "2x/stone_b_mossy.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "stone_c_mossy",
+   "kind": "shore",
+   "files": {
+    "3x": "3x/stone_c_mossy.png",
+    "3x_webp": "3x/stone_c_mossy.webp",
+    "2x": "2x/stone_c_mossy.png",
+    "2x_webp": "2x/stone_c_mossy.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "lily_pad_a",
+   "kind": "surface",
+   "files": {
+    "3x": "3x/lily_pad_a.png",
+    "3x_webp": "3x/lily_pad_a.webp",
+    "2x": "2x/lily_pad_a.png",
+    "2x_webp": "2x/lily_pad_a.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "lily_pad_b",
+   "kind": "surface",
+   "files": {
+    "3x": "3x/lily_pad_b.png",
+    "3x_webp": "3x/lily_pad_b.webp",
+    "2x": "2x/lily_pad_b.png",
+    "2x_webp": "2x/lily_pad_b.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "lily_pad_curled",
+   "kind": "surface",
+   "files": {
+    "3x": "3x/lily_pad_curled.png",
+    "3x_webp": "3x/lily_pad_curled.webp",
+    "2x": "2x/lily_pad_curled.png",
+    "2x_webp": "2x/lily_pad_curled.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "lotus_pink",
+   "kind": "surface",
+   "files": {
+    "3x": "3x/lotus_pink.png",
+    "3x_webp": "3x/lotus_pink.webp",
+    "2x": "2x/lotus_pink.png",
+    "2x_webp": "2x/lotus_pink.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "lotus_white",
+   "kind": "surface",
+   "files": {
+    "3x": "3x/lotus_white.png",
+    "3x_webp": "3x/lotus_white.webp",
+    "2x": "2x/lotus_white.png",
+    "2x_webp": "2x/lotus_white.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "lotus_bud",
+   "kind": "surface",
+   "files": {
+    "3x": "3x/lotus_bud.png",
+    "3x_webp": "3x/lotus_bud.webp",
+    "2x": "2x/lotus_bud.png",
+    "2x_webp": "2x/lotus_bud.webp"
+   },
+   "size": [
+    300,
+    300
+   ]
+  },
+  {
+   "id": "reeds",
+   "kind": "shore",
+   "files": {
+    "3x": "3x/reeds.png",
+    "3x_webp": "3x/reeds.webp",
+    "2x": "2x/reeds.png",
+    "2x_webp": "2x/reeds.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "fern",
+   "kind": "shore",
+   "files": {
+    "3x": "3x/fern.png",
+    "3x_webp": "3x/fern.webp",
+    "2x": "2x/fern.png",
+    "2x_webp": "2x/fern.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "driftwood",
+   "kind": "shore",
+   "files": {
+    "3x": "3x/driftwood.png",
+    "3x_webp": "3x/driftwood.webp",
+    "2x": "2x/driftwood.png",
+    "2x_webp": "2x/driftwood.webp"
+   },
+   "size": [
+    900,
+    360
+   ]
+  },
+  {
+   "id": "stone_lantern",
+   "kind": "shore",
+   "files": {
+    "3x": "3x/stone_lantern.png",
+    "3x_webp": "3x/stone_lantern.webp",
+    "2x": "2x/stone_lantern.png",
+    "2x_webp": "2x/stone_lantern.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  },
+  {
+   "id": "sakura_branch",
+   "kind": "overhang",
+   "files": {
+    "3x": "3x/sakura_branch.png",
+    "3x_webp": "3x/sakura_branch.webp",
+    "2x": "2x/sakura_branch.png",
+    "2x_webp": "2x/sakura_branch.webp"
+   },
+   "size": [
+    1200,
+    1200
+   ]
+  },
+  {
+   "id": "sakura_petal",
+   "kind": "ambient",
+   "files": {
+    "3x": "3x/sakura_petal.png",
+    "3x_webp": "3x/sakura_petal.webp",
+    "2x": "2x/sakura_petal.png",
+    "2x_webp": "2x/sakura_petal.webp"
+   },
+   "size": [
+    120,
+    120
+   ]
+  },
+  {
+   "id": "lantern_glow",
+   "kind": "glow",
+   "files": {
+    "3x": "3x/lantern_glow.png",
+    "3x_webp": "3x/lantern_glow.webp",
+    "2x": "2x/lantern_glow.png",
+    "2x_webp": "2x/lantern_glow.webp"
+   },
+   "size": [
+    1200,
+    1200
+   ]
+  },
+  {
+   "id": "firefly",
+   "kind": "ambient",
+   "files": {
+    "3x": "3x/firefly.png",
+    "3x_webp": "3x/firefly.webp",
+    "2x": "2x/firefly.png",
+    "2x_webp": "2x/firefly.webp"
+   },
+   "size": [
+    192,
+    192
+   ]
+  },
+  {
+   "id": "light_particle",
+   "kind": "fx",
+   "files": {
+    "3x": "3x/light_particle.png",
+    "3x_webp": "3x/light_particle.webp",
+    "2x": "2x/light_particle.png",
+    "2x_webp": "2x/light_particle.webp"
+   },
+   "size": [
+    192,
+    192
+   ]
+  },
+  {
+   "id": "ripple",
+   "kind": "fx",
+   "files": {
+    "3x": "3x/ripple.png",
+    "3x_webp": "3x/ripple.webp",
+    "2x": "2x/ripple.png",
+    "2x_webp": "2x/ripple.webp"
+   },
+   "size": [
+    600,
+    600
+   ]
+  }
+ ]
+}

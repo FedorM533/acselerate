@@ -1,0 +1,2265 @@
+{
+ "_comment": "Тест-векторы движка прогресса. Для каждого case: прогнать input через движок с config/progression.json и сравнить drops, focusDays, stage, unlocked и по-сессионный разбор (id, status, base, bonus).",
+ "configVersion": 1,
+ "cases": [
+  {
+   "name": "completed_45",
+   "description": "Завершённая сессия 45 мин: 45 + бонус 20% (9)",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    }
+   ],
+   "expected": {
+    "drops": 54,
+    "focusDays": 1,
+    "stage": "first_breath",
+    "unlocked": [
+     "first_pad",
+     "reeds"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     }
+    ]
+   }
+  },
+  {
+   "name": "interrupted_with_reason_20_of_45",
+   "description": "Прервана через 20 мин с причиной: 20 + 2",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1230,
+     "endReason": "interrupted",
+     "reasonCode": "urgent"
+    }
+   ],
+   "expected": {
+    "drops": 22,
+    "focusDays": 1,
+    "stage": "first_breath",
+    "unlocked": [
+     "first_pad"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     }
+    ]
+   }
+  },
+  {
+   "name": "interrupted_no_reason_20_of_45",
+   "description": "Прервана без причины: только 20, без бонуса",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1230,
+     "endReason": "interrupted",
+     "reasonCode": null
+    }
+   ],
+   "expected": {
+    "drops": 20,
+    "focusDays": 1,
+    "stage": "first_breath",
+    "unlocked": [
+     "first_pad"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "interrupted_no_reason",
+      "base": 20,
+      "bonus": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "too_short_90s",
+   "description": "Меньше 2 минут не считается совсем",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 90,
+     "endReason": "interrupted",
+     "reasonCode": "urgent"
+    }
+   ],
+   "expected": {
+    "drops": 0,
+    "focusDays": 0,
+    "stage": "first_breath",
+    "unlocked": [],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "too_short",
+      "base": 0,
+      "bonus": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "reason_bonus_min_base",
+   "description": "Прервана с причиной через 4.5 мин: база 4 < 5 — бонуса нет",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 270,
+     "endReason": "interrupted",
+     "reasonCode": "break"
+    }
+   ],
+   "expected": {
+    "drops": 4,
+    "focusDays": 0,
+    "stage": "first_breath",
+    "unlocked": [],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "interrupted_with_reason",
+      "base": 4,
+      "bonus": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "reason_bonus_daily_limit",
+   "description": "4 прерывания с причиной за день: бонус только у первых трёх",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790001200000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": "distracted"
+    },
+    {
+     "id": "s002",
+     "endedAt": 1790002400000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": "distracted"
+    },
+    {
+     "id": "s003",
+     "endedAt": 1790003600000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": "distracted"
+    },
+    {
+     "id": "s004",
+     "endedAt": 1790004800000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": "distracted"
+    }
+   ],
+   "expected": {
+    "drops": 43,
+    "focusDays": 1,
+    "stage": "first_breath",
+    "unlocked": [
+     "first_pad"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "interrupted_with_reason",
+      "base": 10,
+      "bonus": 1
+     },
+     {
+      "id": "s002",
+      "status": "interrupted_with_reason",
+      "base": 10,
+      "bonus": 1
+     },
+     {
+      "id": "s003",
+      "status": "interrupted_with_reason",
+      "base": 10,
+      "bonus": 1
+     },
+     {
+      "id": "s004",
+      "status": "interrupted_with_reason",
+      "base": 10,
+      "bonus": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "reason_limit_resets_next_day",
+   "description": "Лимит бонусов за причину сбрасывается на следующий день",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790001200000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": "urgent"
+    },
+    {
+     "id": "s002",
+     "endedAt": 1790002400000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": "urgent"
+    },
+    {
+     "id": "s003",
+     "endedAt": 1790003600000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": "urgent"
+    },
+    {
+     "id": "s004",
+     "endedAt": 1790004800000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": "urgent"
+    },
+    {
+     "id": "s005",
+     "endedAt": 1790086400000,
+     "localDate": "2026-10-02",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": "urgent"
+    }
+   ],
+   "expected": {
+    "drops": 54,
+    "focusDays": 2,
+    "stage": "first_breath",
+    "unlocked": [
+     "first_pad",
+     "reeds"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "interrupted_with_reason",
+      "base": 10,
+      "bonus": 1
+     },
+     {
+      "id": "s002",
+      "status": "interrupted_with_reason",
+      "base": 10,
+      "bonus": 1
+     },
+     {
+      "id": "s003",
+      "status": "interrupted_with_reason",
+      "base": 10,
+      "bonus": 1
+     },
+     {
+      "id": "s004",
+      "status": "interrupted_with_reason",
+      "base": 10,
+      "bonus": 0
+     },
+     {
+      "id": "s005",
+      "status": "interrupted_with_reason",
+      "base": 10,
+      "bonus": 1
+     }
+    ]
+   }
+  },
+  {
+   "name": "completion_bonus_cap",
+   "description": "Завершённая 100 мин: бонус упирается в максимум 10",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 100,
+     "focusedSeconds": 6000,
+     "endReason": "completed",
+     "reasonCode": null
+    }
+   ],
+   "expected": {
+    "drops": 110,
+    "focusDays": 1,
+    "stage": "first_breath",
+    "unlocked": [
+     "first_pad",
+     "reeds",
+     "lotus_bud"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "completed",
+      "base": 100,
+      "bonus": 10
+     }
+    ]
+   }
+  },
+  {
+   "name": "focused_more_than_planned",
+   "description": "Таймер насчитал больше плана (сон устройства): режем до плана",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 1600,
+     "endReason": "completed",
+     "reasonCode": null
+    }
+   ],
+   "expected": {
+    "drops": 30,
+    "focusDays": 1,
+    "stage": "first_breath",
+    "unlocked": [
+     "first_pad"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "completed",
+      "base": 25,
+      "bonus": 5
+     }
+    ]
+   }
+  },
+  {
+   "name": "max_session_cap",
+   "description": "Сессия 240 мин режется до 180",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 240,
+     "focusedSeconds": 14400,
+     "endReason": "completed",
+     "reasonCode": null
+    }
+   ],
+   "expected": {
+    "drops": 190,
+    "focusDays": 1,
+    "stage": "life_in_water",
+    "unlocked": [
+     "first_pad",
+     "reeds",
+     "lotus_bud",
+     "moss"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "completed",
+      "base": 180,
+      "bonus": 10
+     }
+    ]
+   }
+  },
+  {
+   "name": "daily_base_cap",
+   "description": "5 сессий по 180 мин в один день: базовых капель максимум 720 в день",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790012000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 180,
+     "focusedSeconds": 10800,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s002",
+     "endedAt": 1790024000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 180,
+     "focusedSeconds": 10800,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s003",
+     "endedAt": 1790036000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 180,
+     "focusedSeconds": 10800,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s004",
+     "endedAt": 1790048000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 180,
+     "focusedSeconds": 10800,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s005",
+     "endedAt": 1790060000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 180,
+     "focusedSeconds": 10800,
+     "endReason": "completed",
+     "reasonCode": null
+    }
+   ],
+   "expected": {
+    "drops": 760,
+    "focusDays": 1,
+    "stage": "life_in_water",
+    "unlocked": [
+     "first_pad",
+     "reeds",
+     "lotus_bud",
+     "moss",
+     "lotus_bloom",
+     "driftwood",
+     "fern"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "completed",
+      "base": 180,
+      "bonus": 10
+     },
+     {
+      "id": "s002",
+      "status": "completed",
+      "base": 180,
+      "bonus": 10
+     },
+     {
+      "id": "s003",
+      "status": "completed",
+      "base": 180,
+      "bonus": 10
+     },
+     {
+      "id": "s004",
+      "status": "completed",
+      "base": 180,
+      "bonus": 10
+     },
+     {
+      "id": "s005",
+      "status": "completed",
+      "base": 0,
+      "bonus": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "float_trap_45",
+   "description": "Проверка целочисленной математики: 20% от 45 = 9, а не 10",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    }
+   ],
+   "expected": {
+    "drops": 54,
+    "focusDays": 1,
+    "stage": "first_breath",
+    "unlocked": [
+     "first_pad",
+     "reeds"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     }
+    ]
+   }
+  },
+  {
+   "name": "completed_with_reason_code",
+   "description": "Код причины у завершённой сессии игнорируется — только бонус завершения",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 30,
+     "focusedSeconds": 1800,
+     "endReason": "completed",
+     "reasonCode": "urgent"
+    }
+   ],
+   "expected": {
+    "drops": 36,
+    "focusDays": 1,
+    "stage": "first_breath",
+    "unlocked": [
+     "first_pad"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "completed",
+      "base": 30,
+      "bonus": 6
+     }
+    ]
+   }
+  },
+  {
+   "name": "unsorted_input",
+   "description": "Входной список не отсортирован — движок сортирует по endedAt",
+   "input": [
+    {
+     "id": "s003",
+     "endedAt": 1790003600000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": "urgent"
+    },
+    {
+     "id": "s001",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": "urgent"
+    },
+    {
+     "id": "s004",
+     "endedAt": 1790005400000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": "urgent"
+    },
+    {
+     "id": "s002",
+     "endedAt": 1790001800000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": "urgent"
+    }
+   ],
+   "expected": {
+    "drops": 43,
+    "focusDays": 1,
+    "stage": "first_breath",
+    "unlocked": [
+     "first_pad"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "interrupted_with_reason",
+      "base": 10,
+      "bonus": 1
+     },
+     {
+      "id": "s002",
+      "status": "interrupted_with_reason",
+      "base": 10,
+      "bonus": 1
+     },
+     {
+      "id": "s003",
+      "status": "interrupted_with_reason",
+      "base": 10,
+      "bonus": 1
+     },
+     {
+      "id": "s004",
+      "status": "interrupted_with_reason",
+      "base": 10,
+      "bonus": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "focus_days",
+   "description": "День фокуса = за день набрано >= 10 базовых капель (можно несколькими сессиями)",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 25,
+     "focusedSeconds": 540,
+     "endReason": "interrupted",
+     "reasonCode": null
+    },
+    {
+     "id": "s002",
+     "endedAt": 1790086400000,
+     "localDate": "2026-10-02",
+     "plannedMinutes": 25,
+     "focusedSeconds": 600,
+     "endReason": "interrupted",
+     "reasonCode": null
+    },
+    {
+     "id": "s003",
+     "endedAt": 1790172800000,
+     "localDate": "2026-10-03",
+     "plannedMinutes": 25,
+     "focusedSeconds": 300,
+     "endReason": "interrupted",
+     "reasonCode": null
+    },
+    {
+     "id": "s004",
+     "endedAt": 1790174600000,
+     "localDate": "2026-10-03",
+     "plannedMinutes": 25,
+     "focusedSeconds": 300,
+     "endReason": "interrupted",
+     "reasonCode": null
+    }
+   ],
+   "expected": {
+    "drops": 29,
+    "focusDays": 2,
+    "stage": "first_breath",
+    "unlocked": [
+     "first_pad"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "interrupted_no_reason",
+      "base": 9,
+      "bonus": 0
+     },
+     {
+      "id": "s002",
+      "status": "interrupted_no_reason",
+      "base": 10,
+      "bonus": 0
+     },
+     {
+      "id": "s003",
+      "status": "interrupted_no_reason",
+      "base": 5,
+      "bonus": 0
+     },
+     {
+      "id": "s004",
+      "status": "interrupted_no_reason",
+      "base": 5,
+      "bonus": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "first_unlock_at_15",
+   "description": "Завершённая 13 мин: 13 + бонус 3 = 16 >= 15 — открывается первая кувшинка",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 13,
+     "focusedSeconds": 780,
+     "endReason": "completed",
+     "reasonCode": null
+    }
+   ],
+   "expected": {
+    "drops": 16,
+    "focusDays": 1,
+    "stage": "first_breath",
+    "unlocked": [
+     "first_pad"
+    ],
+    "sessions": [
+     {
+      "id": "s001",
+      "status": "completed",
+      "base": 13,
+      "bonus": 3
+     }
+    ]
+   }
+  },
+  {
+   "name": "ogon_needs_days",
+   "description": "700 капель за 2 дня — золотой карп ещё закрыт (нужно 5 дней фокуса)",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790090600000,
+     "localDate": "2026-10-02",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s002",
+     "endedAt": 1790008400000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s003",
+     "endedAt": 1790099000000,
+     "localDate": "2026-10-02",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s004",
+     "endedAt": 1790016800000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s005",
+     "endedAt": 1790107400000,
+     "localDate": "2026-10-02",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s006",
+     "endedAt": 1790025200000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s007",
+     "endedAt": 1790115800000,
+     "localDate": "2026-10-02",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s008",
+     "endedAt": 1790033600000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s009",
+     "endedAt": 1790124200000,
+     "localDate": "2026-10-02",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s010",
+     "endedAt": 1790042000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    }
+   ],
+   "expected": {
+    "drops": 700,
+    "focusDays": 2,
+    "stage": "life_in_water",
+    "unlocked": [
+     "first_pad",
+     "reeds",
+     "lotus_bud",
+     "moss",
+     "lotus_bloom",
+     "driftwood",
+     "fern"
+    ],
+    "sessions": [
+     {
+      "id": "s002",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s004",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s006",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s008",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s010",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s001",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s003",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s005",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s007",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s009",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     }
+    ]
+   }
+  },
+  {
+   "name": "ogon_unlocked",
+   "description": "Те же 700 капель, но за 5 разных дней — золотой карп открыт",
+   "input": [
+    {
+     "id": "s001",
+     "endedAt": 1790090600000,
+     "localDate": "2026-10-02",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s002",
+     "endedAt": 1790181200000,
+     "localDate": "2026-10-03",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s003",
+     "endedAt": 1790271800000,
+     "localDate": "2026-10-04",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s004",
+     "endedAt": 1790362400000,
+     "localDate": "2026-10-05",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s005",
+     "endedAt": 1790021000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s006",
+     "endedAt": 1790111600000,
+     "localDate": "2026-10-02",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s007",
+     "endedAt": 1790202200000,
+     "localDate": "2026-10-03",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s008",
+     "endedAt": 1790292800000,
+     "localDate": "2026-10-04",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s009",
+     "endedAt": 1790383400000,
+     "localDate": "2026-10-05",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s010",
+     "endedAt": 1790042000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 60,
+     "focusedSeconds": 3600,
+     "endReason": "completed",
+     "reasonCode": null
+    }
+   ],
+   "expected": {
+    "drops": 700,
+    "focusDays": 5,
+    "stage": "life_in_water",
+    "unlocked": [
+     "first_pad",
+     "reeds",
+     "lotus_bud",
+     "moss",
+     "lotus_bloom",
+     "driftwood",
+     "koi_ogon",
+     "fern"
+    ],
+    "sessions": [
+     {
+      "id": "s005",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s010",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s001",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s006",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s002",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s007",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s003",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s008",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s004",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     },
+     {
+      "id": "s009",
+      "status": "completed",
+      "base": 60,
+      "bonus": 10
+     }
+    ]
+   }
+  },
+  {
+   "name": "month_of_work",
+   "description": "Месяц: 25 дней по 2 сессии 45 мин + одна прерванная с причиной",
+   "input": [
+    {
+     "id": "s000",
+     "endedAt": 1790000000000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s001",
+     "endedAt": 1790003600000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s002",
+     "endedAt": 1790007200000,
+     "localDate": "2026-10-01",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s003",
+     "endedAt": 1790086400000,
+     "localDate": "2026-10-02",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s004",
+     "endedAt": 1790090000000,
+     "localDate": "2026-10-02",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s005",
+     "endedAt": 1790093600000,
+     "localDate": "2026-10-02",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s006",
+     "endedAt": 1790172800000,
+     "localDate": "2026-10-03",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s007",
+     "endedAt": 1790176400000,
+     "localDate": "2026-10-03",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s008",
+     "endedAt": 1790180000000,
+     "localDate": "2026-10-03",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s009",
+     "endedAt": 1790259200000,
+     "localDate": "2026-10-04",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s010",
+     "endedAt": 1790262800000,
+     "localDate": "2026-10-04",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s011",
+     "endedAt": 1790266400000,
+     "localDate": "2026-10-04",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s012",
+     "endedAt": 1790345600000,
+     "localDate": "2026-10-05",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s013",
+     "endedAt": 1790349200000,
+     "localDate": "2026-10-05",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s014",
+     "endedAt": 1790352800000,
+     "localDate": "2026-10-05",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s015",
+     "endedAt": 1790432000000,
+     "localDate": "2026-10-06",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s016",
+     "endedAt": 1790435600000,
+     "localDate": "2026-10-06",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s017",
+     "endedAt": 1790439200000,
+     "localDate": "2026-10-06",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s018",
+     "endedAt": 1790518400000,
+     "localDate": "2026-10-07",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s019",
+     "endedAt": 1790522000000,
+     "localDate": "2026-10-07",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s020",
+     "endedAt": 1790525600000,
+     "localDate": "2026-10-07",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s021",
+     "endedAt": 1790604800000,
+     "localDate": "2026-10-08",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s022",
+     "endedAt": 1790608400000,
+     "localDate": "2026-10-08",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s023",
+     "endedAt": 1790612000000,
+     "localDate": "2026-10-08",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s024",
+     "endedAt": 1790691200000,
+     "localDate": "2026-10-09",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s025",
+     "endedAt": 1790694800000,
+     "localDate": "2026-10-09",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s026",
+     "endedAt": 1790698400000,
+     "localDate": "2026-10-09",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s027",
+     "endedAt": 1790777600000,
+     "localDate": "2026-10-10",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s028",
+     "endedAt": 1790781200000,
+     "localDate": "2026-10-10",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s029",
+     "endedAt": 1790784800000,
+     "localDate": "2026-10-10",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s030",
+     "endedAt": 1790864000000,
+     "localDate": "2026-10-11",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s031",
+     "endedAt": 1790867600000,
+     "localDate": "2026-10-11",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s032",
+     "endedAt": 1790871200000,
+     "localDate": "2026-10-11",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s033",
+     "endedAt": 1790950400000,
+     "localDate": "2026-10-12",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s034",
+     "endedAt": 1790954000000,
+     "localDate": "2026-10-12",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s035",
+     "endedAt": 1790957600000,
+     "localDate": "2026-10-12",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s036",
+     "endedAt": 1791036800000,
+     "localDate": "2026-10-13",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s037",
+     "endedAt": 1791040400000,
+     "localDate": "2026-10-13",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s038",
+     "endedAt": 1791044000000,
+     "localDate": "2026-10-13",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s039",
+     "endedAt": 1791123200000,
+     "localDate": "2026-10-14",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s040",
+     "endedAt": 1791126800000,
+     "localDate": "2026-10-14",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s041",
+     "endedAt": 1791130400000,
+     "localDate": "2026-10-14",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s042",
+     "endedAt": 1791209600000,
+     "localDate": "2026-10-15",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s043",
+     "endedAt": 1791213200000,
+     "localDate": "2026-10-15",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s044",
+     "endedAt": 1791216800000,
+     "localDate": "2026-10-15",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s045",
+     "endedAt": 1791296000000,
+     "localDate": "2026-10-16",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s046",
+     "endedAt": 1791299600000,
+     "localDate": "2026-10-16",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s047",
+     "endedAt": 1791303200000,
+     "localDate": "2026-10-16",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s048",
+     "endedAt": 1791382400000,
+     "localDate": "2026-10-17",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s049",
+     "endedAt": 1791386000000,
+     "localDate": "2026-10-17",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s050",
+     "endedAt": 1791389600000,
+     "localDate": "2026-10-17",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s051",
+     "endedAt": 1791468800000,
+     "localDate": "2026-10-18",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s052",
+     "endedAt": 1791472400000,
+     "localDate": "2026-10-18",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s053",
+     "endedAt": 1791476000000,
+     "localDate": "2026-10-18",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s054",
+     "endedAt": 1791555200000,
+     "localDate": "2026-10-19",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s055",
+     "endedAt": 1791558800000,
+     "localDate": "2026-10-19",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s056",
+     "endedAt": 1791562400000,
+     "localDate": "2026-10-19",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s057",
+     "endedAt": 1791641600000,
+     "localDate": "2026-10-20",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s058",
+     "endedAt": 1791645200000,
+     "localDate": "2026-10-20",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s059",
+     "endedAt": 1791648800000,
+     "localDate": "2026-10-20",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s060",
+     "endedAt": 1791728000000,
+     "localDate": "2026-10-21",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s061",
+     "endedAt": 1791731600000,
+     "localDate": "2026-10-21",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s062",
+     "endedAt": 1791735200000,
+     "localDate": "2026-10-21",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s063",
+     "endedAt": 1791814400000,
+     "localDate": "2026-10-22",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s064",
+     "endedAt": 1791818000000,
+     "localDate": "2026-10-22",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s065",
+     "endedAt": 1791821600000,
+     "localDate": "2026-10-22",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s066",
+     "endedAt": 1791900800000,
+     "localDate": "2026-10-23",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s067",
+     "endedAt": 1791904400000,
+     "localDate": "2026-10-23",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s068",
+     "endedAt": 1791908000000,
+     "localDate": "2026-10-23",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s069",
+     "endedAt": 1791987200000,
+     "localDate": "2026-10-24",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s070",
+     "endedAt": 1791990800000,
+     "localDate": "2026-10-24",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s071",
+     "endedAt": 1791994400000,
+     "localDate": "2026-10-24",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    },
+    {
+     "id": "s072",
+     "endedAt": 1792073600000,
+     "localDate": "2026-10-25",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s073",
+     "endedAt": 1792077200000,
+     "localDate": "2026-10-25",
+     "plannedMinutes": 45,
+     "focusedSeconds": 2700,
+     "endReason": "completed",
+     "reasonCode": null
+    },
+    {
+     "id": "s074",
+     "endedAt": 1792080800000,
+     "localDate": "2026-10-25",
+     "plannedMinutes": 45,
+     "focusedSeconds": 1200,
+     "endReason": "interrupted",
+     "reasonCode": "wrong_time"
+    }
+   ],
+   "expected": {
+    "drops": 3250,
+    "focusDays": 25,
+    "stage": "own_corner",
+    "unlocked": [
+     "first_pad",
+     "reeds",
+     "lotus_bud",
+     "moss",
+     "lotus_bloom",
+     "driftwood",
+     "koi_ogon",
+     "fern",
+     "lantern",
+     "koi_tancho",
+     "white_lotus",
+     "fireflies",
+     "sakura"
+    ],
+    "sessions": [
+     {
+      "id": "s000",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s001",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s002",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s003",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s004",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s005",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s006",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s007",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s008",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s009",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s010",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s011",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s012",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s013",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s014",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s015",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s016",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s017",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s018",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s019",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s020",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s021",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s022",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s023",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s024",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s025",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s026",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s027",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s028",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s029",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s030",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s031",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s032",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s033",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s034",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s035",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s036",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s037",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s038",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s039",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s040",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s041",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s042",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s043",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s044",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s045",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s046",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s047",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s048",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s049",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s050",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s051",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s052",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s053",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s054",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s055",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s056",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s057",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s058",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s059",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s060",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s061",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s062",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s063",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s064",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s065",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s066",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s067",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s068",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s069",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s070",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s071",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     },
+     {
+      "id": "s072",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s073",
+      "status": "completed",
+      "base": 45,
+      "bonus": 9
+     },
+     {
+      "id": "s074",
+      "status": "interrupted_with_reason",
+      "base": 20,
+      "bonus": 2
+     }
+    ]
+   }
+  }
+ ]
+}
