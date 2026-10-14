@@ -1011,7 +1011,7 @@ connect();
 // Ссылка вида http://127.0.0.1:8765/#session сразу открывает нужную вкладку.
 if (location.hash) showTab(location.hash.slice(1));
 
-export { api, toast, formatTime, minutes, showTab, tabLoaders, renderHooks, eventHooks, setHtml, STATE_LABELS, STATE_SHORT, CATEGORY_LABELS };
+export { api, toast, askStrictPassword, formatTime, minutes, showTab, tabLoaders, renderHooks, eventHooks, setHtml, STATE_LABELS, STATE_SHORT, CATEGORY_LABELS };
 
 // ================= карточка «Защита от отвлечений»: подключение без настроек =================
 

@@ -57,6 +57,10 @@ pywin32 (Windows), pyserial, pytest. Фронтенд — `focusfarm/web/`: чи
   на GNOME Wayland — наше расширение GNOME Shell `linux/gnome-extension/`, ставится
   `python -m focusfarm.tools.gnome_ext`). USB-телефон — из `/sys/bus/usb/devices`. В `rules.yaml` имена
   программ и с `.exe` (Windows), и без (Linux).
+- Пруд (Carpo Pond v2): правила и числа — `config/pond/*.json` (из `carpo-pond-kit/`), движок — `focusfarm/pond/engine.py`
+  (порт эталона, 19 тест-векторов в `tests/data/`), состояние — `focusfarm/pond/service.py`, API `/api/pond*`. Источник правды —
+  журнал сессий (`sessions`, без тренировок без телефона); `pond_unlocks` хранит открытия с датой и флагом «показано». Капли наружу
+  не отдаются. Холст — `focusfarm/web/pond.js` (изгиб карпов полосами, тени, каустика, «след времени», журнал), картинки — `web/pond/img/*.webp`.
 - Общая ошибка приложения — `focusfarm/errors.py::AppError` (раньше называлась `GameError`). Колонка `sessions.crop_id` осталась в БД пустой.
 - Тесты API — через `tests/conftest.py` (`Env`: FakeClock, база в памяти, `FakeMonitor`).
 - Толкования неоднозначных мест ТЗ — `docs/DECISIONS.md`. Спорное — спрашивать у команды.

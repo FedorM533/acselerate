@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="fonts/fonts.css">
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="pond.css">
   <script>/* тема до отрисовки, без вспышки */
     try {
       var th = localStorage.getItem("carpoTheme");
@@ -34,14 +35,52 @@
   <div id="banner" class="banner" hidden></div>
 
   <nav class="tabs">
-    <button data-tab="session" class="active">Сессия</button>
+    <button data-tab="pond" class="active">Пруд</button>
+    <button data-tab="session">Сессия</button>
     <button data-tab="stats">Статистика</button>
     <button data-tab="settings">Настройки</button>
   </nav>
 
   <main>
+    <!-- ПРУД -->
+    <section id="tab-pond" class="tab active">
+      <div class="pond-stage" id="pond-stage">
+        <canvas id="pond-canvas"></canvas>
+        <div class="pond-sleep" id="pond-sleep"></div>
+        <div class="pond-loading" id="pond-loading">Наполняем пруд…</div>
+        <div class="pond-tap" id="pond-tap"></div>
+        <div class="pond-ui">
+          <div class="pond-top">
+            <div><h1 id="pond-title"></h1><p id="pond-subtitle"></p></div>
+            <button class="pond-jbtn" id="pond-jbtn"></button>
+          </div>
+          <div class="pond-bottom" id="pond-idle"><div class="pond-card">
+            <div class="pond-chips" id="pond-durations"></div>
+            <p class="pond-hint" id="pond-nodistr"></p>
+            <p class="pond-hint pond-warn" id="pond-phone-need" hidden>Подключи телефон кабелем или поставь на подставку — тогда таймер запустится</p>
+            <button class="pond-btn" id="pond-start"></button>
+          </div></div>
+          <div class="pond-bottom" id="pond-run" hidden><div class="pond-card">
+            <div class="pond-timer" id="pond-timer">25:00</div>
+            <div class="pond-btnrow"><button class="pond-btn ghost" id="pond-hide"></button><button class="pond-btn ghost" id="pond-stop"></button></div>
+          </div></div>
+        </div>
+        <div class="pond-sheet" id="pond-reason"><div class="pond-card"><h2 id="pond-reasonq"></h2>
+          <div class="pond-reasons" id="pond-reasons"></div>
+          <div class="pond-note" id="pond-note" hidden>
+            <input id="pond-note-input" type="text" maxlength="80" placeholder="Что случилось? (необязательно)" autocomplete="off">
+            <button class="pond-btn" id="pond-note-ok">Готово</button>
+          </div>
+          <div class="pond-btnrow"><button class="pond-btn ghost" id="pond-skip"></button><button class="pond-btn ghost" id="pond-back">Продолжить фокус</button></div>
+        </div></div>
+        <div class="pond-sheet" id="pond-result"><div class="pond-card"><h2 id="pond-restitle"></h2><p class="pond-msg" id="pond-resmsg"></p><button class="pond-btn" id="pond-resclose"></button></div></div>
+        <div class="pond-sheet" id="pond-journal"><div class="pond-card"><h2 id="pond-jtitle"></h2><p class="pond-msg" id="pond-jstats"></p><ul class="pond-jlist" id="pond-jlist"></ul><button class="pond-btn ghost" id="pond-jclose"></button></div></div>
+        <div class="pond-toast" id="pond-toast"><b id="pond-toastk"></b><span id="pond-toastt"></span></div>
+      </div>
+    </section>
+
     <!-- СЕССИЯ -->
-    <section id="tab-session" class="tab active">
+    <section id="tab-session" class="tab">
       <div class="session-layout">
         <div class="card session-main">
           <div class="ring-wrap">
@@ -228,5 +267,6 @@
   <div id="toasts" class="toasts"></div>
 
   <script type="module" src="app.js"></script>
+  <script type="module" src="pond.js"></script>
 </body>
 </html>

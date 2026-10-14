@@ -24,6 +24,30 @@ def test_font_is_local_with_license():
         assert "Open Font License" in (WEB / "fonts" / name).read_text(encoding="utf-8"), name
 
 
+def test_pond_files_served_and_assets_exist(env):
+    import json
+    for path in ("/pond.js", "/pond.css", "/pond/img/koi_kohaku.webp", "/pond/img/water_day.webp", "/pond/img/caustics_a.webp"):
+        assert env.client.get(path).status_code == 200, path
+    cfg = env.client.get("/api/pond/config").json()
+    names = {"koi_shadow", "water_day", "water_dusk", "water_night", "caustics_a", "caustics_b"}
+    prog = cfg["progression"]
+    for group in (prog["base"]["placements"], prog["base"]["koi"]):
+        names |= {x["asset"] for x in group}
+    for u in prog["unlocks"]:
+        for key in ("placements", "replace", "koi"):
+            names |= {x["asset"] for x in u.get(key, []) if "asset" in x}
+        if "ambient" in u:
+            names.add(u["ambient"]["asset"])
+    for name in names:
+        assert (WEB / "pond" / "img" / f"{name}.webp").exists(), name
+
+
+def test_pond_ui_has_required_controls(env):
+    page = env.client.get("/").text
+    for marker in ('id="pond-canvas"', 'id="pond-hide"', 'id="pond-jbtn"', 'id="pond-reasons"', 'id="pond-start"'):
+        assert marker in page, marker
+
+
 def test_old_game_is_gone(env):
     """Пруд переписывается заново: старых экранов и API игры быть не должно."""
     page = env.client.get("/").text
