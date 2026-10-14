@@ -1,0 +1,188 @@
+{
+  "version": 1,
+  "_comment": "Единица прогресса — «капля». 1 капля = 1 полная минута фокуса. Все проценты — целые числа, считать бонус ТОЛЬКО целочисленно: ceil(base * percent / 100) = (base * percent + 99) / 100. Числа предварительные — менять здесь, код не трогать.",
+
+  "scoring": {
+    "secondsPerDrop": 60,
+    "minCountedSeconds": 120,
+    "maxSessionMinutes": 180,
+    "dailyBaseCapDrops": 720,
+    "completionBonus": { "percent": 20, "max": 10 },
+    "reasonBonus": { "percent": 10, "max": 3, "minBaseDrops": 5, "maxPerDay": 3 },
+    "focusDayMinBaseDrops": 10
+  },
+
+  "canvas": {
+    "_comment": "Дизайн-холст 1000x1600 (портрет). x, y — центр элемента в долях холста (0..1). width — ширина в долях ширины холста. Для карпов length — длина рыбы в долях ВЫСОТЫ холста. На широких экранах масштабировать по принципу cover (обрезка краёв допустима: декор по краям специально выходит за холст).",
+    "width": 1000,
+    "height": 1600,
+    "swimZone": { "x1": 0.20, "y1": 0.14, "x2": 0.80, "y2": 0.74 },
+    "uiSafeArea": { "_comment": "Нижние ~22% холста закрыты карточкой «Начать фокус», верхние ~10% — заголовком. Важный декор туда не ставим.", "top": 0.10, "bottom": 0.78 }
+  },
+
+  "layers": {
+    "_comment": "Порядок отрисовки снизу вверх",
+    "water": 0, "caustics": 1, "koiShadow": 2, "koi": 3, "surface": 4, "shore": 5, "overhang": 6, "glow": 7, "fx": 8
+  },
+
+  "stages": [
+    { "id": "first_breath", "title": "Первое дыхание", "fromDrops": 0 },
+    { "id": "life_in_water", "title": "Жизнь в воде", "fromDrops": 120 },
+    { "id": "own_corner", "title": "Свой уголок", "fromDrops": 900 }
+  ],
+
+  "base": {
+    "placements": [
+      { "key": "stone_c", "asset": "stone_c", "x": 0.10, "y": 0.06, "width": 0.30, "rotation": 15, "layer": "shore" },
+      { "key": "stone_b", "asset": "stone_b", "x": 0.91, "y": 0.66, "width": 0.24, "rotation": 0, "layer": "shore" },
+      { "key": "stone_a", "asset": "stone_a", "x": 0.10, "y": 0.75, "width": 0.30, "rotation": -10, "layer": "shore" }
+    ],
+    "koi": [
+      { "key": "koi_kohaku", "asset": "koi_kohaku", "length": 0.17 }
+    ]
+  },
+
+  "unlocks": [
+    {
+      "id": "first_pad", "order": 1, "mvp": true,
+      "requires": { "drops": 15, "focusDays": 0 },
+      "title": "Первая кувшинка",
+      "reveal": "На воде раскрылся первый лист",
+      "placements": [
+        { "key": "pad_main", "asset": "lily_pad_a", "x": 0.76, "y": 0.20, "width": 0.30, "rotation": 15, "layer": "surface" }
+      ]
+    },
+    {
+      "id": "reeds", "order": 2, "mvp": true,
+      "requires": { "drops": 45, "focusDays": 0 },
+      "title": "Тростник",
+      "reveal": "У берега поднялся тростник",
+      "placements": [
+        { "key": "reeds_left", "asset": "reeds", "x": 0.02, "y": 0.38, "width": 0.30, "rotation": 0, "layer": "shore" },
+        { "key": "reeds_corner", "asset": "reeds", "x": 1.0, "y": 0.80, "width": 0.30, "rotation": 40, "layer": "shore" }
+      ]
+    },
+    {
+      "id": "lotus_bud", "order": 3, "mvp": true,
+      "requires": { "drops": 90, "focusDays": 0 },
+      "title": "Бутон лотоса",
+      "reveal": "Появились новые листья и бутон",
+      "placements": [
+        { "key": "pad_small", "asset": "lily_pad_a", "x": 0.60, "y": 0.29, "width": 0.15, "rotation": 120, "layer": "surface" },
+        { "key": "pad_left", "asset": "lily_pad_b", "x": 0.33, "y": 0.62, "width": 0.24, "rotation": -30, "layer": "surface" },
+        { "key": "lotus_main", "asset": "lotus_bud", "x": 0.78, "y": 0.185, "width": 0.09, "rotation": 0, "layer": "surface" }
+      ]
+    },
+    {
+      "id": "moss", "order": 4, "mvp": true,
+      "requires": { "drops": 150, "focusDays": 0 },
+      "title": "Мох на камнях",
+      "reveal": "Камни покрылись мягким мхом",
+      "replace": [
+        { "key": "stone_a", "asset": "stone_a_mossy" },
+        { "key": "stone_b", "asset": "stone_b_mossy" },
+        { "key": "stone_c", "asset": "stone_c_mossy" }
+      ]
+    },
+    {
+      "id": "lotus_bloom", "order": 5, "mvp": true,
+      "requires": { "drops": 240, "focusDays": 0 },
+      "title": "Цветущий лотос",
+      "reveal": "Бутон раскрылся",
+      "replace": [
+        { "key": "lotus_main", "asset": "lotus_pink", "width": 0.16 }
+      ]
+    },
+    {
+      "id": "driftwood", "order": 6, "mvp": true,
+      "requires": { "drops": 360, "focusDays": 0 },
+      "title": "Коряга",
+      "reveal": "К берегу прибило старую корягу",
+      "placements": [
+        { "key": "driftwood", "asset": "driftwood", "x": 0.90, "y": 0.47, "width": 0.42, "rotation": -78, "layer": "shore" }
+      ]
+    },
+    {
+      "id": "koi_ogon", "order": 7, "mvp": true,
+      "requires": { "drops": 500, "focusDays": 5 },
+      "title": "Золотой карп",
+      "reveal": "В пруду появился золотой карп",
+      "koi": [ { "key": "koi_ogon", "asset": "koi_ogon", "length": 0.15 } ]
+    },
+    {
+      "id": "fern", "order": 8, "mvp": true,
+      "requires": { "drops": 700, "focusDays": 0 },
+      "title": "Папоротник",
+      "reveal": "Над водой склонился папоротник",
+      "placements": [
+        { "key": "fern_top", "asset": "fern", "x": 0.99, "y": 0.02, "width": 0.40, "rotation": 10, "layer": "shore" },
+        { "key": "fern_left", "asset": "fern", "x": 0.00, "y": 0.555, "width": 0.28, "rotation": -20, "layer": "shore" }
+      ]
+    },
+    {
+      "id": "lantern", "order": 9, "mvp": true,
+      "requires": { "drops": 900, "focusDays": 8 },
+      "title": "Каменный фонарь",
+      "reveal": "У пруда появился каменный фонарь",
+      "placements": [
+        { "key": "lantern", "asset": "stone_lantern", "x": 0.12, "y": 0.205, "width": 0.20, "rotation": 8, "layer": "shore" },
+        { "key": "lantern_glow", "asset": "lantern_glow", "x": 0.12, "y": 0.205, "width": 0.62, "rotation": 0, "layer": "glow", "timeOfDay": ["dusk", "night"] }
+      ]
+    },
+    {
+      "id": "koi_tancho", "order": 10, "mvp": true,
+      "requires": { "drops": 1200, "focusDays": 12 },
+      "title": "Карп Танчо",
+      "reveal": "Приплыл белый карп с красным пятном",
+      "koi": [ { "key": "koi_tancho", "asset": "koi_tancho", "length": 0.14 } ]
+    },
+    {
+      "id": "white_lotus", "order": 11, "mvp": false,
+      "requires": { "drops": 1500, "focusDays": 0 },
+      "title": "Белый лотос",
+      "reveal": "Раскрылся белый лотос",
+      "placements": [
+        { "key": "pad_curled", "asset": "lily_pad_curled", "x": 0.64, "y": 0.72, "width": 0.20, "rotation": 10, "layer": "surface" },
+        { "key": "lotus_white", "asset": "lotus_white", "x": 0.34, "y": 0.615, "width": 0.13, "rotation": 0, "layer": "surface" }
+      ]
+    },
+    {
+      "id": "fireflies", "order": 12, "mvp": false,
+      "requires": { "drops": 1800, "focusDays": 0 },
+      "title": "Светлячки",
+      "reveal": "Вечером над водой зажглись светлячки",
+      "ambient": { "type": "fireflies", "asset": "firefly", "count": 7, "size": 0.05, "timeOfDay": ["dusk", "night"] }
+    },
+    {
+      "id": "sakura", "order": 13, "mvp": false,
+      "requires": { "drops": 2200, "focusDays": 20 },
+      "title": "Сакура",
+      "reveal": "Над прудом зацвела ветка сакуры",
+      "placements": [
+        { "key": "sakura", "asset": "sakura_branch", "x": 0.80, "y": 0.10, "width": 0.52, "rotation": -90, "layer": "overhang" }
+      ],
+      "ambient": { "type": "petals", "asset": "sakura_petal", "count": 6, "size": 0.025 }
+    },
+    {
+      "id": "koi_sanke", "order": 14, "mvp": false,
+      "requires": { "drops": 3000, "focusDays": 30 },
+      "title": "Карп Санке",
+      "reveal": "В пруду новый трёхцветный карп",
+      "koi": [ { "key": "koi_sanke", "asset": "koi_sanke", "length": 0.16 } ]
+    },
+    {
+      "id": "koi_asagi", "order": 15, "mvp": false,
+      "requires": { "drops": 4200, "focusDays": 45 },
+      "title": "Карп Асаги",
+      "reveal": "Приплыл сине-оранжевый карп",
+      "koi": [ { "key": "koi_asagi", "asset": "koi_asagi", "length": 0.15 } ]
+    },
+    {
+      "id": "koi_platinum", "order": 16, "mvp": false,
+      "requires": { "drops": 6000, "focusDays": 60 },
+      "title": "Платиновый карп",
+      "reveal": "Пруд посетил редкий платиновый карп",
+      "koi": [ { "key": "koi_platinum", "asset": "koi_platinum", "length": 0.16 } ]
+    }
+  ]
+}

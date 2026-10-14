@@ -111,6 +111,17 @@ MIGRATIONS = [
     DROP TABLE IF EXISTS quest_claims;
     DROP TABLE IF EXISTS achievements;
     """,
+    # 7: новый пруд — причина прерывания сессии и открытия пруда с датой появления.
+    # reason_note хранится только локально (до 80 символов, только для причины «other»).
+    """
+    ALTER TABLE sessions ADD COLUMN reason_code TEXT;
+    ALTER TABLE sessions ADD COLUMN reason_note TEXT;
+    CREATE TABLE pond_unlocks (
+        id TEXT PRIMARY KEY,
+        unlocked_at TEXT NOT NULL,
+        seen INTEGER NOT NULL DEFAULT 0
+    );
+    """,
 ]
 
 # Секунды каждого состояния → колонка в sessions.
@@ -219,6 +230,26 @@ class Database:
     def all_sessions(self) -> list[dict]:
         with self.lock:
             return [dict(r) for r in self.conn.execute("SELECT * FROM sessions ORDER BY start")]
+
+    # ---------- пруд ----------
+
+    def set_session_reason(self, session_id: int, code: str | None, note: str | None):
+        with self.lock, self.conn:
+            self.conn.execute("UPDATE sessions SET reason_code = ?, reason_note = ? WHERE id = ?",
+                              (code, note, session_id))
+
+    def pond_unlocks(self) -> list[dict]:
+        with self.lock:
+            return [dict(r) for r in self.conn.execute("SELECT * FROM pond_unlocks ORDER BY unlocked_at, rowid")]
+
+    def add_pond_unlocks(self, ids: list[str], day: str):
+        with self.lock, self.conn:
+            self.conn.executemany("INSERT OR IGNORE INTO pond_unlocks (id, unlocked_at) VALUES (?, ?)",
+                                  [(i, day) for i in ids])
+
+    def mark_pond_seen(self, ids: list[str]):
+        with self.lock, self.conn:
+            self.conn.executemany("UPDATE pond_unlocks SET seen = 1 WHERE id = ?", [(i,) for i in ids])
 
     # ---------- телефоны по Wi-Fi ----------
 

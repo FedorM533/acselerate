@@ -268,12 +268,15 @@ class SessionManager:
             self._save()
             return self.snapshot()
 
-    def end_session(self, reason: str = "manual"):
+    def end_session(self, reason: str = "manual", reason_code: str | None = None,
+                    reason_note: str | None = None):
         with self.lock:
             if not self.session:
                 raise AppError("Сессия не идёт")
             s = self.session
             self.db.update_session(s["id"], s["totals"], end=self.clock.now(), end_reason=reason)
+            if reason_code:
+                self.db.set_session_reason(s["id"], reason_code, reason_note)
             self._set_state(IDLE)
             self._save()
             focus_min = round((s["totals"].get("FOCUS", 0) + s["totals"].get("NOTEBOOK", 0)) / 60)
@@ -282,7 +285,7 @@ class SessionManager:
                 "time_up": f"Время вышло! Ты в фокусе {focus_min} мин. Отдохни {break_min} минут ☕",
                 "phone_out": "Сессия завершена: телефон долго был вне подставки.",
             }.get(reason, f"Сессия завершена. В фокусе: {focus_min} мин.")
-            self.bus.publish("session_ended", {"reason": reason, "focus_min": focus_min,
+            self.bus.publish("session_ended", {"reason": reason, "focus_min": focus_min, "session_id": s["id"],
                                                "message": self.message})
             self.session = None
             self.sm = None

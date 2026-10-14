@@ -25,6 +25,7 @@ from focusfarm import __version__, nudge_sounds, paths
 from focusfarm.errors import AppError
 from focusfarm.phone.lan import LanServer, NoLan
 from focusfarm.phone.qr import qr_svg
+from focusfarm.pond.service import PondService
 from focusfarm.session.manager import SessionManager
 from focusfarm.session.stats import compute_stats
 from focusfarm.storage.db import DEFAULT_PATH, Database
@@ -60,6 +61,15 @@ class NotebookBody(BaseModel):
 
 class PasswordBody(BaseModel):
     password: str | None = None
+
+
+class EndBody(PasswordBody):
+    reason_code: str | None = None     # причина прерывания из config/pond/interrupt_reasons.json
+    reason_note: str | None = None
+
+
+class SeenBody(BaseModel):
+    ids: list[str] = []
 
 
 class NewPasswordBody(BaseModel):
@@ -104,6 +114,7 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
     # Сервер для телефона по Wi-Fi: настоящий только в рабочем запуске (в тестах — заглушка).
     lan = lan if lan is not None else (LanServer(manager) if run_loop else NoLan())
     clients: set[WebSocket] = set()
+    pond = PondService(manager.db, manager.clock)
 
     async def broadcast():
         if not clients:
@@ -198,10 +209,30 @@ def create_app(manager: SessionManager | None = None, run_loop: bool = True,
         return manager.snapshot()
 
     @app.post("/api/session/end")
-    def session_end(body: PasswordBody | None = None):
+    def session_end(body: EndBody | None = None):
         manager.require_unlock(body.password if body else None)
-        manager.end_session("manual")
+        code, note = pond.normalize_reason(body.reason_code, body.reason_note) if body else (None, None)
+        manager.end_session("manual", code, note)
         return manager.snapshot()
+
+    # ---------- пруд ----------
+
+    @app.get("/api/pond/config")
+    def pond_config():
+        return pond.config
+
+    @app.get("/api/pond")
+    def pond_state():
+        return pond.state()
+
+    @app.post("/api/pond/seen")
+    def pond_seen(body: SeenBody):
+        pond.mark_seen(body.ids)
+        return {"ok": True}
+
+    @app.get("/api/pond/result")
+    def pond_result(session_id: int | None = None):
+        return pond.result(session_id) or {}
 
     # ---------- статистика ----------
 
