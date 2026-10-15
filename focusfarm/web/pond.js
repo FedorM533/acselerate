@@ -516,6 +516,7 @@ function resize() {
   const r = cv.getBoundingClientRect();
   if (r.width < 2) return;
   const dpr = SHOT && Q.has("dpr") ? parseFloat(Q.get("dpr")) : Math.min(devicePixelRatio || 1, VIS.performance.maxDevicePixelRatio);
+  $("#pond-stage").style.fontSize = 16 * clamp(r.width / 440, 0.85, 3) + "px";   // весь интерфейс пруда в em
   cv.width = stat.width = Math.round(r.width * dpr); cv.height = stat.height = Math.round(r.height * dpr);
   k = cv.width / DW; P.staticDirty = true;
 }
